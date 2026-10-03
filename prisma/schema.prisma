@@ -1,0 +1,31 @@
+// Santo Hotel — Phase 2 domain model
+// Docs: https://pris.ly/d/prisma-schema
+// Migration order plan: docs/DEVELOPMENT_PLAN.md → P2.2
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// 001 — Single-tenant hotel: core identity & configuration.
+model Hotel {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String   @unique
+  description  String?
+  phone        String?
+  email        String?
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  postcode     String?
+  country      String?
+  timezone     String   @default("Asia/Kuala_Lumpur")
+  currency     String   @default("MYR")
+  createdAt    DateTime @default(now()) @db.Timestamptz()
+  updatedAt    DateTime @updatedAt @db.Timestamptz()
+}
