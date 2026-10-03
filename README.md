@@ -16,7 +16,8 @@ npm install
 cp .env.example .env     # adjust DATABASE_URL for your Postgres
 createdb santos_hotel
 npm run db:migrate
-npm run db:smoke         # → "Database connection OK. Hotel rows: 0"
+npm run db:seed
+npm run db:smoke         # → "Database connection OK. Hotel rows: 1"
 npm run dev              # http://localhost:3000
 ```
 
@@ -26,14 +27,19 @@ Full instructions (Docker DB, Prisma 7 notes, scripts): [docs/setup.md](docs/set
 
 - [Development pipeline & phases](docs/DEVELOPMENT_PLAN.md) — the build plan (P0–P9) and current phase
 - [Open questions](docs/OPEN_QUESTIONS.md) — hotel business decisions pending confirmation
+- [Entity relationship diagram](docs/ERD.md)
+- [Data dictionary](docs/DATA_DICTIONARY.md)
 - [Setup guide](docs/setup.md)
 - [DB & storage sync](docs/DB_AND_STORAGE.md) — keeping database and media updated on GitHub
 - Training guides (PDFs) in `docs/`
 
 ## Current status
 
-- **P0 Environment Setup** — done: Next.js + Postgres + Prisma wiring, first migration `init_hotels`, DB smoke test.
-- **P2 Database & Domain Model** — in progress: `Hotel` entity migrated; remaining entities per `docs/DEVELOPMENT_PLAN.md` §P2.
+- **P0 Environment Setup** — done: Next.js + Postgres + Prisma wiring, DB smoke test.
+- **P2 Database & Domain Model** — done: 14 entities, enums, constraints (13 CHECKs),
+  justified indexes, 7 versioned migrations, idempotent seed, and 11 integrity checks
+  (`npm run db:integrity`). ERD + data dictionary in `docs/`.
+- Next up: **P3 Authentication & Authorization** (blocked partially by Q13, Q17).
 
 ## Migration workflow
 

@@ -7,7 +7,7 @@ How Santo Hotel teammates share database changes and media through the repo.
 | Thing | Source of truth | How it travels |
 | ----- | --------------- | -------------- |
 | Schema / tables | `prisma/schema.prisma` + `prisma/migrations/**` | commit + push (recommended) |
-| Baseline demo data | seed script (P2.4) | `npm run db:seed` after `db:migrate` |
+| Baseline demo data | `prisma/seed.ts` (`npm run db:seed`) | run after `db:migrate` |
 | Full local dev data | `dumps/santos_hotel.dump` | `npm run db:dump` → commit → teammate `npm run db:restore` |
 | Media / room photos | `media/**` | commit + push (use Git LFS for large files) |
 

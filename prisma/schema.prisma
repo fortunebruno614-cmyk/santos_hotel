@@ -11,7 +11,74 @@ datasource db {
   provider = "postgresql"
 }
 
-/// 001 — Single-tenant hotel: core identity & configuration.
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+/// Active/inactive flag used by configuration entities (room types, rates, promotions).
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// Operational condition of a physical room.
+enum RoomStatus {
+  AVAILABLE
+  RESERVED
+  OCCUPIED
+  CLEANING
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+/// How a promotion discount is calculated.
+enum PromotionType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+/// Reservation lifecycle.
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+/// Financial transaction lifecycle (independent of booking status).
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+/// Delivery channel for guest/staff messages.
+enum NotificationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+/// Delivery state of a notification.
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// ---------------------------------------------------------------------------
+// 001 — Single-tenant hotel: core identity & configuration.
+// ---------------------------------------------------------------------------
+
 model Hotel {
   id           String   @id @default(uuid()) @db.Uuid
   name         String
@@ -19,13 +86,332 @@ model Hotel {
   description  String?
   phone        String?
   email        String?
-  addressLine1 String?
-  addressLine2 String?
+  addressLine1 String?  @map("address_line1")
+  addressLine2 String?  @map("address_line2")
   city         String?
   postcode     String?
   country      String?
   timezone     String   @default("Asia/Kuala_Lumpur")
   currency     String   @default("MYR")
-  createdAt    DateTime @default(now()) @db.Timestamptz()
-  updatedAt    DateTime @updatedAt @db.Timestamptz()
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  roomTypes RoomType[]
+
+  @@map("hotels")
+}
+
+// ---------------------------------------------------------------------------
+// 002 — Authenticated staff/admin accounts.
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         UserRole  @default(STAFF)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz()
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  bookingsCreated Booking[]  @relation("BookingCreatedBy")
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// 003 — Guests (customers associated with reservations).
+// ---------------------------------------------------------------------------
+
+model Guest {
+  id        String   @id @default(uuid()) @db.Uuid
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  email     String?
+  phone     String?
+  idType    String?  @map("id_type")
+  idNumber  String?  @map("id_number")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  bookings Booking[]
+
+  @@index([email])
+  @@map("guests")
+}
+
+// ---------------------------------------------------------------------------
+// 004 — Room types (accommodation categories).
+// ---------------------------------------------------------------------------
+
+model RoomType {
+  id          String       @id @default(uuid()) @db.Uuid
+  hotelId     String       @map("hotel_id") @db.Uuid
+  name        String       @unique
+  slug        String       @unique
+  description String?
+  maxAdults   Int          @map("max_adults")
+  maxChildren Int          @default(0) @map("max_children")
+  basePrice   Decimal      @map("base_price") @db.Decimal(10, 2)
+  status      RecordStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
+
+  hotel     Hotel             @relation(fields: [hotelId], references: [id], onDelete: Restrict)
+  rooms     Room[]
+  rates     Rate[]
+  images    RoomImage[]
+  amenities RoomTypeAmenity[]
+
+  @@index([hotelId])
+  @@map("room_types")
+}
+
+// ---------------------------------------------------------------------------
+// 005 — Physical hotel rooms (inventory).
+// ---------------------------------------------------------------------------
+
+model Room {
+  id         String     @id @default(uuid()) @db.Uuid
+  roomTypeId String     @map("room_type_id") @db.Uuid
+  roomNumber String     @unique @map("room_number")
+  floor      Int?
+  status     RoomStatus @default(AVAILABLE)
+  notes      String?
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Restrict)
+
+  bookingRooms BookingRoom[]
+
+  @@index([roomTypeId])
+  @@index([status])
+  @@map("rooms")
+}
+
+// ---------------------------------------------------------------------------
+// 006 — Reusable room features (many-to-many with room types).
+// ---------------------------------------------------------------------------
+
+model Amenity {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  roomTypes RoomTypeAmenity[]
+
+  @@map("amenities")
+}
+
+model RoomTypeAmenity {
+  roomTypeId String @map("room_type_id") @db.Uuid
+  amenityId  String @map("amenity_id") @db.Uuid
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  amenity  Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([roomTypeId, amenityId])
+  @@map("room_type_amenities")
+}
+
+// ---------------------------------------------------------------------------
+// Room media (category photography).
+// ---------------------------------------------------------------------------
+
+model RoomImage {
+  id         String   @id @default(uuid()) @db.Uuid
+  roomTypeId String   @map("room_type_id") @db.Uuid
+  url        String
+  altText    String?  @map("alt_text")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@index([roomTypeId])
+  @@map("room_images")
+}
+
+// ---------------------------------------------------------------------------
+// 007 — Rates (price applicable to a room type and period).
+// ---------------------------------------------------------------------------
+
+model Rate {
+  id         String       @id @default(uuid()) @db.Uuid
+  roomTypeId String       @map("room_type_id") @db.Uuid
+  name       String
+  amount     Decimal      @db.Decimal(10, 2)
+  currency   String       @default("MYR")
+  startDate  DateTime     @map("start_date") @db.Date
+  endDate    DateTime     @map("end_date") @db.Date
+  status     RecordStatus @default(ACTIVE)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@index([roomTypeId])
+  @@index([startDate, endDate])
+  @@map("rates")
+}
+
+// ---------------------------------------------------------------------------
+// 011 — Promotions (discount rules).
+// ---------------------------------------------------------------------------
+
+model Promotion {
+  id        String        @id @default(uuid()) @db.Uuid
+  code      String        @unique
+  type      PromotionType
+  value     Decimal       @db.Decimal(10, 2)
+  startAt   DateTime      @map("start_at") @db.Timestamptz()
+  endAt     DateTime      @map("end_at") @db.Timestamptz()
+  maxUses   Int?          @map("max_uses")
+  status    RecordStatus  @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
+
+  bookings Booking[]
+
+  @@index([status])
+  @@map("promotions")
+}
+
+// ---------------------------------------------------------------------------
+// 008 — Bookings (reservation header and commercial record).
+// ---------------------------------------------------------------------------
+
+model Booking {
+  id               String        @id @default(uuid()) @db.Uuid
+  bookingReference String        @unique @map("booking_reference")
+  guestId          String        @map("guest_id") @db.Uuid
+  promotionId      String?       @map("promotion_id") @db.Uuid
+  promotionCode    String?       @map("promotion_code")
+  checkIn          DateTime      @map("check_in") @db.Date
+  checkOut         DateTime      @map("check_out") @db.Date
+  adults           Int           @default(1)
+  children         Int           @default(0)
+  subtotal         Decimal       @default(0) @db.Decimal(10, 2)
+  taxes            Decimal       @default(0) @db.Decimal(10, 2)
+  fees             Decimal       @default(0) @db.Decimal(10, 2)
+  discount         Decimal       @default(0) @db.Decimal(10, 2)
+  total            Decimal       @default(0) @db.Decimal(10, 2)
+  bookingStatus    BookingStatus @default(PENDING) @map("booking_status")
+  paymentStatus    PaymentStatus @default(PENDING) @map("payment_status")
+  notes            String?
+  createdByUserId  String?       @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
+
+  guest         Guest          @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  promotion     Promotion?     @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  createdBy     User?          @relation("BookingCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  rooms         BookingRoom[]
+  payments      Payment[]
+  notifications Notification[]
+
+  @@index([guestId])
+  @@index([checkIn])
+  @@index([checkOut])
+  @@index([bookingStatus])
+  @@map("bookings")
+}
+
+// ---------------------------------------------------------------------------
+// 009 — Booking rooms (physical room allocation per booking, with historical
+// pricing).
+// ---------------------------------------------------------------------------
+
+model BookingRoom {
+  id          String   @id @default(uuid()) @db.Uuid
+  bookingId   String   @map("booking_id") @db.Uuid
+  roomId      String   @map("room_id") @db.Uuid
+  nightlyRate Decimal  @map("nightly_rate") @db.Decimal(10, 2)
+  nights      Int
+  roomTotal   Decimal  @map("room_total") @db.Decimal(10, 2)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  room    Room    @relation(fields: [roomId], references: [id], onDelete: Restrict)
+
+  @@unique([bookingId, roomId])
+  @@index([roomId])
+  @@map("booking_rooms")
+}
+
+// ---------------------------------------------------------------------------
+// 010 — Payments (financial transactions; provider references only, never card
+// numbers).
+// ---------------------------------------------------------------------------
+
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  bookingId         String        @map("booking_id") @db.Uuid
+  provider          String
+  providerReference String?       @unique @map("provider_reference")
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("MYR")
+  status            PaymentStatus @default(PENDING)
+  refundedAmount    Decimal       @default(0) @map("refunded_amount") @db.Decimal(10, 2)
+  paidAt            DateTime?     @map("paid_at") @db.Timestamptz()
+  refundedAt        DateTime?     @map("refunded_at") @db.Timestamptz()
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId])
+  @@index([status])
+  @@map("payments")
+}
+
+// ---------------------------------------------------------------------------
+// 012 — Notifications (messages sent to guests or staff).
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id        String              @id @default(uuid()) @db.Uuid
+  bookingId String?             @map("booking_id") @db.Uuid
+  channel   NotificationChannel
+  recipient String
+  subject   String?
+  body      String
+  status    NotificationStatus  @default(PENDING)
+  error     String?
+  sentAt    DateTime?           @map("sent_at") @db.Timestamptz()
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz()
+
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@index([status])
+  @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// 014 — Audit logs (history of important administrative actions).
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

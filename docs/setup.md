@@ -81,6 +81,8 @@ npm run build
 | `npm run db:migrate` | create + apply a migration from schema changes |
 | `npm run db:deploy` | apply committed migrations (CI/staging/prod) |
 | `npm run db:reset` | drop, re-migrate and re-seed the dev DB |
+| `npm run db:seed` | load development seed data (idempotent) |
+| `npm run db:integrity` | run DB constraint/integrity checks |
 | `npm run db:studio` | Prisma Studio |
 | `npm run db:smoke` | DB connectivity check |
 | `npm run db:dump` / `db:restore` | snapshot / restore dev data (see `docs/DB_AND_STORAGE.md`) |
