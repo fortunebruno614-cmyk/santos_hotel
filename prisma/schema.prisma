@@ -18,6 +18,7 @@ datasource db {
 enum UserRole {
   ADMIN
   STAFF
+  GUEST
 }
 
 /// Active/inactive flag used by configuration entities (room types, rates, promotions).
@@ -127,15 +128,18 @@ model User {
 // ---------------------------------------------------------------------------
 
 model Guest {
-  id        String   @id @default(uuid()) @db.Uuid
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
-  email     String?
-  phone     String?
-  idType    String?  @map("id_type")
-  idNumber  String?  @map("id_number")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  id           String    @id @default(uuid()) @db.Uuid
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  email        String?   @unique
+  phone        String?
+  idType       String?   @map("id_type")
+  idNumber     String?   @map("id_number")
+  passwordHash String?   @map("password_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz()
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
 
   bookings Booking[]
 
@@ -188,6 +192,8 @@ model Room {
 
   bookingRooms BookingRoom[]
 
+  // P2.3: (room_type_id) — rooms per category: `WHERE room_type_id = $1`.
+  //        (status) — housekeeping/front-desk board: `WHERE status = 'AVAILABLE'`.
   @@index([roomTypeId])
   @@index([status])
   @@map("rooms")
@@ -316,10 +322,22 @@ model Booking {
   payments      Payment[]
   notifications Notification[]
 
+  // P2.3 index justifications (query each one serves):
+  // booking_reference unique — `SELECT * FROM bookings WHERE booking_reference = $1`
+  //   (guest "find my booking", staff search, payment-webhook correlation).
+  // (guest_id) — guest booking history: `WHERE guest_id = $1 ORDER BY created_at DESC`.
+  // (check_in, check_out) — covers every check_in lookup via prefix (date ranges,
+  //   arrivals calendar) plus the availability overlap predicate
+  //   `check_in < $requested_out AND check_out > $requested_in`.
+  // (check_out) — departures list: `WHERE check_out = CURRENT_DATE`.
+  // (booking_status, check_in, check_out) — overlap query restricted to live
+  //   bookings (`booking_status IN (...) AND check_in < $out AND check_out > $in`);
+  //   leading column also covers plain `WHERE booking_status = $1` lookups, so no
+  //   separate booking_status index is needed.
   @@index([guestId])
-  @@index([checkIn])
+  @@index([checkIn, checkOut])
   @@index([checkOut])
-  @@index([bookingStatus])
+  @@index([bookingStatus, checkIn, checkOut])
   @@map("bookings")
 }
 
@@ -340,8 +358,16 @@ model BookingRoom {
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   room    Room    @relation(fields: [roomId], references: [id], onDelete: Restrict)
 
+  // P2.3 index justifications:
+  // unique (booking_id, room_id) — allocation lookup per booking:
+  //   `SELECT * FROM booking_rooms WHERE booking_id = $1` (prefix) and it
+  //   enforces one allocation per room per booking.
+  // (room_id, booking_id) — overlap/exclusion half of the availability query:
+  //   `SELECT booking_id FROM booking_rooms WHERE room_id = ANY($rooms)`
+  //   (covers booking_id so the scan can be index-only); the joined bookings
+  //   side is served by bookings (booking_status, check_in, check_out).
   @@unique([bookingId, roomId])
-  @@index([roomId])
+  @@index([roomId, bookingId])
   @@map("booking_rooms")
 }
 

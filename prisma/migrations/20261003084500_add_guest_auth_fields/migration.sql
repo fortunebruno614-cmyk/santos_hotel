@@ -1,0 +1,8 @@
+ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'GUEST';
+
+ALTER TABLE "guests"
+  ADD COLUMN IF NOT EXISTS "password_hash" TEXT,
+  ADD COLUMN IF NOT EXISTS "is_active" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS "last_login_at" TIMESTAMPTZ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "guests_email_key" ON "guests"("email");

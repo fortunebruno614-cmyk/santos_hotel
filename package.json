@@ -18,14 +18,20 @@
     "db:studio": "prisma studio",
     "db:smoke": "tsx scripts/db-smoke.ts",
     "db:dump": "tsx scripts/db-dump.ts",
-    "db:restore": "tsx scripts/db-restore.ts"
+    "db:restore": "tsx scripts/db-restore.ts",
+    "authz:check": "tsx scripts/p3-authz-check.ts",
+    "authz:fixtures": "tsx scripts/p3-authz-fixtures.ts",
+    "db:indexes": "tsx scripts/p23-index-check.ts"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.4.3",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "jose": "^5.9.6",
     "next": "16.3.8",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

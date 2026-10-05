@@ -49,7 +49,10 @@ DATABASE_URL="postgresql://YOUR_MAC_USERNAME@127.0.0.1:5432/santos_hotel"
 | ---- | ----- |
 | Shared dev DB (Docker) | user `santos` / password `santos` / db `santos_hotel` @ `127.0.0.1:5432` |
 | Homebrew DB (this repo's author) | user `mac` / no password / db `santos_hotel` @ `127.0.0.1:5432` |
-| App user login | **not implemented yet** — accounts arrive in pipeline phase P3 (Auth & Authorization). No `users` table exists. |
+| App user login (admin) | `admin@santohotel.test` / `Admin123!` — role `ADMIN`, opens `/admin/users` + audit log |
+| App user login (staff) | `staff@santohotel.test` / `Staff123!` — role `STAFF`, `/admin` only |
+| App user login (guest) | `guest@santohotel.test` / `Guest123!` — role `GUEST`, `/account` only (`guest2@santohotel.test` / `Guest123!` is a second guest for isolation tests) |
+| Session signing | `SESSION_SECRET` in `.env.local` (required in production, see `.env.example`) |
 
 These are local development credentials only. **Never put real secrets or production
 credentials in `.env` / `.env.local`.**
@@ -69,6 +72,9 @@ npm run lint
 npm run typecheck
 npm run db:smoke
 npm run build
+npm run authz:fixtures   # once: two guests, one booking each
+npm run dev              # in another terminal
+npm run authz:check      # P3 gate: 54/54 authorization checks
 ```
 
 ## Scripts
@@ -86,6 +92,8 @@ npm run build
 | `npm run db:studio` | Prisma Studio |
 | `npm run db:smoke` | DB connectivity check |
 | `npm run db:dump` / `db:restore` | snapshot / restore dev data (see `docs/DB_AND_STORAGE.md`) |
+| `npm run authz:fixtures` | seed the two guest accounts + bookings the P3 gate needs |
+| `npm run authz:check` | run the P3 authorization gate against a running app |
 
 ## Prisma 7 notes
 

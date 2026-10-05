@@ -31,12 +31,12 @@ Status values: `open` · `answered` · `deferred`
 
 | # | Question | Blocks | Status | Answer |
 | - | -------- | ------ | ------ | ------ |
-| 13 | Can guests book without an account? | P3, P5 | open | |
+| 13 | Can guests book without an account? | P3, P5 | open | P3 default (config, reversible, not a decision): guest accounts are optional — `GUEST_ACCOUNTS_ENABLED=true`, `GUEST_BOOKING_REQUIRES_ACCOUNT=false`; P5 checkout reads the flag. |
 | 14 | Can one booking contain multiple rooms? (schema supports it) | P5 | open | |
 | 15 | How are children counted for occupancy? | P4, P5 | open | |
 | 16 | What identification information is required? | P5 | open | |
-| 17 | Who can cancel or modify reservations? | P3, P7 | open | |
-| 18 | Who can change room prices? | P3, P7 | open | |
+| 17 | Who can cancel or modify reservations? | P3, P7 | open | P3 default (permission map, reversible): `STAFF`/`ADMIN` hold `MANAGE_RESERVATIONS`; which statuses may change, and by whom, is P7. |
+| 18 | Who can change room prices? | P3, P7 | open | P3 default (permission map, reversible): `STAFF`/`ADMIN` hold `MANAGE_RATES`; only `ADMIN` holds `MANAGE_USERS` and `MANAGE_AUDIT`. |
 | 19 | What notification channels are required (email/SMS/WhatsApp)? | P8 | open | |
 
 ## How to use

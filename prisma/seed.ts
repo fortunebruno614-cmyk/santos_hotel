@@ -1,6 +1,7 @@
 import "../scripts/load-env";
 import { prisma } from "../src/lib/prisma";
 import { PromotionType, RecordStatus } from "../src/generated/prisma/enums";
+import { hashPassword } from "../src/server/auth/crypto";
 
 const AMENITIES = [
   { name: "Wi-Fi", description: "High-speed wireless internet" },
@@ -54,6 +55,82 @@ const ROOM_TYPES = [
     ],
   },
 ];
+
+// P3 authentication seed — dev-only credentials, never real accounts.
+const ACCOUNTS = [
+  {
+    entity: "user",
+    name: "Alice Admin",
+    email: "admin@santohotel.test",
+    password: "Admin123!",
+    role: "ADMIN" as const,
+  },
+  {
+    entity: "user",
+    name: "Sam Staff",
+    email: "staff@santohotel.test",
+    password: "Staff123!",
+    role: "STAFF" as const,
+  },
+  {
+    entity: "guest",
+    firstName: "Gina",
+    lastName: "Guest",
+    email: "guest@santohotel.test",
+    password: "Guest123!",
+    role: "GUEST" as const,
+  },
+] as const;
+
+async function seedAccounts() {
+  let users = 0;
+  let guests = 0;
+
+  for (const account of ACCOUNTS) {
+    const passwordHash = await hashPassword(account.password);
+
+    if (account.entity === "user") {
+      const existing = await prisma.user.findUnique({ where: { email: account.email } });
+      if (existing) {
+        await prisma.user.update({
+          where: { id: existing.id },
+          data: { role: account.role, passwordHash, isActive: true },
+        });
+      } else {
+        await prisma.user.create({
+          data: {
+            name: account.name,
+            email: account.email,
+            passwordHash,
+            role: account.role,
+          },
+        });
+      }
+      users += 1;
+      continue;
+    }
+
+    const existing = await prisma.guest.findUnique({ where: { email: account.email } });
+    if (existing) {
+      await prisma.guest.update({
+        where: { id: existing.id },
+        data: { passwordHash, isActive: true },
+      });
+    } else {
+      await prisma.guest.create({
+        data: {
+          firstName: account.firstName,
+          lastName: account.lastName,
+          email: account.email,
+          passwordHash,
+        },
+      });
+    }
+    guests += 1;
+  }
+
+  return { users, guests };
+}
 
 async function main() {
   const hotel = await prisma.hotel.upsert({
@@ -159,6 +236,8 @@ async function main() {
     },
   });
 
+  const accounts = await seedAccounts();
+
   const [roomTypes, rooms, rateCount, amenityCount] = await Promise.all([
     prisma.roomType.count(),
     prisma.room.count(),
@@ -167,7 +246,7 @@ async function main() {
   ]);
 
   console.log(
-    `Seed complete: ${roomTypes} room types, ${rooms} rooms, ${rateCount} rates, ${amenityCount} amenities, promotion STAY10.`,
+    `Seed complete: ${roomTypes} room types, ${rooms} rooms, ${rateCount} rates, ${amenityCount} amenities, promotion STAY10, ${accounts.users} staff accounts, ${accounts.guests} guest accounts.`,
   );
 }
 

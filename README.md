@@ -39,7 +39,14 @@ Full instructions (Docker DB, Prisma 7 notes, scripts): [docs/setup.md](docs/set
 - **P2 Database & Domain Model** — done: 14 entities, enums, constraints (13 CHECKs),
   justified indexes, 7 versioned migrations, idempotent seed, and 11 integrity checks
   (`npm run db:integrity`). ERD + data dictionary in `docs/`.
-- Next up: **P3 Authentication & Authorization** (blocked partially by Q13, Q17).
+- **P3 Authentication & Authorization** — done: session auth (JWTS via `jose`) for
+  staff/admin and guest accounts, three roles enforced by a central access map in
+  `src/config/access-map.ts` (proxy pre-filter + `guardApi`/`require*` in server code),
+  DB-backed session revocation, login throttling, and an audit log for login,
+  failed login, permission change, access denied and logout.
+  Gate: `npm run authz:check` → 54/54 checks (seed guests first with
+  `npm run authz:fixtures`).
+- Next up: **P4 Availability Engine** (Q13/Q17 still open — see `docs/OPEN_QUESTIONS.md`).
 
 ## Migration workflow
 
