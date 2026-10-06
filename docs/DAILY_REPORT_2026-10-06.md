@@ -152,9 +152,11 @@ Test/lint/typecheck all green under these constraints.
 
 ## 9. Git state
 
-Working tree on `main`, **not committed** (no commit was requested). Changed: schema +
-new migration, availability source/tests, integrity script, seven docs, `package.json`
-(`npm test`), `.env.example`, `.gitignore` (PGlite server logs).
+Committed on `main`: **`b59ca05`** — *P4: availability engine with room_nights
+double-booking guard and concurrency gate* (23 files: schema + migration, availability
+source and tests, integrity script, seven docs, `npm test` script, `.env.example`,
+`.gitignore`). Also picked up the previously uncommitted `docs/DAILY_REPORT_2026-10-05.md`
+(P3 report). Working tree clean afterwards.
 
 ---
 
