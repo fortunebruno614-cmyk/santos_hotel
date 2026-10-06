@@ -191,6 +191,7 @@ model Room {
   roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Restrict)
 
   bookingRooms BookingRoom[]
+  roomNights   RoomNight[]
 
   // P2.3: (room_type_id) — rooms per category: `WHERE room_type_id = $1`.
   //        (status) — housekeeping/front-desk board: `WHERE status = 'AVAILABLE'`.
@@ -319,6 +320,7 @@ model Booking {
   promotion     Promotion?     @relation(fields: [promotionId], references: [id], onDelete: SetNull)
   createdBy     User?          @relation("BookingCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   rooms         BookingRoom[]
+  roomNights    RoomNight[]
   payments      Payment[]
   notifications Notification[]
 
@@ -369,6 +371,35 @@ model BookingRoom {
   @@unique([bookingId, roomId])
   @@index([roomId, bookingId])
   @@map("booking_rooms")
+}
+
+// ---------------------------------------------------------------------------
+// 015 — Room nights (P4 availability ledger: one row per room per sold night).
+// ---------------------------------------------------------------------------
+
+model RoomNight {
+  /// Calendar night the room is sold (date-only; `[check_in, check_out)`).
+  night     DateTime   @db.Date
+  roomId    String     @map("room_id") @db.Uuid
+  bookingId String     @map("booking_id") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  room    Room    @relation(fields: [roomId], references: [id], onDelete: Restrict)
+
+  // P4 — the database-level double-booking guard. PRIMARY KEY (room_id, night)
+  //   makes "two live bookings hold the same room for the same night" a
+  //   constraint violation, no matter which code path tried to write it. Half-open
+  //   `[check_in, check_out)` nights are what makes same-day turnover (one guest
+  //   out, the next in on the same date) legal by construction — see
+  //   docs/OPEN_QUESTIONS.md #8. A `booking_rooms` row exists without nights only
+  //   while the booking is cancelled (trigger) or its unpaid Pending hold expired
+  //   (src/server/availability), i.e. exactly when inventory is free.
+  // (booking_id) — release sweep: `DELETE FROM room_nights WHERE booking_id = ANY($1)`
+  //   and the cascade on booking deletion.
+  @@id([roomId, night])
+  @@index([bookingId])
+  @@map("room_nights")
 }
 
 // ---------------------------------------------------------------------------

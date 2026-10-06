@@ -45,3 +45,5 @@ next-env.d.ts
 
 # local PGlite dev database (wire-protocol stand-in for Docker Postgres)
 /.pglite-data/
+/.pglite-server.log
+/.pglite-server.err.log

@@ -23,6 +23,16 @@ npm run dev              # http://localhost:3000
 
 Full instructions (Docker DB, Prisma 7 notes, scripts): [docs/setup.md](docs/setup.md).
 
+## Tests
+
+```bash
+npm test               # node:test — runs serially (tests share the dev DB)
+```
+
+Needs the dev database migrated + seeded (`npm run db:migrate && npm run db:seed`).
+DB-backed tests use their own date windows and booking-reference prefixes, and clean
+up after themselves.
+
 ## Documentation
 
 - [Development pipeline & phases](docs/DEVELOPMENT_PLAN.md) — the build plan (P0–P9) and current phase
@@ -37,7 +47,7 @@ Full instructions (Docker DB, Prisma 7 notes, scripts): [docs/setup.md](docs/set
 
 - **P0 Environment Setup** — done: Next.js + Postgres + Prisma wiring, DB smoke test.
 - **P2 Database & Domain Model** — done: 14 entities, enums, constraints (13 CHECKs),
-  justified indexes, 7 versioned migrations, idempotent seed, and 11 integrity checks
+  justified indexes, 10 versioned migrations, idempotent seed, and 15 integrity checks
   (`npm run db:integrity`). ERD + data dictionary in `docs/`.
 - **P3 Authentication & Authorization** — done: session auth (JWTS via `jose`) for
   staff/admin and guest accounts, three roles enforced by a central access map in
@@ -46,7 +56,15 @@ Full instructions (Docker DB, Prisma 7 notes, scripts): [docs/setup.md](docs/set
   failed login, permission change, access denied and logout.
   Gate: `npm run authz:check` → 54/54 checks (seed guests first with
   `npm run authz:fixtures`).
-- Next up: **P4 Availability Engine** (Q13/Q17 still open — see `docs/OPEN_QUESTIONS.md`).
+- **P4 Availability Engine** — done: availability service (`findAvailability`,
+  `assertRoomsAvailable`, `createPendingBooking`), public `GET /api/public/availability`,
+  half-open overlap rule proven equivalent to the night expansion, pending-hold window,
+  cancellation trigger, and a `room_nights (room_id, night)` primary key that makes
+  double-booking impossible at the database level.
+  Gate: `npm test` → 35/35, including six parallel allocations of the last room →
+  exactly one success.
+- Next up: **P5 Booking & Checkout** (Q1–Q3, Q7, Q9–Q12 still open — see
+  `docs/OPEN_QUESTIONS.md`).
 
 ## Migration workflow
 

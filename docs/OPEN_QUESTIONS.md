@@ -20,8 +20,8 @@ Status values: `open` · `answered` · `deferred`
 
 | # | Question | Blocks | Status | Answer |
 | - | -------- | ------ | ------ | ------ |
-| 7 | Official check-in and check-out times? | P4, P5 | open | |
-| 8 | Is same-day turnover (check-out date = check-in date) allowed? | P4 | open | |
+| 7 | Official check-in and check-out times? | P4, P5 | open | P4 default (dates only, reversible): the availability engine never sees clock times — nights are calendar dates (`room_nights.night`); times are enforced by checkout/operations (P5) when configured. |
+| 8 | Is same-day turnover (check-out date = check-in date) allowed? | P4 | open | P4 default (config, reversible): allowed — `ALLOW_SAME_DAY_TURNOVER=true` makes nights half-open `[check_in, check_out)`, so back-to-back stays share no night; set `false` for closed intervals (arrival cannot use the departure date). |
 | 9 | What is the cancellation policy (window, fees)? | P5 | open | |
 | 10 | What is the no-show policy? | P5, P7 | open | |
 | 11 | Can a booking be Confirmed while payment is Pending? | P5, P6 | open | |
@@ -33,11 +33,12 @@ Status values: `open` · `answered` · `deferred`
 | - | -------- | ------ | ------ | ------ |
 | 13 | Can guests book without an account? | P3, P5 | open | P3 default (config, reversible, not a decision): guest accounts are optional — `GUEST_ACCOUNTS_ENABLED=true`, `GUEST_BOOKING_REQUIRES_ACCOUNT=false`; P5 checkout reads the flag. |
 | 14 | Can one booking contain multiple rooms? (schema supports it) | P5 | open | |
-| 15 | How are children counted for occupancy? | P4, P5 | open | |
+| 15 | How are children counted for occupancy? | P4, P5 | open | P4 default (config, reversible): `CHILDREN_COUNT_AS_ADULTS=false` — adults ≤ `max_adults` and children ≤ `max_children`; set `true` to count adults+children against `max_adults` only. |
 | 16 | What identification information is required? | P5 | open | |
 | 17 | Who can cancel or modify reservations? | P3, P7 | open | P3 default (permission map, reversible): `STAFF`/`ADMIN` hold `MANAGE_RESERVATIONS`; which statuses may change, and by whom, is P7. |
 | 18 | Who can change room prices? | P3, P7 | open | P3 default (permission map, reversible): `STAFF`/`ADMIN` hold `MANAGE_RATES`; only `ADMIN` holds `MANAGE_USERS` and `MANAGE_AUDIT`. |
 | 19 | What notification channels are required (email/SMS/WhatsApp)? | P8 | open | |
+| 20 | How long may an unpaid Pending booking hold inventory before it is released? | P4, P6 | open | P4 default (config, reversible): `PENDING_HOLD_MINUTES=60` — unpaid `PENDING` stops blocking after 60 minutes and its `room_nights` rows are swept on the next allocation; `paymentStatus=PAID` never expires. |
 
 ## How to use
 

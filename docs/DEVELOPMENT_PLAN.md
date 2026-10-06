@@ -137,17 +137,19 @@ Create `prisma/schema.prisma` in FK-dependency order:
 
 ---
 
-## P4 — Availability Engine (3–5 days)
+## P4 — Availability Engine (3–5 days) ✅ (2026-10-06)
 
 **Goal:** Correct overlap detection — the core of the product.
 
-- [ ] Service: given `(check_in, check_out, adults, children)` → eligible room types and physical rooms
-- [ ] Exclusions: room not active, Maintenance/OutOfService, allocated to an overlapping booking
-- [ ] Overlap rule: `existing.check_in < requested.check_out AND existing.check_out > requested.check_in` (half-open intervals — confirm same-day turnover with hotel policy)
-- [ ] Consideration: hold/reservation window for unpaid Pending bookings so they don't leak inventory forever
-- [ ] Unit tests for every Phase 1 edge case: overlapping, back-to-back, no rooms, room in maintenance, concurrent booking of the last room
+- [x] Service: given `(check_in, check_out, adults, children)` → eligible room types and physical rooms (`src/server/availability/service.ts`)
+- [x] Exclusions: room not active, Maintenance/OutOfService, allocated to an overlapping booking
+- [x] Overlap rule: `existing.check_in < requested.check_out AND existing.check_out > requested.check_in` (half-open intervals — same-day turnover configurable, default allowed; `docs/OPEN_QUESTIONS.md` #8)
+- [x] Consideration: hold/reservation window for unpaid Pending bookings (`PENDING_HOLD_MINUTES=60`, `docs/OPEN_QUESTIONS.md` #20)
+- [x] Unit tests for every Phase 1 edge case: overlapping, back-to-back, no rooms, room in maintenance, concurrent booking of the last room (`tests/availability/`, `npm test`)
+- [x] Public search endpoint `GET /api/public/availability`
+- [x] DB-level guard: `room_nights (room_id, night)` primary key + in-transaction allocation (`createPendingBooking`); nightly rows released by trigger on cancellation — chosen over `btree_gist`/exclusion constraint because the PGlite dev database cannot load extensions (deviation recorded in `docs/ERD.md`)
 
-**Gate:** Double-booking is impossible under concurrent requests (DB constraint/transaction + test proving it).
+**Gate:** Double-booking is impossible under concurrent requests (DB constraint/transaction + test proving it). ✅ `tests/availability/concurrency.test.ts` — six parallel allocations of the last room → exactly one success, five `AvailabilityConflictError`; raw duplicate `room_nights` insert → `P2002`.
 
 ---
 

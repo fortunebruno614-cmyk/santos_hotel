@@ -151,7 +151,9 @@ Indexes: `room_type_id`, `(start_date, end_date)`.
 | created_by_user_id | uuid | no | FK → users, SET NULL (manual staff bookings) |
 | created_at / updated_at | timestamptz | yes | |
 
-Indexes: `guest_id`, `check_in`, `check_out`, `booking_status`.
+Indexes: `guest_id`, `check_in`, `check_out`, `booking_status`. Cancellation also
+fires trigger `bookings_release_room_nights` (deletes the booking's `room_nights` —
+see below).
 
 ## booking_rooms
 
@@ -166,6 +168,27 @@ Indexes: `guest_id`, `check_in`, `check_out`, `booking_status`.
 | created_at | timestamptz | yes | |
 
 Indexes: unique `(booking_id, room_id)` (covers booking lookups), `room_id` (availability).
+
+## room_nights
+
+| Column | Type | Required | Notes |
+| ------ | ---- | -------- | ----- |
+| room_id | uuid | yes | FK → rooms, RESTRICT — **composite PK part 1** |
+| night | date | yes | calendar night the room is held (UTC midnight) — **composite PK part 2** |
+| booking_id | uuid | yes | FK → bookings, CASCADE |
+| created_at | timestamptz | yes | |
+
+`PRIMARY KEY (room_id, night)` is **the double-booking guard (P4)**: the booking
+transaction inserts one row per held night, so a second allocation of the same night
+fails with `P2002` no matter which code path attempted it. Nights are half-open
+`[check_in, check_out)` when `ALLOW_SAME_DAY_TURNOVER=true` (default), matching
+`intervalsOverlap` in `src/server/availability/overlap.ts`. Rows are removed by:
+
+- trigger `bookings_release_room_nights` when a booking becomes `CANCELLED`;
+- `releaseExpiredHolds()` on the next allocation, for unpaid `PENDING` bookings older
+  than `PENDING_HOLD_MINUTES` (never for `PAID`).
+
+Indexes: `booking_id`.
 
 ## payments
 
@@ -241,4 +264,4 @@ Indexes: `user_id`, `(entity_type, entity_id)`, `created_at`.
 | `20261003040457_add_check_constraints` | raw-SQL CHECK constraints (13) |
 
 Rebuild from scratch: `npm run db:reset` → migrations + seed.
-Integrity evidence: `npm run db:integrity` (11 checks).
+Integrity evidence: `npm run db:integrity` (15 checks).

@@ -167,6 +167,7 @@ erDiagram
 | Promotion → Booking | 1—* | nullable; applied values snapshotted |
 | Booking → Booking Room | 1—* | one reservation, many rooms |
 | Room → Booking Room | 1—* | same room across many bookings |
+| Room ↔ Booking → Room Night | *—* | `(room_id, night)` primary key — the double-booking guard |
 | Booking → Payment | 1—* | one booking, many transactions/refunds |
 | Booking → Notification | 1—* | confirmations, reminders |
 | User → Audit Log | 1—* | accountability trail |
@@ -178,8 +179,17 @@ erDiagram
   `promotion_code` preserve what was actually charged; current rates can change freely.
 - **Availability-friendly indexes** — `rooms(status, room_type_id)`,
   `booking_rooms(room_id)`, `bookings(check_in, check_out, booking_status)` support the
-  P4 overlap query. The DB-level exclusion constraint is added in P4 after the
-  check-in/out turnover policy is confirmed (`docs/OPEN_QUESTIONS.md` #7, #8).
+  P4 overlap query.
+- **`room_nights` is the double-booking guard (P4)** — one row per physical room per
+  calendar night, `PRIMARY KEY (room_id, night)`; the checkout transaction inserts the
+  stay's nights, so a second allocation of the same night fails at the database no matter
+  what the application layer does. Nights are released by a `bookings` trigger on
+  `CANCELLED` and by the pending-hold sweep. The originally planned
+  `EXCLUDE USING gist (room WITH = AND daterange(...) && ...)` constraint was dropped:
+  it needs the `btree_gist` extension, which the PGlite development database cannot
+  load — the ledger table gives the same guarantee (one row per night) with plain SQL.
+  Overlap math lives in `src/server/availability/overlap.ts` and is proven equivalent to
+  the night expansion in `tests/availability/overlap.test.ts`.
 - **Deletion behavior** — guests/bookings/rooms are `RESTRICT` (audit-safe); booking
   rooms cascade with their booking; user references on bookings/audits become `NULL`.
 - **No card data** — payments store provider references only.

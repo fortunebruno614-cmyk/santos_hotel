@@ -175,6 +175,35 @@ async function main() {
       ok: historicalRate?.nightlyRate.toFixed(2) === "450.00",
       detail: `nightly_rate=${historicalRate?.nightlyRate.toFixed(2)}`,
     });
+
+    // P4: room_nights is the double-booking guard
+    const night = new Date(Date.UTC(2026, 3, 1));
+    await expectSuccess("room_nights row insert", () =>
+      prisma.roomNight.create({ data: { bookingId: booking.id, roomId: room.id, night } }),
+    );
+    await expectFailure("room_nights PK (room_id, night) rejects a duplicate", () =>
+      prisma.roomNight.create({ data: { bookingId: booking.id, roomId: room.id, night } }),
+    );
+    await expectFailure("room_nights booking_id FK enforced", () =>
+      prisma.roomNight.create({
+        data: {
+          bookingId: "00000000-0000-0000-0000-000000000000",
+          roomId: room.id,
+          night: new Date(Date.UTC(2026, 3, 2)),
+        },
+      }),
+    );
+
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: { bookingStatus: "CANCELLED" },
+    });
+    const releasedNights = await prisma.roomNight.count({ where: { bookingId: booking.id } });
+    results.push({
+      name: "cancel trigger releases room_nights",
+      ok: releasedNights === 0,
+      detail: `${releasedNights} night row(s) remain after CANCELLED`,
+    });
   } finally {
     if (bookingId) {
       await prisma.booking.delete({ where: { id: bookingId } }).catch(() => undefined);
