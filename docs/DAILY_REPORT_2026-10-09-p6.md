@@ -193,10 +193,11 @@ in place), and the mock provider needs no network.
 
 ## 8. Git state
 
-Committed on `main` as a single phase-sized commit: payments config/provider/
-service, 5 API routes, guest pay page, staff payment panel, booking-service
-settlement hooks, 2 test files, helpers extension, and the plan/questions/env/
-README docs. See `git log` for the P6 commit hash.
+Committed on `main`: **`43d625f`** — *P6: payments with signed webhooks,
+idempotent capture, refunds and reconciliation* (26 files, 2,277 insertions).
+Contains the payments config/provider/service, 5 API routes, guest pay page,
+staff payment panel, booking-service settlement hooks, 2 test files, helpers
+extension, and the plan/questions/env/README docs.
 
 ---
 
