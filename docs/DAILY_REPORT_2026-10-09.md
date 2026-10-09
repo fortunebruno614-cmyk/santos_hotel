@@ -165,9 +165,10 @@ now takes the client). That fix is what turned the first all-red run into 25/25.
 
 ## 8. Git state
 
-Committed on `main` as a single phase-sized commit: pricing/booking servers, 12 API
-routes, 10 pages/components, 4 test files, helpers extension, and the plan/questions/env
-docs. See `git log` for the P5 commit hash.
+Committed on `main`: **`d23c35c`** — *P5: booking & checkout with in-transaction
+re-check, pricing, lifecycle and staff desk* (54 files, 6,624 insertions). Contains
+pricing/booking servers, 12 API routes, 10 pages/components, 4 test files, helpers
+extension, and the plan/questions/env/README docs.
 
 ---
 
