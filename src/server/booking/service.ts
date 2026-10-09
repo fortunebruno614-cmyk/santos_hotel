@@ -46,6 +46,11 @@ import {
 import type { GuestDetails } from "@/server/booking/validation";
 import { normalizeEmail } from "@/server/auth/validation";
 import { writeAuditLog } from "@/server/audit/write";
+import {
+  getPaymentsForBooking,
+  settleCancellationPayments,
+  type PaymentSummary,
+} from "@/server/payments/service";
 
 /**
  * P5 booking service — every way a reservation can come into being or change.
@@ -282,6 +287,7 @@ export type BookingDetail = BookingSummary & {
   };
   allowedTransitions: BookingStatus[];
   cancellation: CancellationInfo;
+  payments: PaymentSummary[];
   activity: Array<{ id: string; action: string; createdAt: string; userId: string | null }>;
   createdByName: string | null;
 };
@@ -324,6 +330,7 @@ export async function getBookingDetail(
     },
     allowedTransitions: allowedTransitions(row.bookingStatus),
     cancellation: cancellationInfoFor(row, hotel),
+    payments: await getPaymentsForBooking(row.id),
     activity: activity.map((entry) => ({
       id: entry.id,
       action: entry.action,
@@ -520,7 +527,7 @@ async function doCancel(
     throw new BookingError(evaluation.reason, cancellationDenialMessage(evaluation.reason));
   }
 
-  const summary = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT "id" FROM "bookings" WHERE "id" = ${bookingId} FOR UPDATE`;
     const fresh = await tx.booking.findUniqueOrThrow({
       where: { id: bookingId },
@@ -544,14 +551,10 @@ async function doCancel(
     const current = await tx.booking.findUniqueOrThrow({ where: { id: bookingId } });
     const notes = note ? appendNote(current.notes, note, actorLabel(actor)) : current.notes;
     // The bookings trigger releases this reservation's room_nights.
-    const updated = await tx.booking.update({
+    await tx.booking.update({
       where: { id: bookingId },
       data: { bookingStatus: BookingStatus.CANCELLED, notes },
     });
-
-    const row = await loadBookingRow(tx, updated.id);
-    if (!row) throw new BookingError("booking_not_found", "reservation vanished");
-    return toSummary(row, hotel.currency);
   }, { maxWait: 10_000, timeout: 15_000 });
 
   await writeAuditLog({
@@ -567,7 +570,15 @@ async function doCancel(
     },
   });
 
-  return summary;
+  // P6: refund captured money when the config allows it (post-commit, like the
+  // audit log — a provider failure never un-cancels the reservation).
+  await settleCancellationPayments(bookingId, {
+    userId: actor.kind === "staff" ? actor.userId : null,
+  });
+
+  const settled = await loadBookingRow(prisma, bookingId);
+  if (!settled) throw new BookingError("booking_not_found", "reservation vanished");
+  return toSummary(settled, hotel.currency);
 }
 
 function cancellationDenialMessage(reason: CancellationDenialReason): string {
@@ -705,6 +716,14 @@ export async function transitionBooking(
         : {}),
     },
   });
+
+  // P6: staff cancellation refunds captured money (config #6, post-commit).
+  if (input.to === BookingStatus.CANCELLED) {
+    await settleCancellationPayments(input.bookingId, { userId: actor.userId });
+    const settled = await loadBookingRow(prisma, input.bookingId);
+    if (!settled) throw new BookingError("booking_not_found", "reservation vanished");
+    return toSummary(settled, hotel.currency);
+  }
 
   return summary;
 }

@@ -69,8 +69,14 @@ up after themselves.
   staff walk-in/modify/check-in/out/notes/room-status console, guest booking history
   with eligible cancellation, and anonymous checkout via signed claim cookie.
   Gate: `npm test` → 60/60 (35 availability + 25 booking).
-- Next up: **P6 Payments** — provider choice still open (`docs/OPEN_QUESTIONS.md` #4);
-  refund-on-cancel and idempotency hooks are already shaped by P5's `payment_status`.
+- **P6 Payments** — done: provider-agnostic payment layer with a fully working mock
+  gateway (HMAC-signed webhooks, success/failure/partial-refund, hosted pay page),
+  idempotent initiate and replay-safe webhook handling, desk capture, refund on
+  cancellation (`REFUND_ON_CANCELLATION`, default on) and manual staff refunds. The
+  real gateway is one registry entry + one env var (`PAYMENT_PROVIDER`) when #4 is
+  answered. Gate: `npm test` → 75/75 (35 availability + 25 booking + 15 payments).
+- Next up: **P7 Staff/Admin Console** (dashboard, CRUD, reports — see
+  `docs/DEVELOPMENT_PLAN.md`).
 
 ## Migration workflow
 

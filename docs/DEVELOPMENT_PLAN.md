@@ -168,17 +168,17 @@ Create `prisma/schema.prisma` in FK-dependency order:
 
 ---
 
-## P6 — Payments (3–5 days, provider TBD)
+## P6 — Payments (3–5 days, provider TBD) ✅ (2026-10-09)
 
 **Goal:** Payment verified before a booking counts as paid.
 
-- [ ] Provider integration (open question — confirm gateway) + webhook endpoint with signature verification
-- [ ] `Payment` records: provider, provider_reference, amount, currency, status, paid_at, refunded_at — no raw card data
-- [ ] Idempotency: payment page refresh must not double-charge; webhook replays must not double-record
-- [ ] Failure paths: payment fails → booking stays `Pending`/unpaid, never `Confirmed` as paid; payment succeeds but booking creation failed → reconcile via webhook
-- [ ] Refund on staff cancellation → `Refunded`/`PartiallyRefunded` with status sync back to booking
+- [x] Provider integration (open question — confirm gateway) + webhook endpoint with signature verification — provider-agnostic layer (`src/server/payments/provider.ts`) with a fully working **mock** gateway as the reversible default while #4 is open; HMAC-SHA256 webhook signature verified against the raw body before any parsing
+- [x] `Payment` records: provider, provider_reference, amount, currency, status, paid_at, refunded_at — no raw card data — schema unchanged (P2 model); service writes rows, never touches card data
+- [x] Idempotency: payment page refresh must not double-charge; webhook replays must not double-record — `initiatePayment` is find-or-create under a booking lock; `handleWebhook` locks the payment row and treats an already-applied event as a no-op
+- [x] Failure paths: payment fails → booking stays `Pending`/unpaid, never `Confirmed` as paid; payment succeeds but booking creation failed → reconcile via webhook — failed webhooks leave the booking PENDING; unknown references are accepted (200) and audited as `payment.orphaned`; a success on a CANCELLED booking records the money but never resurrects the reservation
+- [x] Refund on staff cancellation → `Refunded`/`PartiallyRefunded` with status sync back to booking — `REFUND_ON_CANCELLATION=true` (config #6) refunds every captured payment's remaining balance after the cancellation commits; the booking's `paymentStatus` is re-derived in the same transaction; staff can also refund manually (full or partial) and record desk payments
 
-**Gate:** Failure, retry, replay and refund scenarios all covered by tests.
+**Gate:** Failure, retry, replay and refund scenarios all covered by tests. ✅ `tests/payments/` — 15 tests: initiate is refresh-idempotent; signed success confirms the booking; replay is a no-op; failure never confirms; bad signature / amount mismatch are refused before any write; orphan events are accepted and audited; paid-after-cancel never resurrects; desk capture is double-click-safe; full/partial/over refunds all behave; cancellation auto-refunds (default on) and leaves money captured when the flag is off (separate env-flag process). Full suite **75/75**.
 
 ---
 

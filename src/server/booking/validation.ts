@@ -194,3 +194,20 @@ export const QuoteQuerySchema = z
       .map((id) => id.trim())
       .filter(Boolean),
   }));
+
+// ---------------------------------------------------------------------------
+// P6 payments
+// ---------------------------------------------------------------------------
+
+export const InitiatePaymentSchema = z.object({
+  bookingId: z.string().uuid(),
+});
+
+export const MockCompleteSchema = z.object({
+  bookingId: z.string().uuid(),
+  outcome: z.enum(["succeeded", "failed"]),
+});
+
+export const RefundSchema = z.object({
+  amount: optionalText(12),
+});

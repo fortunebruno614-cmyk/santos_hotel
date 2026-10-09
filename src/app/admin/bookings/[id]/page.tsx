@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookingActions } from "./booking-actions";
+import { PaymentActions } from "./payment-actions";
 import { BookingError, getBookingDetail } from "@/server/booking/service";
 import { bookingStatusLabel } from "@/components/labels";
 import { formatMoney } from "@/server/pricing/context";
@@ -121,6 +122,17 @@ export default async function AdminBookingDetailPage({
             <dd>{formatMoney(booking.breakdown.total, booking.currency)}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className="space-y-2 rounded-xl border p-4 text-sm">
+        <h2 className="font-medium">Payments</h2>
+        <PaymentActions
+          bookingId={booking.id}
+          paymentStatus={booking.paymentStatus}
+          bookingStatus={booking.bookingStatus}
+          payments={booking.payments}
+          currency={booking.currency}
+        />
       </section>
 
       {booking.notes && (

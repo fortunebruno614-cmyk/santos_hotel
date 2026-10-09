@@ -12,9 +12,9 @@ Status values: `open` · `answered` · `deferred`
 | 1 | What currency will Santo Hotel use? Does it match `MYR` default in `Hotel.currency`? | P5, P6 | open | P5 default (config, reversible): the `hotels` row's currency (fallback `HOTEL_CURRENCY=MYR`) is used for every quote, breakdown and stored amount; quotes echo it so the UI never hardcodes one. |
 | 2 | Are taxes included in displayed prices? | P5 | open | P5 default (config, reversible): `TAX_RATE_PERCENT=0` — no tax line until answered; when set, taxes = (subtotal − discount) × rate, computed server-side and re-validated inside the booking transaction. |
 | 3 | Are there additional service fees? | P5 | open | P5 default (config, reversible): `SERVICE_FEE=0` — a flat fee charged once per booking when set. |
-| 4 | Which payment gateway will be used? | P6 | open | |
-| 5 | What happens if payment succeeds but booking creation fails? | P6 | open | |
-| 6 | What happens to payment/refund when staff cancels a booking? | P6, P7 | open | |
+| 4 | Which payment gateway will be used? | P6 | open | P6 default (config, reversible): none yet — `PAYMENT_PROVIDER=mock` is a fully working local gateway (HMAC-signed webhooks, success/failure/partial-refund, hosted pay page) so the entire money path is live and tested. A real gateway plugs into `src/server/payments/provider.ts` (one registry entry) and one env var; no service, route or test changes. |
+| 5 | What happens if payment succeeds but booking creation fails? | P6 | open | P6 default (reversible): the webhook is still accepted (200) and audited as `payment.orphaned` so the provider stops retrying and staff can reconcile; the booking is never created or resurrected by a webhook. In the current flow the booking always exists before payment can be initiated, so this path is a data-anomaly safety net. |
+| 6 | What happens to payment/refund when staff cancels a booking? | P6, P7 | open | P6 default (config, reversible): `REFUND_ON_CANCELLATION=true` — cancelling (staff or eligible guest) automatically refunds every captured payment's remaining balance (partial refunds included); the booking's `paymentStatus` becomes REFUNDED/PARTIALLY_REFUNDED in step. Set `false` to leave money captured for manual staff refund from the reservation page. A late success on an already-cancelled booking records the money but never resurrects the reservation — staff refund it. |
 
 ## Policies
 

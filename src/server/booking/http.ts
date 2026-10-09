@@ -4,15 +4,19 @@ import { QuoteError } from "@/server/pricing/service";
 import { PriceChangedError } from "@/server/pricing/model";
 import { TransitionError } from "@/server/booking/policy";
 import { BookingError, type BookingErrorCode } from "@/server/booking/service";
+import { PaymentError, type PaymentErrorCode } from "@/server/payments/service";
 
 /**
  * One error vocabulary for every booking endpoint, so the client always gets a
  * machine-readable `error` key plus the right status code — and an unexpected
  * failure never leaks internals.
  *
- *   400 invalid_body / invalid_date_range / promotion_* / check_in_past
- *   401 unauthenticated          403 account_required / guest_inactive / …
- *   404 not_found                409 price_changed / unavailable / invalid_transition / …
+ *   400 invalid_body / invalid_date_range / promotion_* / check_in_past /
+ *       invalid_webhook / amount_mismatch / refund_exceeds_paid
+ *   401 unauthenticated / invalid_signature
+ *   403 account_required / guest_inactive / …
+ *   404 not_found                409 price_changed / unavailable / invalid_transition /
+ *       already_paid / booking_not_payable / not_refundable / refund_refused
  *   500 internal
  */
 
@@ -29,6 +33,20 @@ const BOOKING_ERROR_STATUS: Record<BookingErrorCode, number> = {
   too_late_to_cancel: 409,
 };
 
+const PAYMENT_ERROR_STATUS: Record<PaymentErrorCode, number> = {
+  booking_not_found: 404,
+  payment_not_found: 404,
+  booking_not_payable: 409,
+  already_paid: 409,
+  not_refundable: 409,
+  refund_exceeds_paid: 400,
+  refund_refused: 409,
+  invalid_signature: 401,
+  invalid_webhook: 400,
+  invalid_provider: 400,
+  amount_mismatch: 400,
+};
+
 export function invalidBody(issues?: Record<string, string[] | undefined>) {
   return NextResponse.json({ error: "invalid_body", issues }, { status: 400 });
 }
@@ -43,6 +61,13 @@ export function bookingErrorResponse(error: unknown): NextResponse {
   if (error instanceof BookingError) {
     const status = BOOKING_ERROR_STATUS[error.code] ?? 400;
     if (error.code === "booking_not_found" || error.code === "room_not_found") {
+      return NextResponse.json({ error: "not_found" }, { status });
+    }
+    return NextResponse.json({ error: error.code, message: error.message }, { status });
+  }
+  if (error instanceof PaymentError) {
+    const status = PAYMENT_ERROR_STATUS[error.code] ?? 400;
+    if (error.code === "booking_not_found" || error.code === "payment_not_found") {
       return NextResponse.json({ error: "not_found" }, { status });
     }
     return NextResponse.json({ error: error.code, message: error.message }, { status });

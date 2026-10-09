@@ -18,7 +18,14 @@ export type AuditAction =
   | "booking.transition"
   | "booking.cancel"
   | "booking.note"
-  | "room.status";
+  | "room.status"
+  | "payment.initiate"
+  | "payment.succeeded"
+  | "payment.failed"
+  | "payment.refund"
+  | "payment.refund_failed"
+  | "payment.desk_capture"
+  | "payment.orphaned";
 
 export type AuditActor = {
   /** Staff/admin user id. Guest principals have no users row, so this stays null. */

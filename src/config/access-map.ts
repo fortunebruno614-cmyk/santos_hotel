@@ -49,6 +49,7 @@ export const ACCESS_RULES: AccessRule[] = [
   open("/rooms"),
   open("/search"),
   open("/booking"),
+  open("/pay"),
   open("/login"),
   open("/signup"),
   open("/unauthorized"),
@@ -75,6 +76,7 @@ export const ACCESS_RULES: AccessRule[] = [
 
   // --- API: staff + admin ---
   staff("/api/staff/bookings", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_RESERVATIONS"),
+  staff("/api/staff/payments", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_PAYMENTS"),
   staff("/api/staff/rooms", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_ROOMS"),
   staff("/api/staff/reservations", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_RESERVATIONS"),
   staff("/api/staff", [AppRole.STAFF, AppRole.ADMIN]),

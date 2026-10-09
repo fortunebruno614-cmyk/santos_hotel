@@ -123,6 +123,34 @@ export default async function ConfirmationPage({
         </section>
 
         <section className="space-y-2 text-sm">
+          <h2 className="font-medium">Payment</h2>
+          {cancelled ? (
+            <p className="text-zinc-600 dark:text-zinc-400">
+              {detail.paymentStatus === "REFUNDED"
+                ? "This reservation was refunded."
+                : `Payment status: ${detail.paymentStatus}.`}
+            </p>
+          ) : detail.paymentStatus === "PAID" ? (
+            <p className="text-zinc-600 dark:text-zinc-400">
+              Paid in full — no further action needed.
+            </p>
+          ) : (
+            <>
+              <p className="text-zinc-600 dark:text-zinc-400">
+                Payment is still due ({detail.paymentStatus.toLowerCase()}). Complete it to
+                confirm the reservation.
+              </p>
+              <Link
+                href={`/pay/${encodeURIComponent(detail.bookingReference)}`}
+                className="inline-block rounded-lg bg-black px-5 py-2.5 font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+              >
+                Pay {formatMoney(detail.breakdown.total, detail.currency)} now
+              </Link>
+            </>
+          )}
+        </section>
+
+        <section className="space-y-2 text-sm">
           <h2 className="font-medium">Cancellation</h2>
           {cancelled ? (
             <p className="text-zinc-600 dark:text-zinc-400">

@@ -70,6 +70,34 @@ export async function restoreRooms(rows: Array<{ id: string; status: RoomStatus 
   }
 }
 
+/**
+ * P6 payment tests create bookings through `createBooking` and payments through
+ * the service — cleanup sweeps by the test guests' email suffix (payments
+ * first: the booking relation is Restrict; then bookings, then guests).
+ */
+export const PAYMENT_TEST_SUFFIX = "@p6.test";
+
+export async function deleteTestPaymentGuests(suffix: string = PAYMENT_TEST_SUFFIX) {
+  await prisma.payment.deleteMany({ where: { booking: { guest: { email: { endsWith: suffix } } } } });
+  await prisma.booking.deleteMany({ where: { guest: { email: { endsWith: suffix } } } });
+  await prisma.guest.deleteMany({ where: { email: { endsWith: suffix } } });
+}
+
+/** Staff actor for desk-capture/refund tests (same email-suffix cleanup). */
+export async function ensureTestPaymentStaffUser(): Promise<string> {
+  const email = `p6-staff${PAYMENT_TEST_SUFFIX}`;
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) return existing.id;
+  const created = await prisma.user.create({
+    data: { name: "P6 Tests", email, passwordHash: "test-hash", role: "STAFF" },
+  });
+  return created.id;
+}
+
+export async function deleteTestPaymentStaffUser(suffix: string = PAYMENT_TEST_SUFFIX) {
+  await prisma.user.deleteMany({ where: { email: { endsWith: suffix } } });
+}
+
 /** Loads seeded inventory, failing fast when the dev DB has not been seeded. */
 export async function loadInventory() {
   const roomTypes = await prisma.roomType.findMany({
