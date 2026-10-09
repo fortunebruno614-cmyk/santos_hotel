@@ -19,6 +19,12 @@ import {
   type StayWindow,
 } from "@/server/availability/overlap";
 import { MAX_STAY_NIGHTS } from "@/server/availability/validation";
+import {
+  PriceChangedError,
+  money,
+  snapshotsEqual,
+  type PricingSnapshot,
+} from "@/server/pricing/model";
 
 /**
  * P4 availability engine — the final authority on who may occupy which room.
@@ -345,12 +351,19 @@ export async function assertRoomsAvailable(
     );
   }
 
-  const underCapacity = rooms.filter((room) => !capacityFits(room.roomType, adults, children));
-  if (underCapacity.length > 0) {
-    throw new AvailabilityConflictError(
-      "capacity_exceeded",
-      underCapacity.map((room) => room.id),
-    );
+  // Capacity is evaluated across the whole allocation. One room still has to
+  // fit the party on its own (identical to the per-room rule when a single room
+  // is requested), while a party of four may fill two 2-adult rooms — the
+  // multi-room case docs/OPEN_QUESTIONS.md #14 requires.
+  const combinedCapacity = rooms.reduce(
+    (sum, room) => ({
+      maxAdults: sum.maxAdults + room.roomType.maxAdults,
+      maxChildren: sum.maxChildren + room.roomType.maxChildren,
+    }),
+    { maxAdults: 0, maxChildren: 0 },
+  );
+  if (!capacityFits(combinedCapacity, adults, children)) {
+    throw new AvailabilityConflictError("capacity_exceeded", uniqueIds);
   }
 
   const blockingRows = await loadBlockingBookings(client, uniqueIds, { checkIn, checkOut });
@@ -389,6 +402,20 @@ export async function releaseExpiredHolds(client: Db, scope?: StayWindow): Promi
   return result.count;
 }
 
+export type PendingBookingRoom = {
+  roomId: string;
+  nightlyRate: number | Prisma.Decimal;
+  /**
+   * Exact stay total for this room. Defaults to `nightlyRate × nights` (the P4
+   * behaviour). P5 passes the priced `room_total` so a stay whose rate changes
+   * midway still stores the exact sum of its nights.
+   */
+  roomTotal?: number | Prisma.Decimal;
+};
+
+/** Only a new or desk-confirmed reservation may be *created* in this status. */
+export type InitialBookingStatus = Extract<BookingStatus, "PENDING" | "CONFIRMED">;
+
 export type PendingBookingInput = {
   guestId: string;
   /** P5 owns the `SH-YYYY-NNNNNN` generator; callers must pass a unique reference. */
@@ -398,17 +425,37 @@ export type PendingBookingInput = {
   adults: number;
   children: number;
   /** Room allocation with the nightly rate snapshot (pricing itself is P5). */
-  rooms: Array<{ roomId: string; nightlyRate: number }>;
+  rooms: PendingBookingRoom[];
   notes?: string;
+  /**
+   * P5 price re-validation: `compute` re-derives the whole quote *inside* the
+   * booking transaction — after the rooms are locked and availability re-asserted
+   * — and must equal `expected`, the price the caller was shown. Any drift throws
+   * `PriceChangedError` and rolls the booking back, so a stored price can never
+   * disagree with the quoted price.
+   */
+  priceCheck?: {
+    expected: PricingSnapshot;
+    compute: (client: Db) => Promise<PricingSnapshot>;
+  };
+  /** Staff/walk-in bookings record who created them (`created_by_user_id`). */
+  createdByUserId?: string;
+  /**
+   * Initial reservation status: PENDING (guest checkout, default) or CONFIRMED
+   * (walk-in confirmed at the desk). Every other status arrives through a
+   * guarded transition (src/server/booking/policy.ts).
+   */
+  initialStatus?: InitialBookingStatus;
 };
 
 export type PendingBookingResult = {
-  booking: { id: string; bookingReference: string };
+  booking: { id: string; bookingReference: string; bookingStatus: BookingStatus };
   roomIds: string[];
   nights: number;
 };
 
-function isRoomNightsViolation(error: unknown): boolean {
+/** True when the `room_nights` primary key (or its unique index) rejected an insert. */
+export function isRoomNightsViolation(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const e = error as {
     code?: string;
@@ -435,8 +482,10 @@ function isRoomNightsViolation(error: unknown): boolean {
  *     a stay the policy already treats as free).
  *  3. `assertRoomsAvailable` — the policy re-check, now under the lock, sees
  *     whatever the previous transaction committed.
- *  4. Insert `bookings` + `booking_rooms` (rate snapshots).
- *  5. Insert `room_nights` — `PRIMARY KEY (room_id, night)`. Even if steps 1–3
+ *  4. Re-price the stay (`priceCheck`, when given) and require the quote to be
+ *     unchanged — the price written to the row is the price that was shown.
+ *  5. Insert `bookings` + `booking_rooms` (rate snapshots).
+ *  6. Insert `room_nights` — `PRIMARY KEY (room_id, night)`. Even if steps 1–3
  *     were bypassed, the database rejects the second allocation of a night.
  */
 export async function createPendingBooking(
@@ -453,8 +502,21 @@ export async function createPendingBooking(
     throw new Error("duplicate room in allocation");
   }
   for (const room of input.rooms) {
-    if (!Number.isFinite(room.nightlyRate) || room.nightlyRate < 0) {
+    const rate =
+      room.nightlyRate instanceof Prisma.Decimal
+        ? room.nightlyRate
+        : new Prisma.Decimal(room.nightlyRate);
+    if (!rate.isFinite() || rate.isNegative()) {
       throw new Error(`invalid nightlyRate for room ${room.roomId}`);
+    }
+    if (room.roomTotal !== undefined) {
+      const total =
+        room.roomTotal instanceof Prisma.Decimal
+          ? room.roomTotal
+          : new Prisma.Decimal(room.roomTotal);
+      if (!total.isFinite() || total.isNegative()) {
+        throw new Error(`invalid roomTotal for room ${room.roomId}`);
+      }
     }
   }
 
@@ -470,34 +532,73 @@ export async function createPendingBooking(
       await releaseExpiredHolds(tx, window);
       await assertRoomsAvailable(tx, { checkIn, checkOut, adults, children }, roomIds);
 
-      const subtotal = input.rooms.reduce(
-        (sum, room) => sum.add(new Prisma.Decimal(room.nightlyRate).mul(nights)),
-        new Prisma.Decimal(0),
+      // P5 price re-validation: re-derive the quote under the lock and refuse
+      // to store anything the caller was not quoted.
+      let pricing: PricingSnapshot | null = null;
+      if (input.priceCheck) {
+        const actual = await input.priceCheck.compute(tx);
+        const actualIds = actual.rooms.map((line) => line.roomId).sort();
+        const requestedIds = [...roomIds].sort();
+        if (
+          actualIds.length !== requestedIds.length ||
+          actualIds.some((id, index) => id !== requestedIds[index])
+        ) {
+          throw new Error("pricing recompute returned a different room set");
+        }
+        if (!snapshotsEqual(actual, input.priceCheck.expected)) {
+          throw new PriceChangedError(input.priceCheck.expected.breakdown, actual.breakdown);
+        }
+        pricing = actual;
+      }
+
+      const derivedSubtotal = input.rooms.reduce(
+        (sum, room) => money(sum.add(new Prisma.Decimal(room.nightlyRate).mul(nights))),
+        money(0),
       );
+      const breakdown = pricing?.breakdown ?? {
+        subtotal: derivedSubtotal,
+        taxes: money(0),
+        fees: money(0),
+        discount: money(0),
+        total: derivedSubtotal,
+      };
 
       const booking = await tx.booking.create({
         data: {
           bookingReference: input.bookingReference,
           guestId: input.guestId,
+          promotionId: pricing?.promotion?.id ?? null,
+          promotionCode: pricing?.promotion?.code ?? null,
           checkIn,
           checkOut,
           adults,
           children,
-          subtotal,
-          total: subtotal,
-          bookingStatus: BookingStatus.PENDING,
+          subtotal: breakdown.subtotal,
+          taxes: breakdown.taxes,
+          fees: breakdown.fees,
+          discount: breakdown.discount,
+          total: breakdown.total,
+          bookingStatus: input.initialStatus ?? BookingStatus.PENDING,
           paymentStatus: PaymentStatus.PENDING,
           notes: input.notes,
+          createdByUserId: input.createdByUserId ?? null,
         },
       });
 
+      const pricedRooms = new Map((pricing?.rooms ?? []).map((line) => [line.roomId, line]));
       for (const room of input.rooms) {
-        const roomTotal = new Prisma.Decimal(room.nightlyRate).mul(nights);
+        const line = pricedRooms.get(room.roomId);
+        const nightlyRate = line ? line.nightlyRate : money(room.nightlyRate);
+        const roomTotal = line
+          ? line.roomTotal
+          : room.roomTotal !== undefined
+            ? money(room.roomTotal)
+            : money(new Prisma.Decimal(room.nightlyRate).mul(nights));
         await tx.bookingRoom.create({
           data: {
             bookingId: booking.id,
             roomId: room.roomId,
-            nightlyRate: room.nightlyRate,
+            nightlyRate,
             nights,
             roomTotal,
           },
@@ -523,7 +624,15 @@ export async function createPendingBooking(
         throw error;
       }
 
-      return { booking: { id: booking.id, bookingReference: booking.bookingReference }, roomIds, nights };
+      return {
+        booking: {
+          id: booking.id,
+          bookingReference: booking.bookingReference,
+          bookingStatus: booking.bookingStatus,
+        },
+        roomIds,
+        nights,
+      };
     },
     { maxWait: 10_000, timeout: 15_000 },
   );

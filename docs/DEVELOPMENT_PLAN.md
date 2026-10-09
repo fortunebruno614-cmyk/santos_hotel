@@ -153,18 +153,18 @@ Create `prisma/schema.prisma` in FK-dependency order:
 
 ---
 
-## P5 — Booking & Checkout (4–6 days)
+## P5 — Booking & Checkout (4–6 days) ✅ (2026-10-09)
 
 **Goal:** Guest search → book → confirm, and staff manual booking.
 
-- [ ] Public: search form, room list, room detail, price calculation (server-side: rate × nights + taxes/fees − discount)
-- [ ] Checkout: guest details → price re-validation → **availability re-checked inside the booking transaction** → create `Booking` + `BookingRoom` + snapshot prices → status `Pending`
-- [ ] Booking reference generator (`SH-YYYY-NNNNNN`), unique constraint
-- [ ] Cancellation policy evaluation (window from config, not hardcoded), status transitions guarded server-side
-- [ ] Staff: manual booking (phone/walk-in), modify, check-in, check-out, operational notes, room status transitions (CheckedOut → Cleaning → Available)
-- [ ] Guest area: booking history, upcoming reservations, eligible cancellation
+- [x] Public: search form, room list, room detail, price calculation (server-side: rate × nights + taxes/fees − discount) — `/search`, `/rooms`, `/rooms/[slug]`, `/booking`, `src/server/pricing/`
+- [x] Checkout: guest details → price re-validation → **availability re-checked inside the booking transaction** → create `Booking` + `BookingRoom` + snapshot prices → status `Pending` — `src/server/booking/service.ts` (`createBooking` → `createPendingBooking` with `priceCheck`)
+- [x] Booking reference generator (`SH-YYYY-NNNNNN`), unique constraint — `src/server/booking/reference.ts` (retry on `P2002`)
+- [x] Cancellation policy evaluation (window from config, not hardcoded), status transitions guarded server-side — `src/server/booking/policy.ts` (`CANCELLATION_WINDOW_HOURS`, transition table, arrival-date timing)
+- [x] Staff: manual booking (phone/walk-in), modify, check-in, check-out, operational notes, room status transitions (CheckedOut → Cleaning → Available) — `/admin/bookings`, `/admin/bookings/new`, `/admin/bookings/[id]`, `/admin/rooms`
+- [x] Guest area: booking history, upcoming reservations, eligible cancellation — `/account`, claim-cookie confirmation for anonymous bookings
 
-**Gate:** End-to-end guest booking and staff walk-in booking both produce correct, priced, referenced reservations; no booking can bypass availability re-check.
+**Gate:** End-to-end guest booking and staff walk-in booking both produce correct, priced, referenced reservations; no booking can bypass availability re-check. ✅ `tests/booking/` — 25 tests: checkout creates priced `SH-…` bookings with night rows; `expectedTotal` drift aborts before any write; second checkout of a taken room → `stay_overlap`; transitions enforce the table, timing and room side effects; cancellation honours the config window (staff bypass); modification re-prices under lock. Full suite **60/60**.
 
 ---
 

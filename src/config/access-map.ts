@@ -74,6 +74,8 @@ export const ACCESS_RULES: AccessRule[] = [
   staff("/api/admin", [AppRole.ADMIN]),
 
   // --- API: staff + admin ---
+  staff("/api/staff/bookings", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_RESERVATIONS"),
+  staff("/api/staff/rooms", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_ROOMS"),
   staff("/api/staff/reservations", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_RESERVATIONS"),
   staff("/api/staff", [AppRole.STAFF, AppRole.ADMIN]),
 ];

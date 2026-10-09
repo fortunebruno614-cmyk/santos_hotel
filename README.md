@@ -63,8 +63,14 @@ up after themselves.
   double-booking impossible at the database level.
   Gate: `npm test` → 35/35, including six parallel allocations of the last room →
   exactly one success.
-- Next up: **P5 Booking & Checkout** (Q1–Q3, Q7, Q9–Q12 still open — see
-  `docs/OPEN_QUESTIONS.md`).
+- **P5 Booking & Checkout** — done: guest search/room detail/quote/checkout flow with
+  in-transaction availability re-check and price re-validation, `SH-YYYY-NNNNNN`
+  references, config-driven cancellation policy and server-side transition guards,
+  staff walk-in/modify/check-in/out/notes/room-status console, guest booking history
+  with eligible cancellation, and anonymous checkout via signed claim cookie.
+  Gate: `npm test` → 60/60 (35 availability + 25 booking).
+- Next up: **P6 Payments** — provider choice still open (`docs/OPEN_QUESTIONS.md` #4);
+  refund-on-cancel and idempotency hooks are already shaped by P5's `payment_status`.
 
 ## Migration workflow
 

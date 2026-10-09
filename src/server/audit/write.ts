@@ -12,7 +12,13 @@ export type AuditAction =
   | "permission.change"
   | "user.create"
   | "user.update"
-  | "user.delete";
+  | "user.delete"
+  | "booking.create"
+  | "booking.modify"
+  | "booking.transition"
+  | "booking.cancel"
+  | "booking.note"
+  | "room.status";
 
 export type AuditActor = {
   /** Staff/admin user id. Guest principals have no users row, so this stays null. */

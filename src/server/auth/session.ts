@@ -8,8 +8,10 @@ let cachedKey: Uint8Array | null = null;
 /**
  * Fails closed in production instead of silently signing with a known constant.
  * Dev keeps a documented fallback so `npm run dev` works without extra setup.
+ * Also used by the P5 booking claim (src/server/booking/claim.ts), which must
+ * not be able to sign tokens the session code could not verify.
  */
-function getSecretKey(): Uint8Array {
+export function getSecretKey(): Uint8Array {
   if (cachedKey) return cachedKey;
   const secret = process.env.SESSION_SECRET;
   if (!secret) {
