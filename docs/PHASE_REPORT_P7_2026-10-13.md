@@ -3,7 +3,7 @@
 **Project:** Santo Hotel booking system
 **Phase:** P7 — Staff/Admin Console
 **Delivered:** Tuesday, 13 October 2026
-**Commit:** this delivery (see `git log`)
+**Commit:** `3a64568` (this delivery)
 **Gate status:** PASSED — `npm test` 95/95 · `npm run lint` 0 · `npm run typecheck` 0
 
 ---
