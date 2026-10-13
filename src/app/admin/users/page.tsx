@@ -1,16 +1,31 @@
-﻿import { requireAdmin } from "@/server/auth/dal";
-import { UsersTable } from "./users-table";
+﻿import { listUsers } from "@/server/console/users";
+import { getCurrentSession } from "@/server/auth/dal";
+import { UsersManager } from "./users-manager";
 
+/** Users & permissions (P7, admin only). */
 export default async function AdminUsersPage() {
-  await requireAdmin();
+  const [session, users] = await Promise.all([getCurrentSession(), listUsers()]);
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Users</h1>
-      <p className="text-sm text-muted-foreground">
-        Admin only — staff cannot open this page or the underlying API routes.
-        Role changes are written to the audit log.
-      </p>
-      <UsersTable />
+      <div>
+        <h1 className="text-2xl font-semibold">Users</h1>
+        <p className="text-sm text-zinc-500">
+          Staff and administrator accounts. Role changes take effect immediately — the
+          previous session stops working on the next request.
+        </p>
+      </div>
+      <UsersManager
+        selfId={session?.userId ?? ""}
+        users={users.map((user) => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role === "ADMIN" ? "ADMIN" : "STAFF",
+          isActive: user.isActive,
+          lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+        }))}
+      />
     </div>
   );
 }

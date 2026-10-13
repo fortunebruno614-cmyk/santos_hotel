@@ -1,12 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
-import { CURRENCY, CHECK_IN_TIME, CHECK_OUT_TIME } from "@/config/booking";
+import {
+  CANCELLATION_WINDOW_HOURS,
+  CHECK_IN_TIME,
+  CHECK_OUT_TIME,
+  CURRENCY,
+  GUEST_CANCELLATION_ENABLED,
+  MAX_ROOMS_PER_BOOKING,
+  SERVICE_FEE,
+  TAX_RATE_PERCENT,
+} from "@/config/booking";
 
 /**
- * Hotel-scoped context for P5: money currency, timezone and the clock times
- * that anchor policies (cancellation deadline, check-in guards).
+ * Hotel-scoped context for P5/P7: money currency, timezone and the operational
+ * settings that anchor policies (tax, service fee, cancellation window,
+ * check-in/out clock times, room cap).
  *
- * The `hotels` row is the source of truth; `src/config/booking.ts` supplies the
+ * The `hotels` row is the source of truth — the admin console edits it
+ * (`/admin/settings`) — and `src/config/booking.ts` supplies the bootstrap
  * fallbacks so a fresh database still quotes and guards correctly.
  */
 export type HotelContext = {
@@ -16,6 +27,11 @@ export type HotelContext = {
   timezone: string;
   checkInTime: string;
   checkOutTime: string;
+  taxRatePercent: number;
+  serviceFee: number;
+  cancellationWindowHours: number;
+  guestCancellationEnabled: boolean;
+  maxRoomsPerBooking: number;
 };
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -33,8 +49,13 @@ export async function loadHotelContext(client: Db = prisma): Promise<HotelContex
     name: hotel?.name ?? "Santo Hotel",
     currency: hotel?.currency || CURRENCY,
     timezone: hotel?.timezone || "Asia/Kuala_Lumpur",
-    checkInTime: CHECK_IN_TIME,
-    checkOutTime: CHECK_OUT_TIME,
+    checkInTime: hotel?.checkInTime || CHECK_IN_TIME,
+    checkOutTime: hotel?.checkOutTime || CHECK_OUT_TIME,
+    taxRatePercent: hotel ? hotel.taxRatePercent.toNumber() : TAX_RATE_PERCENT,
+    serviceFee: hotel ? hotel.serviceFee.toNumber() : SERVICE_FEE,
+    cancellationWindowHours: hotel?.cancellationWindowHours ?? CANCELLATION_WINDOW_HOURS,
+    guestCancellationEnabled: hotel?.guestCancellationEnabled ?? GUEST_CANCELLATION_ENABLED,
+    maxRoomsPerBooking: hotel?.maxRoomsPerBooking ?? MAX_ROOMS_PER_BOOKING,
   };
 }
 

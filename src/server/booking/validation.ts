@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { BookingStatus, RoomStatus } from "@/generated/prisma/enums";
-import { MAX_ROOMS_PER_BOOKING } from "@/config/booking";
 import { DateOnlySchema, MAX_STAY_NIGHTS } from "@/server/availability/validation";
 import { nightsCount, parseDateOnly } from "@/server/availability/overlap";
 
@@ -10,13 +9,13 @@ import { nightsCount, parseDateOnly } from "@/server/availability/overlap";
  * `undefined`, so "optional" means optional in both JSON and form posts.
  */
 
-const optionalText = (max: number) =>
+export const optionalText = (max: number) =>
   z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.string().trim().min(1).max(max).optional(),
   );
 
-const optionalEmail = z.preprocess(
+export const optionalEmail = z.preprocess(
   (value) =>
     typeof value === "string" && value.trim() === ""
       ? undefined
@@ -37,10 +36,18 @@ export const GuestDetailsSchema = z.object({
 
 export type GuestDetails = z.infer<typeof GuestDetailsSchema>;
 
+/**
+ * Technical request-size cap (matches the `hotels_max_rooms_check` bound). The
+ * *business* cap the admin console edits (`hotels.max_rooms_per_booking`,
+ * default from `MAX_ROOMS_PER_BOOKING`) is enforced inside the pricing
+ * transaction, where the current setting is known.
+ */
+export const MAX_ROOMS_PER_REQUEST = 50;
+
 export const roomIdsSchema = z
   .array(z.string().uuid())
   .min(1)
-  .max(MAX_ROOMS_PER_BOOKING)
+  .max(MAX_ROOMS_PER_REQUEST)
   .refine((ids) => new Set(ids).size === ids.length, {
     message: "roomIds must not contain duplicates",
   });

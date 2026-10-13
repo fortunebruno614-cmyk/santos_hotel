@@ -1,28 +1,36 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { prisma } from "@/lib/prisma";
 import { RecordStatus } from "@/generated/prisma/enums";
+import { getContent } from "@/server/console/settings";
 
 /** Public room catalogue — descriptive only; availability/pricing lives in /search. */
 export default async function RoomsPage() {
-  const roomTypes = await prisma.roomType.findMany({
-    where: { status: RecordStatus.ACTIVE },
-    orderBy: { name: "asc" },
-    include: {
-      images: { orderBy: { sortOrder: "asc" }, take: 1 },
-      amenities: { include: { amenity: true } },
-      rooms: { select: { id: true } },
-    },
-  });
+  const [roomTypes, intro] = await Promise.all([
+    prisma.roomType.findMany({
+      where: { status: RecordStatus.ACTIVE },
+      orderBy: { name: "asc" },
+      include: {
+        images: { orderBy: { sortOrder: "asc" }, take: 1 },
+        amenities: { include: { amenity: true } },
+        rooms: { select: { id: true } },
+      },
+    }),
+    getContent("rooms.intro"),
+  ]);
 
   return (
     <>
       <SiteHeader />
       <main className="mx-auto max-w-5xl space-y-8 p-6">
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold">Rooms</h1>
+          <h1 className="text-2xl font-semibold">
+            {intro?.title || "Rooms & suites"}
+          </h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Every room type at the hotel. Check dates and live prices on the{" "}
+            {intro?.body || "Every room includes Wi-Fi, air conditioning and 24-hour front desk service."}{" "}
+            Check dates and live prices on the{" "}
             <Link href="/search" className="underline">
               search page
             </Link>
@@ -77,6 +85,7 @@ export default async function RoomsPage() {
           ))}
         </ul>
       </main>
+      <SiteFooter />
     </>
   );
 }

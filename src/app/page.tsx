@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
+import { getContent } from "@/server/console/settings";
 
 const areas = [
   {
@@ -22,7 +24,9 @@ const areas = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const hero = await getContent("home.hero");
+
   return (
     <>
       <SiteHeader />
@@ -31,11 +35,11 @@ export default function Home() {
           Santo Hotel
         </span>
         <h1 className="mt-6 max-w-2xl text-4xl font-semibold tracking-tight sm:text-5xl">
-          Your stay starts here
+          {hero?.title || "Your stay starts here"}
         </h1>
         <p className="mt-4 max-w-xl text-lg text-zinc-600 dark:text-zinc-400">
-          Check availability, see live prices and book in a minute — or sign in to
-          manage an existing reservation.
+          {hero?.body ||
+            "Check availability, see live prices and book in a minute — or sign in to manage an existing reservation."}
         </p>
         <div className="mt-8 flex gap-3">
           <Link
@@ -70,6 +74,7 @@ export default function Home() {
           ))}
         </ul>
       </main>
+      <SiteFooter />
     </>
   );
 }

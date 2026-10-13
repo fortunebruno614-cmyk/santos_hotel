@@ -60,6 +60,9 @@ export const ACCESS_RULES: AccessRule[] = [
   // --- Staff/admin console (dashboard, reservations, rooms, rates, guests,
   //     payments, reports) — everything under /admin is staff-only by catch-all ---
   staff("/admin/users", [AppRole.ADMIN], "MANAGE_USERS"),
+  staff("/admin/settings", [AppRole.ADMIN], "MANAGE_SETTINGS"),
+  staff("/admin/content", [AppRole.ADMIN], "MANAGE_CONTENT"),
+  staff("/admin/audit", [AppRole.ADMIN], "MANAGE_AUDIT"),
   staff("/admin", [AppRole.STAFF, AppRole.ADMIN]),
 
   // --- API: public ---
@@ -72,6 +75,17 @@ export const ACCESS_RULES: AccessRule[] = [
   // --- API: admin-only ---
   staff("/api/admin/users", [AppRole.ADMIN], "MANAGE_USERS"),
   staff("/api/admin/audit", [AppRole.ADMIN], "MANAGE_AUDIT"),
+  staff("/api/admin/settings", [AppRole.ADMIN], "MANAGE_SETTINGS"),
+  staff("/api/admin/content", [AppRole.ADMIN], "MANAGE_CONTENT"),
+
+  // --- API: catalog & records — staff hold these permissions too (P7), so the
+  //     rules sit above the admin-only /api/admin catch-all ---
+  staff("/api/admin/room-types", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_ROOMS"),
+  staff("/api/admin/rooms", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_ROOMS"),
+  staff("/api/admin/amenities", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_ROOMS"),
+  staff("/api/admin/rates", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_RATES"),
+  staff("/api/admin/promotions", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_PROMOTIONS"),
+  staff("/api/admin/guests", [AppRole.STAFF, AppRole.ADMIN], "VIEW_GUESTS"),
   staff("/api/admin", [AppRole.ADMIN]),
 
   // --- API: staff + admin ---

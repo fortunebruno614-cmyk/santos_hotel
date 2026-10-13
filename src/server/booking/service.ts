@@ -38,6 +38,7 @@ import {
   assertRoomTransition,
   assertTransitionTiming,
   cancellationDeadline,
+  cancellationOptionsFor,
   evaluateCancellation,
   TransitionError,
   UNUSABLE_ROOM_STATUSES,
@@ -261,10 +262,11 @@ export function cancellationInfoFor(
   booking: { bookingStatus: BookingStatus; checkIn: Date },
   hotel: HotelContext,
   now: Date = new Date(),
-  options: { windowHours?: number; guestCancellationEnabled?: boolean } = {},
+  options: { windowHours?: number; guestCancellationEnabled?: boolean; checkInTime?: string } = {},
 ): CancellationInfo {
-  const guest = evaluateCancellation(booking, "guest", now, hotel.timezone, options);
-  const staff = evaluateCancellation(booking, "staff", now, hotel.timezone, options);
+  const hotelOptions = cancellationOptionsFor(hotel, options);
+  const guest = evaluateCancellation(booking, "guest", now, hotel.timezone, hotelOptions);
+  const staff = evaluateCancellation(booking, "staff", now, hotel.timezone, hotelOptions);
   const denied = guest.allowed ? null : guest.reason;
   const deadline = guest.deadline ?? staff.deadline;
   return {
@@ -522,6 +524,7 @@ async function doCancel(
     actor.kind === "staff" ? "staff" : "guest",
     now,
     hotel.timezone,
+    cancellationOptionsFor(hotel),
   );
   if (!evaluation.allowed) {
     throw new BookingError(evaluation.reason, cancellationDenialMessage(evaluation.reason));
@@ -539,6 +542,7 @@ async function doCancel(
       actor.kind === "staff" ? "staff" : "guest",
       now,
       hotel.timezone,
+      cancellationOptionsFor(hotel),
     );
     if (!lockedEvaluation.allowed) {
       throw new BookingError(
@@ -637,7 +641,13 @@ export async function transitionBooking(
   assertBookingTransition(existing.bookingStatus, input.to);
   assertTransitionTiming(existing.bookingStatus, existing, input.to, today);
   if (input.to === BookingStatus.CANCELLED) {
-    const evaluation = evaluateCancellation(existing, "staff", new Date(), hotel.timezone);
+    const evaluation = evaluateCancellation(
+      existing,
+      "staff",
+      new Date(),
+      hotel.timezone,
+      cancellationOptionsFor(hotel),
+    );
     if (!evaluation.allowed) {
       throw new BookingError(evaluation.reason, cancellationDenialMessage(evaluation.reason));
     }

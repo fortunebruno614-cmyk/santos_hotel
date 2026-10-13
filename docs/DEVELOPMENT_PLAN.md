@@ -186,14 +186,14 @@ Create `prisma/schema.prisma` in FK-dependency order:
 
 **Goal:** The hotel can run operations without direct DB access.
 
-- [ ] Dashboard: today's arrivals/departures, occupancy, availability board
-- [ ] CRUD: room types, physical rooms, amenities, rates, promotions
-- [ ] Reservation management: search, filter, modify, cancel, check-in/out, notes
-- [ ] Guest records, payment records, refund actions (permission-gated)
-- [ ] Admin: user/permission management, system settings (check-in/out times, tax, currency, cancellation window), website content
-- [ ] Every mutating admin action writes an `AuditLog` (action, entity, old/new values)
+- [x] Dashboard: today's arrivals/departures, occupancy, availability board — `src/app/admin/page.tsx` + `src/server/console/dashboard.ts` (`getDashboard`: arrivals/departures/in-house/today's rooms, occupancy %, revenue today)
+- [x] CRUD: room types, physical rooms, amenities, rates, promotions — `/admin/{room-types,rooms,amenities,rates,promotions}` + `src/server/console/catalog.ts`; guards: unique conflicts, room-in-use, housekeeping transition table
+- [x] Reservation management: search, filter, modify, cancel, check-in/out, notes — `/admin/bookings` search (reference/status/guest/room) + reservation detail (modify/cancel/notes/check-in from P5 services, permission-gated)
+- [x] Guest records, payment records, refund actions (permission-gated) — `/admin/guests` (+detail/edit), `/admin/payments` ledger with booking correlation and full/partial refund button (`MANAGE_PAYMENTS`)
+- [x] Admin: user/permission management, system settings (check-in/out times, tax, currency, cancellation window), website content — `/admin/users` (create/rename/role/reset/deactivate; self-change and last-admin guards), `/admin/settings` (`SettingsPatchSchema` bounds), `/admin/content` (site content slots with defaults/reset; public pages render `home.hero`, `rooms.intro`, `site.footer`)
+- [x] Every mutating admin action writes an `AuditLog` (action, entity, old/new values) — `audit()` in catalog + `writeAuditLog` in settings/users/guests; tested (create/update/delete, settings old→new, `permission.change`)
 
-**Gate:** Admin can run a full week of simulated operations from the UI only.
+**Gate:** Admin can run a full week of simulated operations from the UI only. ✅ `tests/admin/console.test.ts` — 20 tests including a scripted week: quote → book → arrivals view → confirm → desk capture → check-in → check-out → refund → guest detail → full audit-trail assertions, all through the same services the UI routes call. Full suite **95/95**.
 
 ---
 

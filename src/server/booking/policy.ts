@@ -4,7 +4,7 @@ import {
   CHECK_IN_TIME,
   GUEST_CANCELLATION_ENABLED,
 } from "@/config/booking";
-import { zonedToUtc } from "@/server/pricing/context";
+import { zonedToUtc, type HotelContext } from "@/server/pricing/context";
 
 /**
  * P5 server-side guards — the only place a status change is allowed to happen.
@@ -123,10 +123,12 @@ export type CancellationEvaluation =
   | { allowed: false; reason: CancellationDenialReason; deadline: Date | null };
 
 export type CancellationOptions = {
-  /** Override `CANCELLATION_WINDOW_HOURS` (tests, per-hotel overrides). */
+  /** Override the hotel's cancellation window (defaults to its settings row). */
   windowHours?: number;
-  /** Override `GUEST_CANCELLATION_ENABLED`. */
+  /** Override the hotel's guest-cancellation flag. */
   guestCancellationEnabled?: boolean;
+  /** Override the hotel's check-in clock time (anchors the deadline). */
+  checkInTime?: string;
 };
 
 /** Moment until which a guest may cancel for free: check-in time − window. */
@@ -134,14 +136,17 @@ export function cancellationDeadline(
   checkIn: Date,
   timezone: string,
   windowHours: number = CANCELLATION_WINDOW_HOURS,
+  checkInTime: string = CHECK_IN_TIME,
 ): Date {
-  const checkInInstant = zonedToUtc(checkIn, CHECK_IN_TIME, timezone);
+  const checkInInstant = zonedToUtc(checkIn, checkInTime, timezone);
   return new Date(checkInInstant.getTime() - windowHours * 3_600_000);
 }
 
 /**
- * Pure policy evaluation. `actor: "guest"` applies the config window and the
+ * Pure policy evaluation. `actor: "guest"` applies the hotel window and the
  * guest-cancellation flag; `actor: "staff"` only requires a cancellable status.
+ * Callers pass the hotel settings (`HotelContext`) — the values the admin
+ * console edits — never a hardcoded policy.
  */
 export function evaluateCancellation(
   booking: { bookingStatus: BookingStatus; checkIn: Date },
@@ -152,7 +157,8 @@ export function evaluateCancellation(
 ): CancellationEvaluation {
   const windowHours = options.windowHours ?? CANCELLATION_WINDOW_HOURS;
   const guestEnabled = options.guestCancellationEnabled ?? GUEST_CANCELLATION_ENABLED;
-  const deadline = cancellationDeadline(booking.checkIn, timezone, windowHours);
+  const checkInTime = options.checkInTime ?? CHECK_IN_TIME;
+  const deadline = cancellationDeadline(booking.checkIn, timezone, windowHours, checkInTime);
 
   if (actor === "guest" && !guestEnabled) {
     return { allowed: false, reason: "guest_cancellation_disabled", deadline };
@@ -164,6 +170,23 @@ export function evaluateCancellation(
     return { allowed: false, reason: "too_late_to_cancel", deadline };
   }
   return { allowed: true, deadline };
+}
+
+/**
+ * The hotel's stored policy (the row the admin console edits) as
+ * `evaluateCancellation` options. Every service call site goes through this so
+ * a settings change takes effect immediately — nothing is cached in code.
+ */
+export function cancellationOptionsFor(
+  hotel: HotelContext,
+  overrides: CancellationOptions = {},
+): CancellationOptions {
+  return {
+    windowHours: hotel.cancellationWindowHours,
+    guestCancellationEnabled: hotel.guestCancellationEnabled,
+    checkInTime: hotel.checkInTime,
+    ...overrides,
+  };
 }
 
 // ---------------------------------------------------------------------------

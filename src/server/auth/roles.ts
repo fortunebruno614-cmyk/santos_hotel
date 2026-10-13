@@ -16,6 +16,10 @@ export const Permissions = {
   VIEW_GUESTS: "VIEW_GUESTS",
   MANAGE_PROMOTIONS: "MANAGE_PROMOTIONS",
   MANAGE_AUDIT: "MANAGE_AUDIT",
+  /** P7: system settings (tax, currency, cancellation window, check-in/out). */
+  MANAGE_SETTINGS: "MANAGE_SETTINGS",
+  /** P7: website content slots rendered by the public site. */
+  MANAGE_CONTENT: "MANAGE_CONTENT",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];
@@ -34,6 +38,8 @@ const ADMIN_PERMISSIONS: Permission[] = [
   ...STAFF_PERMISSIONS,
   Permissions.MANAGE_USERS,
   Permissions.MANAGE_AUDIT,
+  Permissions.MANAGE_SETTINGS,
+  Permissions.MANAGE_CONTENT,
 ];
 
 const rolePerms: Record<AppRole, Permission[]> = {

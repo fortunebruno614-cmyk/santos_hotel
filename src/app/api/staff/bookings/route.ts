@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
-import { BookingStatus } from "@/generated/prisma/enums";
-import { prisma } from "@/lib/prisma";
 import { guardApi } from "@/server/auth/api";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { createBooking, type StaffActor } from "@/server/booking/service";
+import { searchBookings } from "@/server/console/bookings";
+import { BookingSearchSchema } from "@/server/console/validation";
 import { StaffBookingSchema } from "@/server/booking/validation";
 import { bookingErrorResponse, invalidBody } from "@/server/booking/http";
 
 /**
  * Staff reservations (manual/walk-in bookings).
  *
- *   GET  /api/staff/bookings[?status=CONFIRMED]  — latest reservations
- *   POST /api/staff/bookings                     — phone/walk-in booking
+ *   GET  /api/staff/bookings[?q=…&status=…&paymentStatus=…&from=…&to=…&page=…]
+ *        — searchable reservation list (P7: reference, guest, room number,
+ *          status, payment status and date-range overlap filters)
+ *   POST /api/staff/bookings — phone/walk-in booking
  *
  * POST is the walk-in flow: same pricing, same availability transaction and the
  * same `SH-YYYY-NNNNNN` reference as online checkout, plus `created_by_user_id`
@@ -26,35 +28,19 @@ export async function GET(request: Request) {
   });
   if (auth instanceof NextResponse) return auth;
 
-  const statusParam = new URL(request.url).searchParams.get("status");
-  const statusFilter =
-    statusParam && (Object.values(BookingStatus) as string[]).includes(statusParam)
-      ? (statusParam as BookingStatus)
-      : null;
-
-  const bookings = await prisma.booking.findMany({
-    take: 100,
-    orderBy: { createdAt: "desc" },
-    ...(statusFilter ? { where: { bookingStatus: statusFilter } } : {}),
-    include: {
-      guest: { select: { firstName: true, lastName: true } },
-      rooms: { select: { room: { select: { roomNumber: true } } } },
-    },
+  const params = new URL(request.url).searchParams;
+  const parsed = BookingSearchSchema.safeParse({
+    q: params.get("q") ?? undefined,
+    status: params.get("status") ?? undefined,
+    paymentStatus: params.get("paymentStatus") ?? undefined,
+    from: params.get("from") ?? undefined,
+    to: params.get("to") ?? undefined,
+    page: params.get("page") ?? undefined,
+    pageSize: params.get("pageSize") ?? undefined,
   });
+  if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
-  return NextResponse.json(
-    bookings.map((booking) => ({
-      id: booking.id,
-      bookingReference: booking.bookingReference,
-      guestName: `${booking.guest.firstName} ${booking.guest.lastName}`,
-      checkIn: booking.checkIn.toISOString().slice(0, 10),
-      checkOut: booking.checkOut.toISOString().slice(0, 10),
-      bookingStatus: booking.bookingStatus,
-      paymentStatus: booking.paymentStatus,
-      total: booking.total.toString(),
-      rooms: booking.rooms.map((line) => line.room.roomNumber),
-    })),
-  );
+  return NextResponse.json(await searchBookings(parsed.data));
 }
 
 export async function POST(request: Request) {

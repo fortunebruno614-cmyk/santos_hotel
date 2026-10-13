@@ -94,12 +94,41 @@ model Hotel {
   country      String?
   timezone     String   @default("Asia/Kuala_Lumpur")
   currency     String   @default("MYR")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // P7 system settings — the admin console edits these; `src/config/booking.ts`
+  // env vars are only the bootstrap fallback for a database that has none.
+  checkInTime              String  @default("15:00") @map("check_in_time")
+  checkOutTime             String  @default("11:00") @map("check_out_time")
+  taxRatePercent           Decimal @default(0) @map("tax_rate_percent") @db.Decimal(5, 2)
+  serviceFee               Decimal @default(0) @map("service_fee") @db.Decimal(10, 2)
+  cancellationWindowHours  Int     @default(48) @map("cancellation_window_hours")
+  guestCancellationEnabled Boolean @default(true) @map("guest_cancellation_enabled")
+  maxRoomsPerBooking       Int     @default(10) @map("max_rooms_per_booking")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
   roomTypes RoomType[]
 
   @@map("hotels")
+}
+
+// ---------------------------------------------------------------------------
+// 016 — Website content (P7: marketing copy edited from the admin console).
+// ---------------------------------------------------------------------------
+
+model SiteContent {
+  /// Stable slot id the public site renders from, e.g. `home.hero`, `rooms.intro`.
+  key         String   @id
+  title       String?
+  body        String   @default("")
+  updatedById String?  @map("updated_by_user_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("site_content")
 }
 
 // ---------------------------------------------------------------------------
@@ -119,6 +148,7 @@ model User {
 
   bookingsCreated Booking[]  @relation("BookingCreatedBy")
   auditLogs       AuditLog[]
+  siteContent     SiteContent[]
 
   @@map("users")
 }

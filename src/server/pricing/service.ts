@@ -1,12 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma, BookingStatus, PromotionType, RecordStatus } from "@/generated/prisma/client";
 import {
-  CANCELLATION_WINDOW_HOURS,
-  MAX_ROOMS_PER_BOOKING,
-  SERVICE_FEE,
-  TAX_RATE_PERCENT,
-} from "@/config/booking";
-import {
   AvailabilityConflictError,
   capacityFits,
   normalizeRequest,
@@ -31,8 +25,8 @@ import {
  *   room total   = sum of its nights
  *   subtotal     = sum of the room totals
  *   discount     = promotion applied to the subtotal (capped at the subtotal)
- *   taxes        = (subtotal − discount) × TAX_RATE_PERCENT
- *   fees         = SERVICE_FEE, once per booking
+ *   taxes        = (subtotal − discount) × the hotel's tax rate (settings row)
+ *   fees         = the hotel's flat service fee, once per booking
  *   total        = subtotal − discount + taxes + fees
  *
  * The same function runs twice per checkout: once to quote the guest, once
@@ -248,15 +242,16 @@ export async function computeQuote(request: QuoteRequest, client: Db = prisma): 
   const stay = normalizeRequest(request);
   const { checkIn, checkOut, adults, children, nights } = stay;
   const now = request.now ?? new Date();
+  const hotel = await loadHotelContext(client);
 
   const roomIds = [...new Set(request.roomIds)];
   if (roomIds.length === 0) {
     throw new AvailabilityConflictError("room_not_found", [], "at least one room is required");
   }
-  if (roomIds.length > MAX_ROOMS_PER_BOOKING) {
+  if (roomIds.length > hotel.maxRoomsPerBooking) {
     throw new QuoteError(
       "too_many_rooms",
-      `a reservation may hold at most ${MAX_ROOMS_PER_BOOKING} rooms`,
+      `a reservation may hold at most ${hotel.maxRoomsPerBooking} rooms`,
     );
   }
 
@@ -290,7 +285,6 @@ export async function computeQuote(request: QuoteRequest, client: Db = prisma): 
     throw new AvailabilityConflictError("capacity_exceeded", roomIds);
   }
 
-  const hotel = await loadHotelContext(client);
   const typeIds = [...new Set(rooms.map((room) => room.roomTypeId))];
   const rates = await loadRatesForTypes(client, typeIds, checkIn, checkOut);
   const ratesByType = new Map<string, RateRow[]>();
@@ -339,8 +333,8 @@ export async function computeQuote(request: QuoteRequest, client: Db = prisma): 
   }
 
   const discounted = money(subtotal.sub(discount));
-  const taxes = money(discounted.mul(TAX_RATE_PERCENT).div(100));
-  const fees = money(SERVICE_FEE);
+  const taxes = money(discounted.mul(hotel.taxRatePercent).div(100));
+  const fees = money(hotel.serviceFee);
   const total = money(discounted.add(taxes).add(fees));
 
   const breakdown: MoneyBreakdown = { subtotal, taxes, fees, discount, total };
@@ -390,7 +384,7 @@ export function toQuoteResult(computed: ComputedQuote): QuoteResult {
       discount: moneyString(computed.snapshot.breakdown.discount),
       total: moneyString(computed.snapshot.breakdown.total),
     },
-    policy: { cancellationWindowHours: CANCELLATION_WINDOW_HOURS },
+    policy: { cancellationWindowHours: computed.hotel.cancellationWindowHours },
   };
 }
 
