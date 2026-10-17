@@ -117,12 +117,12 @@ export async function getEffectiveSettings() {
 /** Slots the public site renders from, with their built-in defaults. */
 export const CONTENT_DEFAULTS: Record<string, { title: string; body: string }> = {
   "home.hero": {
-    title: "Your stay starts here",
-    body: "Check availability, see live prices and book in a minute — or sign in to manage an existing reservation.",
+    title: "Your Stay, Thoughtfully Designed.",
+    body: "Discover comfort, exceptional hospitality, and a stay tailored to you at Santo Hotel.",
   },
   "rooms.intro": {
-    title: "Rooms & suites",
-    body: "Every room includes Wi-Fi, air conditioning and 24-hour front desk service.",
+    title: "Find your perfect stay.",
+    body: "Beautifully considered rooms. All the space you need to feel at home.",
   },
   "site.footer": {
     title: "Santo Hotel",

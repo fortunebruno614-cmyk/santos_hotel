@@ -20,6 +20,7 @@ const ROOM_TYPES = [
     maxChildren: 1,
     basePrice: 450,
     amenities: ["Wi-Fi", "Air Conditioning", "TV", "Mini Fridge", "Private Bathroom"],
+    images: ["/images/santo-room.jpg", "/images/santo-lobby.jpg"],
     rooms: [
       { roomNumber: "101", floor: 1 },
       { roomNumber: "102", floor: 1 },
@@ -35,6 +36,7 @@ const ROOM_TYPES = [
     maxChildren: 2,
     basePrice: 850,
     amenities: ["Wi-Fi", "Air Conditioning", "TV", "Mini Fridge", "Private Bathroom"],
+    images: ["/images/santo-suite.jpg", "/images/santo-pool.jpg"],
     rooms: [
       { roomNumber: "201", floor: 2 },
       { roomNumber: "202", floor: 2 },
@@ -48,6 +50,7 @@ const ROOM_TYPES = [
     maxChildren: 2,
     basePrice: 650,
     amenities: ["Wi-Fi", "Air Conditioning", "TV", "Private Bathroom"],
+    images: ["/images/santo-twin.jpg", "/images/santo-room.jpg"],
     rooms: [
       { roomNumber: "301", floor: 3 },
       { roomNumber: "302", floor: 3 },
@@ -199,6 +202,22 @@ async function main() {
           floor: room.floor,
         },
       });
+    }
+
+    for (const [index, url] of type.images.entries()) {
+      const existingImage = await prisma.roomImage.findFirst({
+        where: { roomTypeId: roomType.id, url },
+      });
+      if (!existingImage) {
+        await prisma.roomImage.create({
+          data: {
+            roomTypeId: roomType.id,
+            url,
+            altText: `${type.name} at Santo Hotel`,
+            sortOrder: index,
+          },
+        });
+      }
     }
 
     const rateName = "Standard 2026";
