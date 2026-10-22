@@ -4,8 +4,10 @@
  * var, so the hotel can change its mind without a code change, and the question
  * stays `open` until it is answered.
  *
- *   HOTEL_CURRENCY            (#1, default "MYR")
- *       Fallback currency used only when the `hotels` row has none.
+ *   HOTEL_CURRENCY            (#1, default "NGN")
+ *       Fallback currency used only when the `hotels` row has none. This is the
+ *       currency money is stored and charged in; guests may *view* the site in
+ *       Naira or US Dollars (@/lib/currency), which never changes this value.
  *
  *   TAX_RATE_PERCENT          (#2, default 0)
  *       Percentage applied to the discounted room subtotal. 0 = no tax until
@@ -55,7 +57,7 @@ function envClock(raw: string | undefined, fallback: string): string {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : fallback;
 }
 
-export const CURRENCY = envString(process.env.HOTEL_CURRENCY, "MYR").toUpperCase();
+export const CURRENCY = envString(process.env.HOTEL_CURRENCY, "NGN").toUpperCase();
 
 export const TAX_RATE_PERCENT = envNumber(process.env.TAX_RATE_PERCENT, 0, 0, 100);
 

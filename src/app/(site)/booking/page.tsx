@@ -11,6 +11,7 @@ import { StaySearchSchema } from "@/server/availability/validation";
 import { parseDateOnly } from "@/server/availability/overlap";
 import { buildQuote, QuoteError, type QuoteResult } from "@/server/pricing/service";
 import { AvailabilityConflictError } from "@/server/availability/service";
+import { displayCurrency } from "@/server/currency/display";
 import { fallbackImageForSlug, formatMoney } from "@/lib/hotel";
 
 const RoomIdsSchema = z
@@ -50,6 +51,7 @@ export default async function BookingPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
+  const display = await displayCurrency();
   const parsed = StaySearchSchema.safeParse({
     checkIn: sp.checkIn ?? undefined,
     checkOut: sp.checkOut ?? undefined,
@@ -112,18 +114,18 @@ export default async function BookingPage({
     ? [
         ...quote.lines.map((line) => ({
           label: `${line.roomTypeName} · Room ${line.roomNumber}`,
-          value: formatMoney(line.roomTotal, quote.currency),
+          value: formatMoney(line.roomTotal, quote.currency, display),
         })),
         ...(Number(quote.breakdown.discount) > 0
           ? [
               {
                 label: `Discount${quote.promotion ? ` (${quote.promotion.code})` : ""}`,
-                value: `−${formatMoney(quote.breakdown.discount, quote.currency)}`,
+                value: `−${formatMoney(quote.breakdown.discount, quote.currency, display)}`,
               },
             ]
           : []),
-        { label: "Taxes", value: formatMoney(quote.breakdown.taxes, quote.currency) },
-        { label: "Service fee", value: formatMoney(quote.breakdown.fees, quote.currency) },
+        { label: "Taxes", value: formatMoney(quote.breakdown.taxes, quote.currency, display) },
+        { label: "Service fee", value: formatMoney(quote.breakdown.fees, quote.currency, display) },
       ]
     : [];
 
@@ -194,6 +196,7 @@ export default async function BookingPage({
             rows={summaryRows}
             total={quote.breakdown.total}
             currency={quote.currency}
+            displayCurrency={display}
             note={`Free cancellation up to ${quote.policy.cancellationWindowHours} hours before check-in.`}
             changeHref={searchHref}
           />

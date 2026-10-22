@@ -17,6 +17,7 @@ export function BookingSummary({
   rows,
   total,
   currency,
+  displayCurrency,
   note,
   changeHref,
   search,
@@ -30,6 +31,7 @@ export function BookingSummary({
   rows: SummaryRow[];
   total?: string | null;
   currency: string;
+  displayCurrency?: string;
   note?: string;
   changeHref?: string;
   search?: React.ReactNode;
@@ -60,7 +62,7 @@ export function BookingSummary({
         {total && (
           <div className="price-row total">
             <span>Total stay</span>
-            <strong>{formatMoney(total, currency)}</strong>
+            <strong>{formatMoney(total, currency, displayCurrency)}</strong>
           </div>
         )}
         {note && <p className="tiny-note">{note}</p>}

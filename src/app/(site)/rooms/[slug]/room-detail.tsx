@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Breadcrumb, Gallery, ViewAllPhotos } from "@/components/hotel/shared";
 import { SearchPanel } from "@/components/hotel/search-panel";
 import { BookingSummary, type SummaryRow } from "@/components/hotel/booking-summary";
+import { useDisplayCurrency } from "@/components/hotel/currency-provider";
 import {
   bookingHref,
   defaultStayDates,
@@ -70,6 +71,7 @@ export function RoomDetailContent({
   searchFailed: boolean;
 }) {
   const router = useRouter();
+  const display = useDisplayCurrency();
   const [gallery, setGallery] = useState<number | null>(null);
   const [selected, setSelected] = useState<string[]>(() =>
     stay ? availableRooms.slice(0, stay.quantity).map((physical) => physical.id) : [],
@@ -85,9 +87,18 @@ export function RoomDetailContent({
   const canBook = Boolean(stay && selected.length > 0);
   const summaryRows: SummaryRow[] = estimate
     ? [
-        { label: `${formatMoney(nightlyRate, hotel.currency)} × ${nights} nights`, value: formatMoney(estimate.subtotal, hotel.currency) },
-        { label: `Taxes (${context.taxRatePercent}%)`, value: formatMoney(estimate.taxes, hotel.currency) },
-        { label: "Service fee", value: formatMoney(estimate.fees, hotel.currency) },
+        {
+          label: `${formatMoney(nightlyRate, hotel.currency, display)} × ${nights} nights`,
+          value: formatMoney(estimate.subtotal, hotel.currency, display),
+        },
+        {
+          label: `Taxes (${context.taxRatePercent}%)`,
+          value: formatMoney(estimate.taxes, hotel.currency, display),
+        },
+        {
+          label: "Service fee",
+          value: formatMoney(estimate.fees, hotel.currency, display),
+        },
       ]
     : [];
 
@@ -117,7 +128,7 @@ export function RoomDetailContent({
 
       <div className="mobile-booking-bar">
         <span>
-          <strong>{formatMoney(nightlyRate, hotel.currency)}</strong> / night
+          <strong>{formatMoney(nightlyRate, hotel.currency, display)}</strong> / night
         </span>
         {canBook ? (
           <Button onClick={continueToBooking}>
@@ -276,6 +287,7 @@ export function RoomDetailContent({
           rows={summaryRows}
           total={estimate?.total ?? null}
           currency={hotel.currency}
+          displayCurrency={display}
           note={
             estimate
               ? "Price for one room. Taxes and fees are confirmed at checkout."

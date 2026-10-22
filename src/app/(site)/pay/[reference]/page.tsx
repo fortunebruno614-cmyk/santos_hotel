@@ -13,10 +13,12 @@ import {
   type BookingViewer,
 } from "@/server/booking/service";
 import { prisma } from "@/lib/prisma";
+import { displayCurrency } from "@/server/currency/display";
 import { fallbackImageForSlug, formatMoney } from "@/lib/hotel";
 
 export default async function PayPage({ params }: { params: Promise<{ reference: string }> }) {
   const { reference } = await params;
+  const display = await displayCurrency();
 
   const cookieStore = await cookies();
   const claim = await verifyBookingClaim(cookieStore.get(BOOKING_CLAIM_COOKIE)?.value);
@@ -53,10 +55,10 @@ export default async function PayPage({ params }: { params: Promise<{ reference:
   const rows: SummaryRow[] = [
     ...detail.rooms.map((room) => ({
       label: `${room.roomTypeName} · Room ${room.roomNumber}`,
-      value: formatMoney(room.roomTotal, detail.currency),
+      value: formatMoney(room.roomTotal, detail.currency, display),
     })),
-    { label: "Taxes", value: formatMoney(detail.breakdown.taxes, detail.currency) },
-    { label: "Service fee", value: formatMoney(detail.breakdown.fees, detail.currency) },
+    { label: "Taxes", value: formatMoney(detail.breakdown.taxes, detail.currency, display) },
+    { label: "Service fee", value: formatMoney(detail.breakdown.fees, detail.currency, display) },
   ];
 
   return (
@@ -74,7 +76,7 @@ export default async function PayPage({ params }: { params: Promise<{ reference:
       <div className="checkout-layout">
         <section className="form-section">
           <span className="eyebrow">AMOUNT DUE</span>
-          <h2>{formatMoney(detail.breakdown.total, detail.currency)}</h2>
+          <h2>{formatMoney(detail.breakdown.total, detail.currency, display)}</h2>
           <p>
             {detail.nights} {detail.nights === 1 ? "night" : "nights"} · {detail.adults} adult
             {detail.adults === 1 ? "" : "s"}
@@ -116,6 +118,7 @@ export default async function PayPage({ params }: { params: Promise<{ reference:
           rows={rows}
           total={detail.breakdown.total}
           currency={detail.currency}
+          displayCurrency={display}
           note="Payment is processed through the hotel's secure payment page."
         />
       </div>

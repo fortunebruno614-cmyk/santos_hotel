@@ -87,7 +87,7 @@ function signedEvent(
   type: "payment.succeeded" | "payment.failed",
   providerReference: string,
   amount: string,
-  currency = "MYR",
+  currency = "NGN",
 ) {
   return mockProvider.signWebhookEvent({
     type,
@@ -377,7 +377,7 @@ describe("P6 payments", () => {
       provider: provider.id,
       providerReference: "mock_x",
       amount: "10.00",
-      currency: "MYR",
+      currency: "NGN",
     });
     assert.equal(provider.verifyWebhookSignature(event.rawBody, event.signature), true);
     assert.equal(provider.verifyWebhookSignature(event.rawBody + "tampered", event.signature), false);

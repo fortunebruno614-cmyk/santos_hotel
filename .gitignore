@@ -47,3 +47,6 @@ next-env.d.ts
 /.pglite-data/
 /.pglite-server.log
 /.pglite-server.err.log
+
+# local dev-server console output (npm run dev > dev.log)
+/dev.log

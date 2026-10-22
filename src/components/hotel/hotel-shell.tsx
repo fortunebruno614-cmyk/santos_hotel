@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { CurrencySwitch } from "@/components/hotel/currency-switch";
+import { useDisplayCurrency } from "@/components/hotel/currency-provider";
 import { defaultStayDates, searchHref } from "@/lib/hotel";
 import { logout } from "@/server/auth/actions";
 
@@ -59,6 +61,7 @@ export function HotelShell({
   const [menu, setMenu] = useState(false);
   const [policy, setPolicy] = useState("");
   const pathname = usePathname();
+  const display = useDisplayCurrency();
   const bookHref = searchHref({
     ...defaultStayDates(),
     adults: 2,
@@ -86,13 +89,22 @@ export function HotelShell({
             <span className="language">
               <Globe2 size={14} /> EN
             </span>
-            <span className="currency" aria-label="Currency">
-              {currency}
-            </span>
-            <Link href={staff ? "/admin" : "/account"} className="account-link">
-              <UserRound size={16} />
-              <span>{staff ? "Staff console" : "My Bookings"}</span>
-            </Link>
+            <CurrencySwitch />
+            {signedIn ? (
+              <Link href={staff ? "/admin" : "/account"} className="account-link">
+                <UserRound size={16} />
+                <span>{staff ? "Staff console" : "My Bookings"}</span>
+              </Link>
+            ) : (
+              <div className="auth-actions">
+                <Link href="/login" className="auth-link">
+                  Log in
+                </Link>
+                <Button asChild size="sm" className="header-signup">
+                  <Link href="/signup">Sign up</Link>
+                </Button>
+              </div>
+            )}
             <Button asChild className="header-book">
               <Link href={bookHref}>
                 Book your stay <ArrowUpRight />
@@ -123,9 +135,14 @@ export function HotelShell({
               {staff ? "Staff console" : "My Bookings"}
             </Link>
             {!signedIn && (
-              <Link href="/login" onClick={() => setMenu(false)}>
-                Sign in
-              </Link>
+              <>
+                <Link href="/login" onClick={() => setMenu(false)}>
+                  Log in
+                </Link>
+                <Link href="/signup" onClick={() => setMenu(false)}>
+                  Sign up
+                </Link>
+              </>
             )}
           </nav>
         )}
@@ -197,7 +214,12 @@ export function HotelShell({
             <Button variant="link" onClick={() => setPolicy("Terms & conditions")}>
               Terms & Conditions
             </Button>
-            <span>English · {currency}</span>
+            <span>
+              English ·{" "}
+              {display === currency.toUpperCase()
+                ? currency
+                : `${display} prices · billed in ${currency}`}
+            </span>
           </div>
         </div>
       </footer>

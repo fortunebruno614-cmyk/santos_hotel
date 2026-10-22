@@ -18,7 +18,7 @@ const ROOM_TYPES = [
     description: "Spacious room with a king bed, city view and work desk.",
     maxAdults: 2,
     maxChildren: 1,
-    basePrice: 450,
+    basePrice: 144000,
     amenities: ["Wi-Fi", "Air Conditioning", "TV", "Mini Fridge", "Private Bathroom"],
     images: ["/images/santo-room.jpg", "/images/santo-lobby.jpg"],
     rooms: [
@@ -34,7 +34,7 @@ const ROOM_TYPES = [
     description: "Suite with separate living area, king bed and lounge access.",
     maxAdults: 2,
     maxChildren: 2,
-    basePrice: 850,
+    basePrice: 272000,
     amenities: ["Wi-Fi", "Air Conditioning", "TV", "Mini Fridge", "Private Bathroom"],
     images: ["/images/santo-suite.jpg", "/images/santo-pool.jpg"],
     rooms: [
@@ -48,7 +48,7 @@ const ROOM_TYPES = [
     description: "Two queen beds, ideal for families travelling together.",
     maxAdults: 4,
     maxChildren: 2,
-    basePrice: 650,
+    basePrice: 208000,
     amenities: ["Wi-Fi", "Air Conditioning", "TV", "Private Bathroom"],
     images: ["/images/santo-twin.jpg", "/images/santo-room.jpg"],
     rooms: [
@@ -144,7 +144,7 @@ async function main() {
       slug: "santo-hotel",
       description: "Single-tenant hotel booking demo environment.",
       timezone: "Asia/Kuala_Lumpur",
-      currency: "MYR",
+      currency: "NGN",
     },
   });
 
@@ -227,7 +227,7 @@ async function main() {
 
     const rateData = {
       amount: type.basePrice,
-      currency: "MYR",
+      currency: "NGN",
       startDate: new Date("2026-01-01"),
       endDate: new Date("2026-12-31"),
       status: RecordStatus.ACTIVE,

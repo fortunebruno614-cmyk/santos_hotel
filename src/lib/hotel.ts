@@ -1,3 +1,5 @@
+import { conversionRate, convertMoney, isDisplayCurrency, moneyLocale } from "@/lib/currency";
+
 export type PublicRoomType = {
   id: string;
   slug: string;
@@ -65,16 +67,33 @@ export function isSuiteName(name: string): boolean {
   return name.toLowerCase().includes("suite");
 }
 
-export function formatMoney(amount: string | number, currency: string): string {
+/**
+ * Formats `amount` (already priced in `currency`) for display.
+ *
+ * `display` is the guest's chosen viewing currency (NGN/USD, from the
+ * `santo_currency` cookie — see `@/lib/currency`). It only changes what is
+ * rendered: the stored and charged amount stays in `currency`. When the pair
+ * has no known rate the amount is shown in `currency` instead of being
+ * mislabelled.
+ */
+export function formatMoney(
+  amount: string | number,
+  currency: string,
+  display?: string,
+): string {
+  const base = currency?.trim().toUpperCase() || "NGN";
+  const wanted = display && isDisplayCurrency(display) ? display : base;
+  const target = conversionRate(base, wanted) === null ? base : wanted;
   const value = typeof amount === "string" ? Number(amount) : amount;
-  if (!Number.isFinite(value)) return `${currency} 0`;
-  const hasFraction = Math.round(value * 100) % 100 !== 0;
-  return new Intl.NumberFormat("en-MY", {
+  if (!Number.isFinite(value)) return `${target} 0`;
+  const converted = convertMoney(value, base, target);
+  const hasFraction = Math.round(converted * 100) % 100 !== 0;
+  return new Intl.NumberFormat(moneyLocale(target), {
     style: "currency",
-    currency,
+    currency: target,
     minimumFractionDigits: hasFraction ? 2 : 0,
     maximumFractionDigits: 2,
-  }).format(value);
+  }).format(converted);
 }
 
 export function nightsBetween(start: string, end: string): number {

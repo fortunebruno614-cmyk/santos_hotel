@@ -5,9 +5,11 @@ import { AlertCircle, RotateCcw, SearchX, SlidersHorizontal } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, PageHeading, RoomCard } from "@/components/hotel/shared";
 import { SearchPanel } from "@/components/hotel/search-panel";
+import { useDisplayCurrency } from "@/components/hotel/currency-provider";
 import {
   bookingHref,
   defaultStayDates,
+  formatMoney,
   nightsBetween,
   searchHref,
   type ListingRoom,
@@ -36,6 +38,7 @@ export function Listing({
   description?: string;
 }) {
   const availability = mode === "availability";
+  const display = useDisplayCurrency();
   const [type, setType] = useState("All");
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [guests, setGuests] = useState("Any");
@@ -138,8 +141,8 @@ export function Listing({
               onChange={(event) => setMaxPrice(Number(event.target.value))}
             />
             <div className="range-labels">
-              <span>{bounds.min}</span>
-              <span>Up to {activeMax}</span>
+              <span>{formatMoney(bounds.min, currency, display)}</span>
+              <span>Up to {formatMoney(activeMax, currency, display)}</span>
             </div>
           </fieldset>
           <fieldset>
@@ -255,6 +258,7 @@ export function Listing({
                   room={room}
                   stay={stay}
                   currency={currency}
+                  displayCurrency={display}
                   horizontal
                   href={href}
                   bookHref={bookHref}

@@ -9,7 +9,7 @@ Status values: `open` · `answered` · `deferred`
 
 | # | Question | Blocks | Status | Answer |
 | - | -------- | ------ | ------ | ------ |
-| 1 | What currency will Santo Hotel use? Does it match `MYR` default in `Hotel.currency`? | P5, P6 | open | P5 default (config, reversible): the `hotels` row's currency (fallback `HOTEL_CURRENCY=MYR`) is used for every quote, breakdown and stored amount; quotes echo it so the UI never hardcodes one. |
+| 1 | What currency will Santo Hotel use? Does it match `MYR` default in `Hotel.currency`? | P5, P6 | answered | Naira: the `hotels` row is `NGN` (fallback `HOTEL_CURRENCY=NGN`) and every quote, breakdown and stored amount is in NGN; schema default, seed and stored demo amounts converted (x320) on 2026-10-17. Guests may *view* the site in NGN or USD via the `santo_currency` cookie — display only, quotes still echo the charged currency. |
 | 2 | Are taxes included in displayed prices? | P5 | open | P5 default (config, reversible): `TAX_RATE_PERCENT=0` — no tax line until answered; when set, taxes = (subtotal − discount) × rate, computed server-side and re-validated inside the booking transaction. |
 | 3 | Are there additional service fees? | P5 | open | P5 default (config, reversible): `SERVICE_FEE=0` — a flat fee charged once per booking when set. |
 | 4 | Which payment gateway will be used? | P6 | open | P6 default (config, reversible): none yet — `PAYMENT_PROVIDER=mock` is a fully working local gateway (HMAC-signed webhooks, success/failure/partial-refund, hosted pay page) so the entire money path is live and tested. A real gateway plugs into `src/server/payments/provider.ts` (one registry entry) and one env var; no service, route or test changes. |

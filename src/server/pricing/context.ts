@@ -116,7 +116,7 @@ export function zonedToUtc(date: Date, time: string, timeZone: string): Date {
   return new Date(instant);
 }
 
-/** Display helper: `MYR 450.00` using the hotel currency. */
+/** Display helper: `NGN 450000` using the hotel currency. */
 export function formatMoney(amount: string, currency: string): string {
   return `${currency} ${amount}`;
 }

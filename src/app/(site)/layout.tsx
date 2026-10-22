@@ -1,13 +1,16 @@
+import { CurrencyProvider } from "@/components/hotel/currency-provider";
 import { HotelShell } from "@/components/hotel/hotel-shell";
 import { getCurrentSession } from "@/server/auth/dal";
+import { displayCurrency } from "@/server/currency/display";
 import { loadHotelProfile } from "@/server/public/catalog";
 import { getContent } from "@/server/console/settings";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
-  const [session, hotel, footer] = await Promise.all([
+  const [session, hotel, footer, display] = await Promise.all([
     getCurrentSession(),
     loadHotelProfile(),
     getContent("site.footer"),
+    displayCurrency(),
   ]);
   const address =
     [hotel.addressLine1, hotel.addressLine2, hotel.city, hotel.postcode, hotel.country]
@@ -15,16 +18,18 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       .join(", ") || "Hotel address to be confirmed";
 
   return (
-    <HotelShell
-      signedIn={Boolean(session)}
-      staff={session?.kind === "staff"}
-      currency={hotel.currency}
-      hotelName={hotel.name}
-      address={address}
-      email={hotel.email}
-      footerNote={footer?.body ?? null}
-    >
-      {children}
-    </HotelShell>
+    <CurrencyProvider value={display}>
+      <HotelShell
+        signedIn={Boolean(session)}
+        staff={session?.kind === "staff"}
+        currency={hotel.currency}
+        hotelName={hotel.name}
+        address={address}
+        email={hotel.email}
+        footerNote={footer?.body ?? null}
+      >
+        {children}
+      </HotelShell>
+    </CurrencyProvider>
   );
 }

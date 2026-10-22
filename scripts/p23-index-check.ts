@@ -96,7 +96,7 @@ async function seedWorkload() {
 
   await prisma.$executeRawUnsafe(
     `INSERT INTO payments (id, booking_id, provider, provider_reference, amount, currency, status, refunded_amount, created_at, updated_at)
-     SELECT gen_random_uuid(), b.id, 'stripe', 'IDX-' || b.booking_reference, 450, 'MYR', 'PAID', 0, now(), now()
+     SELECT gen_random_uuid(), b.id, 'stripe', 'IDX-' || b.booking_reference, 450000, 'NGN', 'PAID', 0, now(), now()
      FROM (SELECT id, booking_reference FROM bookings WHERE booking_reference LIKE 'IDX-%') b`,
   );
 

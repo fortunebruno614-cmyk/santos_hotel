@@ -8,6 +8,7 @@ import { requireGuest, getCurrentUser } from "@/server/auth/dal";
 import { prisma } from "@/lib/prisma";
 import { cancellationInfoFor } from "@/server/booking/service";
 import { loadHotelContext, hotelToday } from "@/server/pricing/context";
+import { displayCurrency } from "@/server/currency/display";
 import { BookingStatus } from "@/generated/prisma/enums";
 import { fallbackImageForSlug, formatMoney as publicMoney } from "@/lib/hotel";
 
@@ -21,6 +22,7 @@ export default async function AccountPage({
   const session = await requireGuest();
   const user = await getCurrentUser();
   const hotel = await loadHotelContext();
+  const display = await displayCurrency();
   const today = hotelToday(new Date(), hotel.timezone);
 
   const guest = user && "firstName" in user ? user : null;
@@ -56,7 +58,7 @@ export default async function AccountPage({
     const cancellation = cancellationInfoFor(booking, hotel);
     const roomName = booking.rooms[0]?.room.roomType.name ?? "Santo stay";
     const image = imageByName.get(roomName) ?? fallbackImageForSlug("");
-    const total = publicMoney(booking.total.toString(), hotel.currency);
+    const total = publicMoney(booking.total.toString(), hotel.currency, display);
     return (
       <article className="account-booking" key={booking.id}>
         {/* eslint-disable-next-line @next/next/no-img-element */}

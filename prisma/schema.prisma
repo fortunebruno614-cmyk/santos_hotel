@@ -93,7 +93,7 @@ model Hotel {
   postcode     String?
   country      String?
   timezone     String   @default("Asia/Kuala_Lumpur")
-  currency     String   @default("MYR")
+  currency     String   @default("NGN")
 
   // P7 system settings — the admin console edits these; `src/config/booking.ts`
   // env vars are only the bootstrap fallback for a database that has none.
@@ -284,7 +284,7 @@ model Rate {
   roomTypeId String       @map("room_type_id") @db.Uuid
   name       String
   amount     Decimal      @db.Decimal(10, 2)
-  currency   String       @default("MYR")
+  currency   String       @default("NGN")
   startDate  DateTime     @map("start_date") @db.Date
   endDate    DateTime     @map("end_date") @db.Date
   status     RecordStatus @default(ACTIVE)
@@ -443,7 +443,7 @@ model Payment {
   provider          String
   providerReference String?       @unique @map("provider_reference")
   amount            Decimal       @db.Decimal(10, 2)
-  currency          String        @default("MYR")
+  currency          String        @default("NGN")
   status            PaymentStatus @default(PENDING)
   refundedAmount    Decimal       @default(0) @map("refunded_amount") @db.Decimal(10, 2)
   paidAt            DateTime?     @map("paid_at") @db.Timestamptz()

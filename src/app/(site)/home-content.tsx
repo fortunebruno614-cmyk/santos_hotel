@@ -15,7 +15,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Gallery, GalleryTile, RoomCard } from "@/components/hotel/shared";
 import { SearchPanel } from "@/components/hotel/search-panel";
-import { GALLERY_IMAGES, defaultStayDates, type ListingRoom } from "@/lib/hotel";
+import { useDisplayCurrency } from "@/components/hotel/currency-provider";
+import {
+  GALLERY_IMAGES,
+  defaultStayDates,
+  searchHref,
+  type ListingRoom,
+} from "@/lib/hotel";
 
 const OFFERS = [
   {
@@ -58,8 +64,10 @@ export function HomeContent({
   hotelName: string;
 }) {
   const [gallery, setGallery] = useState<number | null>(null);
+  const display = useDisplayCurrency();
   const dates = defaultStayDates();
   const stay = { ...dates, adults: 2, children: 0, quantity: 1 };
+  const bookHref = searchHref(stay);
 
   const [firstLine, ...rest] = heroTitle.split(",");
   const secondLine = rest.join(",").trim();
@@ -90,11 +98,18 @@ export function HomeContent({
             )}
           </h1>
           <p>{heroBody}</p>
-          <Button asChild variant="outline" className="hero-explore">
-            <Link href="/rooms">
-              Find your kind of comfort <ArrowUpRight />
-            </Link>
-          </Button>
+          <div className="hero-ctas">
+            <Button asChild variant="outline" className="hero-explore">
+              <Link href="/rooms">
+                Find your kind of comfort <ArrowUpRight />
+              </Link>
+            </Button>
+            <Button asChild className="hero-book">
+              <Link href={bookHref}>
+                Book your stay <ArrowUpRight />
+              </Link>
+            </Button>
+          </div>
           <div className="hero-bottom">
             <span>A considered stay. A genuine welcome.</span>
             <span className="hero-slide">
@@ -137,7 +152,13 @@ export function HomeContent({
         </p>
         <div className="room-grid">
           {rooms.slice(0, 3).map((room) => (
-            <RoomCard key={room.id} room={room} currency={currency} href={`/rooms/${room.slug}`} />
+            <RoomCard
+              key={room.id}
+              room={room}
+              currency={currency}
+              displayCurrency={display}
+              href={`/rooms/${room.slug}`}
+            />
           ))}
         </div>
       </section>

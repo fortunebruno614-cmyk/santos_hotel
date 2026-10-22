@@ -287,12 +287,59 @@
   align-items: center;
   white-space: nowrap;
 }
-.currency {
-  background: transparent;
+.currency-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.currency-switch button {
+  width: 27px;
+  height: 23px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: inherit;
   font-size: 11px;
-  padding: 0;
-  min-width: 45px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.currency-switch button[aria-pressed="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.currency-switch button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+.currency-switch button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+.auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  white-space: nowrap;
+}
+.auth-link {
+  font-size: 11px;
+}
+.auth-link:hover {
+  color: var(--primary);
+}
+.header-signup {
+  height: 34px;
+  padding-inline: 15px;
+  font-size: 11px;
+  border-radius: 3px;
+  box-shadow: none;
 }
 .header-book {
   font-size: 11px;
@@ -368,6 +415,29 @@
 }
 .hero-explore:hover {
   background: var(--primary-foreground);
+  color: var(--primary);
+}
+.hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 25px;
+}
+.hero-ctas .hero-explore {
+  margin-top: 0;
+}
+.hero-book {
+  height: 38px;
+  padding-inline: 18px;
+  font-size: 11px;
+  border-radius: 3px;
+  box-shadow: none;
+  background: var(--primary-foreground);
+  color: var(--primary);
+}
+.hero-book:hover {
+  background: var(--gold);
   color: var(--primary);
 }
 .hero-bottom {
@@ -1891,6 +1961,12 @@
   .header-actions .account-link span {
     display: none;
   }
+  .header-actions .auth-actions {
+    display: none;
+  }
+  .mobile-toggle {
+    display: inline-flex;
+  }
   .search-panel {
     grid-template-columns: repeat(3, 1fr);
     gap: 18px 0;
@@ -2104,6 +2180,17 @@
   .hero-explore {
     margin-top: 23px;
     font-size: 10px;
+  }
+  .hero-ctas {
+    margin-top: 23px;
+    gap: 10px;
+  }
+  .hero-ctas .hero-explore {
+    margin-top: 0;
+  }
+  .hero-book {
+    font-size: 10px;
+    padding-inline: 15px;
   }
   .home-search {
     margin-top: -32px;

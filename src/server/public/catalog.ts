@@ -52,7 +52,7 @@ export async function loadHotelProfile() {
     city: hotel?.city ?? null,
     postcode: hotel?.postcode ?? null,
     country: hotel?.country ?? null,
-    currency: hotel?.currency ?? "MYR",
+    currency: hotel?.currency ?? "NGN",
     checkInTime: hotel?.checkInTime ?? "15:00",
     checkOutTime: hotel?.checkOutTime ?? "11:00",
     cancellationWindowHours: hotel?.cancellationWindowHours ?? 48,

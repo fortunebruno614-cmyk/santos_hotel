@@ -49,6 +49,7 @@ export function RoomCard({
   room,
   stay,
   currency,
+  displayCurrency,
   horizontal = false,
   href,
   bookHref,
@@ -57,6 +58,7 @@ export function RoomCard({
   room: ListingRoom;
   stay?: StayQuery;
   currency: string;
+  displayCurrency?: string;
   horizontal?: boolean;
   href: string;
   bookHref?: string;
@@ -121,12 +123,12 @@ export function RoomCard({
         <div className="room-card-bottom">
           <div>
             <span className="rate-from">From </span>
-            <strong>{formatMoney(nightly, currency)}</strong>
+            <strong>{formatMoney(nightly, currency, displayCurrency)}</strong>
             <span className="rate-unit"> / night</span>
             {horizontal && stay && stayTotal && (
               <small>
-                {formatMoney(stayTotal, currency)} for {nights} {nights === 1 ? "night" : "nights"}{" "}
-                · before taxes &amp; fees
+                {formatMoney(stayTotal, currency, displayCurrency)} for {nights}{" "}
+                {nights === 1 ? "night" : "nights"} · before taxes &amp; fees
               </small>
             )}
           </div>

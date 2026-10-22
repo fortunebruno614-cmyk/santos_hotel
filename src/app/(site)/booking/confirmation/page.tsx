@@ -13,6 +13,7 @@ import {
   type BookingViewer,
 } from "@/server/booking/service";
 import { prisma } from "@/lib/prisma";
+import { displayCurrency } from "@/server/currency/display";
 import { fallbackImageForSlug, formatMoney } from "@/lib/hotel";
 
 export default async function ConfirmationPage({
@@ -21,6 +22,7 @@ export default async function ConfirmationPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
+  const display = await displayCurrency();
   const reference = sp.ref?.trim();
 
   if (!reference) {
@@ -85,18 +87,18 @@ export default async function ConfirmationPage({
   const rows: SummaryRow[] = [
     ...detail.rooms.map((room) => ({
       label: `${room.roomTypeName} · Room ${room.roomNumber}`,
-      value: formatMoney(room.roomTotal, detail.currency),
+      value: formatMoney(room.roomTotal, detail.currency, display),
     })),
     ...(Number(detail.breakdown.discount) > 0
       ? [
           {
             label: "Discount",
-            value: `−${formatMoney(detail.breakdown.discount, detail.currency)}`,
+            value: `−${formatMoney(detail.breakdown.discount, detail.currency, display)}`,
           },
         ]
       : []),
-    { label: "Taxes", value: formatMoney(detail.breakdown.taxes, detail.currency) },
-    { label: "Service fee", value: formatMoney(detail.breakdown.fees, detail.currency) },
+    { label: "Taxes", value: formatMoney(detail.breakdown.taxes, detail.currency, display) },
+    { label: "Service fee", value: formatMoney(detail.breakdown.fees, detail.currency, display) },
   ];
 
   return (
@@ -160,7 +162,8 @@ export default async function ConfirmationPage({
           {!cancelled && detail.paymentStatus !== "PAID" && (
             <Button asChild>
               <Link href={`/pay/${encodeURIComponent(detail.bookingReference)}`}>
-                Pay {formatMoney(detail.breakdown.total, detail.currency)} now <ArrowRight />
+                Pay {formatMoney(detail.breakdown.total, detail.currency, display)} now{" "}
+                <ArrowRight />
               </Link>
             </Button>
           )}
@@ -202,6 +205,7 @@ export default async function ConfirmationPage({
           rows={rows}
           total={detail.breakdown.total}
           currency={detail.currency}
+          displayCurrency={display}
           note={
             detail.cancellation.deadline
               ? `Free cancellation until ${detail.cancellation.deadline.slice(0, 16).replace("T", " ")} UTC.`
