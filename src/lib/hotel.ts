@@ -15,6 +15,17 @@ export type PublicRoomType = {
   bed: string;
 };
 
+/** One physical room in the house, as shown on the public room list. */
+export type InventoryRoom = {
+  id: string;
+  roomNumber: string;
+  floor: number | null;
+  typeSlug: string;
+  typeName: string;
+  basePrice: string;
+  isSuite: boolean;
+};
+
 export type StayQuery = {
   checkIn: string;
   checkOut: string;

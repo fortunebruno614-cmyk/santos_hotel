@@ -1,12 +1,17 @@
 import { HomeContent } from "./home-content";
 import { getContent } from "@/server/console/settings";
-import { loadHotelProfile, loadPublicRoomTypes } from "@/server/public/catalog";
+import {
+  loadHotelProfile,
+  loadPublicRoomTypes,
+  loadRoomsInventory,
+} from "@/server/public/catalog";
 
 export default async function Home() {
-  const [hero, rooms, hotel] = await Promise.all([
+  const [hero, rooms, hotel, inventory] = await Promise.all([
     getContent("home.hero"),
     loadPublicRoomTypes(),
     loadHotelProfile(),
+    loadRoomsInventory(),
   ]);
 
   const address =
@@ -17,6 +22,7 @@ export default async function Home() {
   return (
     <HomeContent
       rooms={rooms}
+      inventory={inventory}
       currency={hotel.currency}
       heroTitle={hero?.title || "Your Stay, Thoughtfully Designed."}
       heroBody={

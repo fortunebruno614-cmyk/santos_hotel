@@ -696,6 +696,82 @@
   font-size: 11px;
   padding-inline: 13px;
 }
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.inventory-card {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--card);
+  padding: 17px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.inventory-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.inventory-number {
+  font-size: 10px;
+  letter-spacing: 1.3px;
+  font-weight: 600;
+  color: var(--primary);
+}
+.inventory-floor {
+  font-size: 9px;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.inventory-card h3 {
+  font-size: 16px;
+  margin-top: 2px;
+}
+.inventory-kind {
+  font-size: 8px;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.inventory-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 13px;
+  border-top: 1px solid var(--border);
+}
+.inventory-bottom strong {
+  font-size: 17px;
+  font-family: var(--font-display);
+  color: var(--primary);
+}
+.inventory-card .room-book {
+  font-size: 10px;
+  padding-inline: 12px;
+}
+@media (max-width: 1100px) {
+  .inventory-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 767px) {
+  .inventory-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .inventory-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .why-section {
   background: var(--secondary);
   padding-block: 54px;

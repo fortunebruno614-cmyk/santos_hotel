@@ -4,6 +4,7 @@ import {
   bedForRoomType,
   fallbackImageForSlug,
   isSuiteName,
+  type InventoryRoom,
   type PublicRoomType,
 } from "@/lib/hotel";
 
@@ -38,6 +39,25 @@ export async function loadPublicRoomTypes(): Promise<PublicRoomType[]> {
       bed: bedForRoomType(type.name, description),
     };
   });
+}
+
+/** Every physical room of every active room type, for the public room list. */
+export async function loadRoomsInventory(): Promise<InventoryRoom[]> {
+  const rooms = await prisma.room.findMany({
+    where: { roomType: { status: RecordStatus.ACTIVE } },
+    orderBy: { roomNumber: "asc" },
+    include: { roomType: { select: { slug: true, name: true, basePrice: true } } },
+  });
+
+  return rooms.map((room) => ({
+    id: room.id,
+    roomNumber: room.roomNumber,
+    floor: room.floor,
+    typeSlug: room.roomType.slug,
+    typeName: room.roomType.name,
+    basePrice: room.roomType.basePrice.toString(),
+    isSuite: isSuiteName(room.roomType.name),
+  }));
 }
 
 export async function loadHotelProfile() {

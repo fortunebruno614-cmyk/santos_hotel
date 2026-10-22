@@ -19,7 +19,9 @@ import { useDisplayCurrency } from "@/components/hotel/currency-provider";
 import {
   GALLERY_IMAGES,
   defaultStayDates,
+  formatMoney,
   searchHref,
+  type InventoryRoom,
   type ListingRoom,
 } from "@/lib/hotel";
 
@@ -50,6 +52,7 @@ const HIGHLIGHTS = [
 
 export function HomeContent({
   rooms,
+  inventory,
   currency,
   heroTitle,
   heroBody,
@@ -57,6 +60,7 @@ export function HomeContent({
   hotelName,
 }: {
   rooms: ListingRoom[];
+  inventory: InventoryRoom[];
   currency: string;
   heroTitle: string;
   heroBody: string;
@@ -160,6 +164,46 @@ export function HomeContent({
               href={`/rooms/${room.slug}`}
               bookHref={searchHref(stay, `/rooms/${room.slug}`)}
             />
+          ))}
+        </div>
+      </section>
+
+      <section className="container section inventory-section">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">THE ROOM LIST</span>
+            <h2>All {inventory.length} rooms, ready to book.</h2>
+          </div>
+          <Link href="/rooms" className="text-link">
+            Browse rooms &amp; suites <ArrowRight size={17} />
+          </Link>
+        </div>
+        <p className="section-intro">
+          Every room in the house, listed one by one — pick the exact room you want to stay in.
+        </p>
+        <div className="inventory-grid">
+          {inventory.map((room) => (
+            <article className="inventory-card" key={room.id}>
+              <div className="inventory-meta">
+                <span className="inventory-number">Room {room.roomNumber}</span>
+                <span className="inventory-floor">Floor {room.floor ?? 1}</span>
+              </div>
+              <h3>
+                <Link href={`/rooms/${room.typeSlug}`}>{room.typeName}</Link>
+              </h3>
+              <span className="inventory-kind">
+                {room.isSuite ? "The suite collection" : "A guest favourite"}
+              </span>
+              <div className="inventory-bottom">
+                <div>
+                  <strong>{formatMoney(room.basePrice, currency, display)}</strong>
+                  <span className="rate-unit"> / night</span>
+                </div>
+                <Button asChild size="sm" className="room-book">
+                  <Link href={searchHref(stay, `/rooms/${room.typeSlug}`)}>Book a room</Link>
+                </Button>
+              </div>
+            </article>
           ))}
         </div>
       </section>
