@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "warm": "tsx scripts/dev-warm.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
