@@ -40,6 +40,8 @@ const ROOM_TYPES = [
     rooms: [
       { roomNumber: "201", floor: 2 },
       { roomNumber: "202", floor: 2 },
+      { roomNumber: "203", floor: 2 },
+      { roomNumber: "204", floor: 2 },
     ],
   },
   {
@@ -55,6 +57,7 @@ const ROOM_TYPES = [
       { roomNumber: "301", floor: 3 },
       { roomNumber: "302", floor: 3 },
       { roomNumber: "303", floor: 3 },
+      { roomNumber: "304", floor: 3 },
     ],
   },
 ];

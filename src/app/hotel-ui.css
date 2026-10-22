@@ -668,6 +668,7 @@
   padding-top: 17px;
   border-top: 1px solid var(--border);
   gap: 10px;
+  flex-wrap: wrap;
 }
 .room-card-bottom strong {
   font-size: 20px;
@@ -689,6 +690,11 @@
   display: flex;
   gap: 15px;
   align-items: center;
+  flex-wrap: wrap;
+}
+.room-card:not(.horizontal) .room-book {
+  font-size: 11px;
+  padding-inline: 13px;
 }
 .why-section {
   background: var(--secondary);

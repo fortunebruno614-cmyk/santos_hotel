@@ -158,6 +158,7 @@ export function HomeContent({
               currency={currency}
               displayCurrency={display}
               href={`/rooms/${room.slug}`}
+              bookHref={searchHref(stay, `/rooms/${room.slug}`)}
             />
           ))}
         </div>

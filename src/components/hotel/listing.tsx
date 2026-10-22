@@ -249,9 +249,9 @@ export function Listing({
                 : "";
               const href = `/rooms/${room.slug}${detailParams ? `?${detailParams}` : ""}`;
               const bookHref =
-                availability && stay && room.availableRoomIds
+                availability && stay && room.availableRoomIds?.length
                   ? bookingHref(stay, room.availableRoomIds.slice(0, stay.quantity))
-                  : undefined;
+                  : searchHref(searchDefaults, `/rooms/${room.slug}`);
               return (
                 <RoomCard
                   key={room.id}

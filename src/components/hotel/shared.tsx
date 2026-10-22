@@ -137,9 +137,9 @@ export function RoomCard({
               {horizontal ? "View details" : "View room"}
               <ArrowRight size={15} />
             </Link>
-            {horizontal && bookHref && (
-              <Button asChild>
-                <Link href={bookHref}>Choose room</Link>
+            {bookHref && (
+              <Button asChild className="room-book">
+                <Link href={bookHref}>Book a room</Link>
               </Button>
             )}
           </div>
