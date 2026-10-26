@@ -53,9 +53,12 @@ export function Listing({
     const prices = rooms.map((room) =>
       Number(room.price?.nightlyRate ?? room.basePrice),
     );
+    const minPrice = prices.length > 0 ? Math.floor(Math.min(...prices)) : 0;
+    const maxPrice =
+      prices.length > 0 ? Math.max(minPrice + 1, Math.ceil(Math.max(...prices))) : 1;
     return {
-      min: Math.floor(Math.min(...prices, 150)),
-      max: Math.ceil(Math.max(...prices, 400)),
+      min: minPrice,
+      max: maxPrice,
       amenities: [...new Set(rooms.flatMap((room) => room.amenities))].slice(0, 4),
     };
   }, [rooms]);

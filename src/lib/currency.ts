@@ -52,5 +52,5 @@ export function moneyLocale(currency: string): string {
   const code = currency.trim().toUpperCase();
   if (code === "NGN") return "en-NG";
   if (code === "USD") return "en-US";
-  return "en-MY";
+  return "en-NG";
 }
