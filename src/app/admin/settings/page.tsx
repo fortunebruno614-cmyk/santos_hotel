@@ -34,6 +34,8 @@ export default async function AdminSettingsPage() {
           cancellationWindowHours: settings.cancellationWindowHours,
           guestCancellationEnabled: settings.guestCancellationEnabled,
           maxRoomsPerBooking: settings.maxRoomsPerBooking,
+          latitude: settings.latitude,
+          longitude: settings.longitude,
         }}
       />
     </div>

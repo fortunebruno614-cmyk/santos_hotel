@@ -72,6 +72,9 @@ export async function loadHotelProfile() {
     city: hotel?.city ?? null,
     postcode: hotel?.postcode ?? null,
     country: hotel?.country ?? null,
+    // Verified coordinates (MR-07) — null until an operator records them.
+    latitude: hotel?.latitude != null ? Number(hotel.latitude) : null,
+    longitude: hotel?.longitude != null ? Number(hotel.longitude) : null,
     currency: hotel?.currency ?? "NGN",
     checkInTime: hotel?.checkInTime ?? "15:00",
     checkOutTime: hotel?.checkOutTime ?? "11:00",

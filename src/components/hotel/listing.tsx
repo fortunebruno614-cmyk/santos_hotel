@@ -1,26 +1,43 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AlertCircle, RotateCcw, SearchX, SlidersHorizontal } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, Map as MapIcon, RotateCcw, SearchX, SlidersHorizontal, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, PageHeading, RoomCard } from "@/components/hotel/shared";
 import { SearchPanel } from "@/components/hotel/search-panel";
+import { HotelMap } from "@/components/hotel/hotel-map";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
+import { isMapEnabled } from "@/config/maps";
 import {
   bookingHref,
   defaultStayDates,
   formatMoney,
   nightsBetween,
   searchHref,
+  type HotelLocation,
   type ListingRoom,
   type StayQuery,
 } from "@/lib/hotel";
 
+/**
+ * Rooms listing with the List/Map view switch (MR-01..MR-06).
+ *
+ * The view mode is transient page state (MRD decision #4): it lives in this
+ * component only, never in the URL, so search params stay shareable and
+ * switching views preserves dates, filters, sort, currency and selection.
+ * Desktop shows a split layout (list left, map right, map sticky); below the
+ * map breakpoint the same toggle switches a full-width pane and the list's
+ * scroll position is restored when returning to the list.
+ *
+ * The toggle only renders when a Maps API key is configured — without one the
+ * page behaves exactly as the plain list always has.
+ */
 export function Listing({
   mode = "catalog",
   rooms,
   stay,
   currency,
+  location,
   errorMessage,
   policyNote,
   eyebrow,
@@ -31,6 +48,7 @@ export function Listing({
   rooms: ListingRoom[];
   stay?: StayQuery;
   currency: string;
+  location?: HotelLocation;
   errorMessage?: string | null;
   policyNote?: string;
   eyebrow?: string;
@@ -45,6 +63,30 @@ export function Listing({
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [sort, setSort] = useState("recommended");
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Map/list mode: transient page state, independent of the URL (MRD #4).
+  const mapEnabled = isMapEnabled() && Boolean(location);
+  const [view, setView] = useState<"list" | "map">("list");
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const listViewScrollY = useRef<number | null>(null);
+
+  const switchView = (next: "list" | "map") => {
+    if (next === view) return;
+    if (next === "map") {
+      listViewScrollY.current = window.scrollY;
+    }
+    setView(next);
+  };
+
+  // On mobile the panes swap entirely; put the reader back where they were
+  // in the list instead of dumping them at the top of the page.
+  useEffect(() => {
+    if (view === "list" && listViewScrollY.current !== null) {
+      const y = listViewScrollY.current;
+      listViewScrollY.current = null;
+      window.scrollTo({ top: y });
+    }
+  }, [view]);
 
   const searchDefaults: StayQuery =
     stay ?? { ...defaultStayDates(), adults: 2, children: 0, quantity: 1 };
@@ -96,6 +138,12 @@ export function Listing({
 
   const nights = stay ? nightsBetween(stay.checkIn, stay.checkOut) : 0;
 
+  const selectedRoom = selectedRoomId
+    ? (rooms.find((room) => room.id === selectedRoomId)?.name ?? null)
+    : null;
+
+  const showMap = mapEnabled && view === "map";
+
   return (
     <div className="container page-content">
       <Breadcrumb current={availability ? "Availability" : "Rooms & Suites"} />
@@ -109,7 +157,37 @@ export function Listing({
       />
       <SearchPanel compact defaults={searchDefaults} />
 
-      <div className="listing-layout">
+      {mapEnabled && (
+        <div className="view-switch" role="group" aria-label="Choose room view">
+          <button
+            type="button"
+            aria-pressed={view === "list"}
+            onClick={() => switchView("list")}
+          >
+            <List aria-hidden="true" />
+            List
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === "map"}
+            onClick={() => switchView("map")}
+          >
+            <MapIcon aria-hidden="true" />
+            Map
+          </button>
+          {/* Selection is also exposed as text, not colour alone (WCAG). */}
+          <span className="visually-hidden" role="status">
+            {view === "map"
+              ? "Map view. Room list and filters are still available."
+              : "List view."}
+          </span>
+        </div>
+      )}
+
+      <div
+        className={`listing-layout${showMap ? " with-map" : ""}`}
+        data-view={mapEnabled ? view : undefined}
+      >
         <aside className={`filters ${filtersOpen ? "is-open" : ""}`}>
           <div className="filter-heading">
             <h3>Refine your stay</h3>
@@ -266,6 +344,12 @@ export function Listing({
                   href={href}
                   bookHref={bookHref}
                   policyNote={policyNote}
+                  selected={selectedRoomId === room.id}
+                  onSelect={() =>
+                    setSelectedRoomId((current) =>
+                      current === room.id ? null : room.id,
+                    )
+                  }
                 />
               );
             })
@@ -275,6 +359,17 @@ export function Listing({
             checkout.
           </p>
         </section>
+
+        {showMap && (
+          /* The map pane is independent of the results: it stays visible even
+           * when filters or dates yield zero rooms (MR-05). It mounts — and
+           * loads the Maps API — only when the guest switches to map view. */
+          <aside className="map-pane" aria-label="Hotel location map">
+            {location && (
+              <HotelMap location={location} selectedRoomName={selectedRoom} />
+            )}
+          </aside>
+        )}
       </div>
     </div>
   );

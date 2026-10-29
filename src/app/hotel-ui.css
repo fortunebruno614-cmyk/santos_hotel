@@ -2968,3 +2968,271 @@
 .cancel-booking {
   margin-top: 6px;
 }
+
+/* ---- List/Map room view (MR-01..MR-06) -------------------------------- */
+
+/* Visually hidden but screen-reader visible (view announcements). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Segmented List/Map control above the listing. */
+.view-switch {
+  display: inline-flex;
+  margin-top: 30px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.view-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  color: var(--muted-foreground);
+  background: var(--background);
+  border: 0;
+  cursor: pointer;
+}
+.view-switch button + button {
+  border-left: 1px solid var(--border);
+}
+.view-switch button svg {
+  width: 14px;
+  height: 14px;
+}
+.view-switch button[aria-pressed="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.view-switch button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -3px;
+}
+
+/* Desktop split: filters + list on the left (~half), sticky map on the right. */
+.listing-layout.with-map {
+  grid-template-columns: 220px minmax(0, 1fr) 48%;
+}
+.map-pane {
+  display: none;
+}
+.listing-layout.with-map .map-pane {
+  display: block;
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  height: calc(100vh - 60px);
+  max-height: 780px;
+  min-height: 420px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--card);
+}
+.map-pane-inner {
+  position: relative;
+  height: 100%;
+}
+.map-canvas {
+  width: 100%;
+  height: 100%;
+}
+/* Skeleton holds the final pane size so the page never jumps (MR-04). */
+.map-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    var(--muted) 40%,
+    var(--border) 50%,
+    var(--muted) 60%
+  );
+  background-size: 200% 100%;
+  animation: map-skeleton-shimmer 1.4s linear infinite;
+}
+@keyframes map-skeleton-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.map-status {
+  position: absolute;
+  left: 15px;
+  bottom: 15px;
+  font-size: 10px;
+  color: var(--muted-foreground);
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 6px 10px;
+}
+/* API load failure � distinct from the missing-coordinates state (MR-06). */
+.map-error,
+.map-unavailable {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  padding: 30px;
+  background: var(--card);
+}
+.map-state-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+.map-error p,
+.map-unavailable p {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  max-width: 320px;
+  line-height: 1.7;
+}
+.map-address {
+  font-style: normal;
+}
+/* Keyboard/touch path to the info card (the marker click also opens it). */
+.map-info-trigger {
+  position: absolute;
+  left: 15px;
+  top: 15px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 8px 13px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--background);
+  color: var(--foreground);
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+}
+.map-info-trigger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* Marker info card: name, address, link to the hotel page. */
+.map-card {
+  position: absolute;
+  left: 15px;
+  top: 55px;
+  width: min(280px, calc(100% - 30px));
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  box-shadow: var(--shadow-soft);
+  padding: 16px;
+}
+.map-card-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.map-card-head strong {
+  font-size: 14px;
+}
+.map-card-close {
+  border: 0;
+  background: none;
+  font-size: 17px;
+  line-height: 1;
+  padding: 2px 5px;
+  cursor: pointer;
+  color: var(--muted-foreground);
+}
+.map-card-close:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.map-card p {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  line-height: 1.7;
+}
+.map-card-selection {
+  color: var(--primary) !important;
+  font-weight: 600;
+}
+.map-card .text-link {
+  margin-top: 10px;
+  font-size: 10px;
+}
+
+/* Room selection (map view highlight; never colour-only � the card also
+ * shows "Selected ?" and aria-current). */
+.room-select {
+  border: 1px solid var(--border);
+  background: none;
+  border-radius: 3px;
+  padding: 6px 11px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--foreground);
+}
+.room-select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.room-card.is-selected {
+  border-color: var(--primary);
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+}
+
+@media (max-width: 1200px) {
+  .listing-layout.with-map {
+    grid-template-columns: 180px minmax(0, 1fr) 45%;
+    gap: 25px;
+  }
+}
+
+/* Below the map breakpoint the toggle switches a full-width pane instead of
+ * splitting the screen; the list's scroll position is restored on return. */
+@media (max-width: 900px) {
+  .listing-layout.with-map {
+    grid-template-columns: 1fr;
+  }
+  .listing-layout.with-map[data-view="map"] .filters,
+  .listing-layout.with-map[data-view="map"] .listing-results {
+    display: none;
+  }
+  .listing-layout.with-map .map-pane {
+    position: static;
+    height: 70vh;
+    max-height: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .view-switch {
+    display: flex;
+    margin-top: 22px;
+  }
+  .view-switch button {
+    flex: 1;
+    justify-content: center;
+    padding: 11px 12px;
+    font-size: 12px;
+  }
+  .listing-layout.with-map .map-pane {
+    height: 65vh;
+    min-height: 340px;
+  }
+}

@@ -111,8 +111,23 @@ export const SettingsPatchSchema = z
     cancellationWindowHours: z.coerce.number().int().min(0).max(8760).optional(),
     guestCancellationEnabled: z.boolean().optional(),
     maxRoomsPerBooking: z.coerce.number().int().min(1).max(50).optional(),
+    // Verified map coordinates (MR-07): set only by an authorized operator from
+    // a verified source, never guessed from an ambiguous address. Both or
+    // neither — mirrors the hotels_coordinates_pair_check DB constraint.
+    latitude: z.coerce.number().min(-90).max(90).nullable().optional(),
+    longitude: z.coerce.number().min(-180).max(180).nullable().optional(),
   })
-  .refine((value) => Object.keys(value).length > 0, { message: "no settings supplied" });
+  .refine((value) => Object.keys(value).length > 0, { message: "no settings supplied" })
+  .refine(
+    (value) => {
+      const lat = "latitude" in value ? value.latitude : undefined;
+      const lng = "longitude" in value ? value.longitude : undefined;
+      if (lat === undefined && lng === undefined) return true;
+      if (lat === undefined || lng === undefined) return false;
+      return (lat === null) === (lng === null);
+    },
+    { message: "latitude and longitude must be supplied together (both set or both cleared)" },
+  );
 
 export type SettingsPatchInput = z.infer<typeof SettingsPatchSchema>;
 

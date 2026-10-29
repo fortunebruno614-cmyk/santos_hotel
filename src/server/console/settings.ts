@@ -37,7 +37,30 @@ const SETTING_COLUMNS = [
   "cancellationWindowHours",
   "guestCancellationEnabled",
   "maxRoomsPerBooking",
+  "latitude",
+  "longitude",
 ] as const;
+
+/** Columns Prisma maps to Decimal — serialized to strings on the way out. */
+const DECIMAL_COLUMNS = ["taxRatePercent", "serviceFee", "latitude", "longitude"] as const;
+
+/** JSON-safe view of the hotel row (Decimals → string, matching the form). */
+function serializeSettings<
+  T extends {
+    taxRatePercent: { toString(): string };
+    serviceFee: { toString(): string };
+    latitude: { toString(): string } | null;
+    longitude: { toString(): string } | null;
+  },
+>(hotel: T) {
+  return {
+    ...hotel,
+    taxRatePercent: hotel.taxRatePercent.toString(),
+    serviceFee: hotel.serviceFee.toString(),
+    latitude: hotel.latitude?.toString() ?? null,
+    longitude: hotel.longitude?.toString() ?? null,
+  };
+}
 
 function auditValue(value: unknown): unknown {
   // Decimals serialize as their canonical 2-place string; dates never appear.
@@ -49,11 +72,7 @@ function auditValue(value: unknown): unknown {
 export async function getSettings() {
   const hotel = await prisma.hotel.findFirst({ orderBy: { createdAt: "asc" } });
   if (!hotel) throw new ConsoleError("not_found", "no hotel row — run the database seed");
-  return {
-    ...hotel,
-    taxRatePercent: hotel.taxRatePercent.toString(),
-    serviceFee: hotel.serviceFee.toString(),
-  };
+  return serializeSettings(hotel);
 }
 
 /**
@@ -73,10 +92,9 @@ export async function updateSettings(input: SettingsPatchInput, actor: { userId:
     const next = (input as Record<string, unknown>)[key];
     if (next === undefined) continue;
     const current = (hotel as unknown as Record<string, unknown>)[key];
-    const same =
-      key === "serviceFee" || key === "taxRatePercent"
-        ? String(auditValue(current)) === String(auditValue(next))
-        : current === next;
+    const same = (DECIMAL_COLUMNS as readonly string[]).includes(key)
+      ? String(auditValue(current)) === String(auditValue(next))
+      : current === next;
     if (same) continue;
     data[key] = next;
     oldValues[key] = auditValue(current);
@@ -98,11 +116,7 @@ export async function updateSettings(input: SettingsPatchInput, actor: { userId:
     newValues,
   });
 
-  return {
-    ...updated,
-    taxRatePercent: updated.taxRatePercent.toString(),
-    serviceFee: updated.serviceFee.toString(),
-  };
+  return serializeSettings(updated);
 }
 
 /** Effective settings (DB row merged with env fallbacks) — what the app runs on. */

@@ -47,6 +47,48 @@ export type ListingRoom = PublicRoomType & {
   price?: AvailabilityPrice;
 };
 
+/**
+ * The hotel's verified location, as handed to the public room map (MR-07).
+ * `latitude`/`longitude` are null until an authorized operator records a
+ * verified position — the map must then show "Map location unavailable"
+ * rather than a guessed pin.
+ */
+export type HotelLocation = {
+  name: string;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+export function hasCoordinates(
+  location: Pick<HotelLocation, "latitude" | "longitude">,
+): location is { latitude: number; longitude: number } {
+  return (
+    typeof location.latitude === "number" &&
+    Number.isFinite(location.latitude) &&
+    typeof location.longitude === "number" &&
+    Number.isFinite(location.longitude)
+  );
+}
+
+/**
+ * Opens the map at a zoom the stored coordinate precision can honestly support
+ * (MR-04): coarser coordinates get a wider, neighborhood-level view; the map
+ * never zooms in beyond what the position actually resolves.
+ */
+export function mapZoomForCoordinates(latitude: number, longitude: number): number {
+  const decimals = (value: number) => {
+    const text = String(value);
+    const dot = text.indexOf(".");
+    return dot === -1 ? 0 : text.length - dot - 1;
+  };
+  const precision = Math.min(decimals(latitude), decimals(longitude));
+  if (precision >= 5) return 16;
+  if (precision >= 4) return 14;
+  if (precision >= 3) return 13;
+  return 11;
+}
+
 export const FALLBACK_ROOM_IMAGE = "/images/santo-room.jpg";
 
 export const GALLERY_IMAGES = [

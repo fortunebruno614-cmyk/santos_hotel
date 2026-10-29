@@ -31,6 +31,7 @@ Open business values (currency, taxes, policies) are marked **pending** and trac
 | description | text | no | |
 | phone / email | text | no | |
 | address_line1 / address_line2 / city / postcode / country | text | no | |
+| latitude / longitude | decimal(9,6) / decimal(10,6) | no | verified map coordinates (MR-07); both set or both NULL (`hotels_coordinates_pair_check`), range-checked (-90..90 / -180..180); set only by an authorized admin — the public map shows "Map location unavailable" while NULL |
 | timezone | text | yes | default `Asia/Kuala_Lumpur` |
 | currency | text | yes | default `MYR` — **pending Q1** |
 | created_at / updated_at | timestamptz | yes | |
@@ -262,6 +263,7 @@ Indexes: `user_id`, `(entity_type, entity_id)`, `created_at`.
 | `20261003040431_bookings_booking_rooms` | bookings, booking_rooms |
 | `20261003040449_payments_notifications_audit` | payments, notifications, audit_logs |
 | `20261003040457_add_check_constraints` | raw-SQL CHECK constraints (13) |
+| `20261028090000_hotel_map_coordinates` | `hotels.latitude` / `hotels.longitude` + coordinate pair/range CHECKs (public room map) |
 
 Rebuild from scratch: `npm run db:reset` → migrations + seed.
 Integrity evidence: `npm run db:integrity` (15 checks).

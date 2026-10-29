@@ -19,6 +19,15 @@ export default async function RoomsPage() {
     <Listing
       rooms={rooms}
       currency={hotel.currency}
+      location={{
+        name: hotel.name,
+        address:
+          [hotel.addressLine1, hotel.addressLine2, hotel.city, hotel.postcode, hotel.country]
+            .filter(Boolean)
+            .join(", ") || null,
+        latitude: hotel.latitude,
+        longitude: hotel.longitude,
+      }}
       policyNote={`Free cancellation up to ${hotel.cancellationWindowHours} hours before arrival`}
       title={intro?.title}
       description={intro?.body}

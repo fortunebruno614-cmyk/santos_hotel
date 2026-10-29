@@ -28,6 +28,9 @@ export type SettingsValues = {
   cancellationWindowHours: number;
   guestCancellationEnabled: boolean;
   maxRoomsPerBooking: number;
+  /** Verified map coordinates (MR-07); null until an operator records them. */
+  latitude: string | null;
+  longitude: string | null;
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -60,6 +63,8 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
     cancellationWindowHours: String(initial.cancellationWindowHours),
     guestCancellationEnabled: initial.guestCancellationEnabled,
     maxRoomsPerBooking: String(initial.maxRoomsPerBooking),
+    latitude: initial.latitude ?? "",
+    longitude: initial.longitude ?? "",
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +74,10 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
     setBusy(true);
     setError(null);
     setSaved(false);
+    // Coordinates are a pair (mirrors the DB check): both set or both cleared.
+    const lat = form.latitude.trim();
+    const lng = form.longitude.trim();
+    const coordinates = lat && lng ? { latitude: Number(lat), longitude: Number(lng) } : { latitude: null, longitude: null };
     const body = {
       name: form.name.trim(),
       description: form.description.trim() || null,
@@ -88,6 +97,7 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
       cancellationWindowHours: Number(form.cancellationWindowHours),
       guestCancellationEnabled: form.guestCancellationEnabled,
       maxRoomsPerBooking: Number(form.maxRoomsPerBooking),
+      ...coordinates,
     };
     try {
       const response = await fetch("/api/admin/settings", {
@@ -147,6 +157,32 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
         <Field label="Description">
           <textarea className="border px-2 py-1 rounded-md w-full text-sm" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </Field>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <Field label="Map latitude (verified)">
+            <input
+              className="border px-2 py-1 rounded-md w-40"
+              value={form.latitude}
+              placeholder="e.g. 6.454100"
+              inputMode="decimal"
+              onChange={(e) => setForm({ ...form, latitude: e.target.value })}
+            />
+          </Field>
+          <Field label="Map longitude (verified)">
+            <input
+              className="border px-2 py-1 rounded-md w-40"
+              value={form.longitude}
+              placeholder="e.g. 3.394700"
+              inputMode="decimal"
+              onChange={(e) => setForm({ ...form, longitude: e.target.value })}
+            />
+          </Field>
+        </div>
+        <p className="text-xs text-zinc-500">
+          Enter both coordinates from a verified source (survey, Google Maps
+          pin of the building entrance) or leave both empty — the public map
+          shows &quot;Map location unavailable&quot; until a verified position is
+          saved. Coordinates are never guessed from the address.
+        </p>
       </section>
 
       <section className="border rounded-md p-4 space-y-3">

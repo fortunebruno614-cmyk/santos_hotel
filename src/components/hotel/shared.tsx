@@ -54,6 +54,8 @@ export function RoomCard({
   href,
   bookHref,
   policyNote,
+  selected = false,
+  onSelect,
 }: {
   room: ListingRoom;
   stay?: StayQuery;
@@ -63,13 +65,19 @@ export function RoomCard({
   href: string;
   bookHref?: string;
   policyNote?: string;
+  /** Highlighted by the listing's map view; purely visual selection, no booking effect. */
+  selected?: boolean;
+  onSelect?: () => void;
 }) {
   const nights = stay ? nightsBetween(stay.checkIn, stay.checkOut) : 0;
   const nightly = priceText(room);
   const stayTotal = room.price?.stayTotal;
 
   return (
-    <article className={`room-card ${horizontal ? "horizontal" : ""}`}>
+    <article
+      className={`room-card ${horizontal ? "horizontal" : ""}${selected ? " is-selected" : ""}`}
+      aria-current={selected ? "true" : undefined}
+    >
       <Link href={href} className="room-photo">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={room.images[0]} alt={room.name} width={1536} height={1024} loading="lazy" />
@@ -133,6 +141,16 @@ export function RoomCard({
             )}
           </div>
           <div className="room-card-links">
+            {onSelect && (
+              <button
+                type="button"
+                className="room-select"
+                aria-pressed={selected}
+                onClick={onSelect}
+              >
+                {selected ? "Selected ✓" : "Select room"}
+              </button>
+            )}
             <Link href={href} className="text-link">
               {horizontal ? "View details" : "View room"}
               <ArrowRight size={15} />

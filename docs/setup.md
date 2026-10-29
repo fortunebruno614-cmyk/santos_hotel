@@ -102,6 +102,54 @@ npm run authz:check      # P3 gate: 54/54 authorization checks
 - Runtime uses the `@prisma/adapter-pg` driver adapter — see `src/lib/prisma.ts`.
 - Version pinned to **7.10.0** (npm's `latest` is an 8.0 RC with a different CLI).
 
+## Google Maps (room map)
+
+The rooms/search pages offer a List/Map toggle when — and only when — a Google
+Maps API key is configured. Without the key the toggle is hidden and the pages
+work exactly as before (list-only), so this section is optional.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/) create an API
+   key (or reuse an existing browser key): **APIs & Services → Credentials →
+   Create credentials → API key**.
+2. Enable the **Maps JavaScript API** for the project (the key does nothing
+   until the API is enabled).
+3. **Restrict the key** — this is not optional for production:
+   - *Application restrictions*: HTTP referrers, limited to your site's origins
+     (e.g. `https://santohotel.example/*` plus `localhost:3000/*` for dev).
+   - *API restrictions*: allow only `Maps JavaScript API`.
+4. Put the key in `.env.local` (git-ignored), never in `.env` or a commit:
+
+   ```
+   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
+   ```
+
+5. Enable billing on the project — the Maps JavaScript API is a billed API
+   (Google's free monthly credit usually covers a single hotel site, but watch
+   the quota dashboard). Set a budget alert so a scraping loop or a leaked key
+   cannot run up a large bill.
+6. Rotate the key if it ever leaks (Cloud Console → Credentials → edit →
+   *Regenerate key*). Because the key ships to every browser, treat referrer
+   restrictions — not secrecy — as the real protection.
+
+The key is read client-side (`NEXT_PUBLIC_*`), used only to build the Maps
+script URL, and is never written to logs. Note that every `NEXT_PUBLIC_*` var
+is baked into the client bundle at build time: rotating it requires a rebuild
+and redeploy.
+
+### Map coordinates (verified location)
+
+The map shows **one marker** for the hotel, positioned by `hotels.latitude` /
+`hotels.longitude`. Both columns stay `NULL` until an authorized admin records
+them, and the public map then shows "Map location unavailable" rather than a
+guessed pin.
+
+To set them: **Admin → Settings → Hotel profile → Map latitude/longitude**.
+Paste a position verified from a trustworthy source (survey data, or the pin
+dropped exactly on the building entrance in Google Maps — right-click the
+building, not the street). Enter both or neither; the database rejects a lone
+coordinate, and the map never geocodes the address itself. Changing the
+coordinates takes effect on the next page load — no restart.
+
 ## Troubleshooting
 
 - **`Address already in use` on 5432** — stop one server: `brew services stop postgresql@14`

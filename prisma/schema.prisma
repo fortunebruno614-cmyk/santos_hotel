@@ -95,6 +95,13 @@ model Hotel {
   timezone     String   @default("Asia/Kuala_Lumpur")
   currency     String   @default("NGN")
 
+  /// Verified location for the public room map (MR-07). Set only by an
+  /// authorized operator from a verified source; NULL (both columns, enforced
+  /// by a DB check) means the map shows "Map location unavailable" instead of
+  /// a guessed pin. Never geocode an ambiguous address in production.
+  latitude  Decimal? @map("latitude") @db.Decimal(9, 6)
+  longitude Decimal? @map("longitude") @db.Decimal(10, 6)
+
   // P7 system settings — the admin console edits these; `src/config/booking.ts`
   // env vars are only the bootstrap fallback for a database that has none.
   checkInTime              String  @default("15:00") @map("check_in_time")
