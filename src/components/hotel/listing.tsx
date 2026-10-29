@@ -5,7 +5,7 @@ import { AlertCircle, Map as MapIcon, RotateCcw, SearchX, SlidersHorizontal, Lis
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, PageHeading, RoomCard } from "@/components/hotel/shared";
 import { SearchPanel } from "@/components/hotel/search-panel";
-import { HotelMap } from "@/components/hotel/hotel-map";
+import { SearchMap } from "@/components/hotel/search-map";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
 import { isMapEnabled } from "@/config/maps";
 import {
@@ -25,9 +25,10 @@ import {
  * The view mode is transient page state (MRD decision #4): it lives in this
  * component only, never in the URL, so search params stay shareable and
  * switching views preserves dates, filters, sort, currency and selection.
- * Desktop shows a split layout (list left, map right, map sticky); below the
- * map breakpoint the same toggle switches a full-width pane and the list's
- * scroll position is restored when returning to the list.
+ * The map is offered on availability results only — it pins the hotel's
+ * verified position with its lowest nightly rate and mirrors the filtered
+ * results in the pin's card (see `SearchMap`). The /rooms catalogue and
+ * undated searches stay a clean list.
  *
  * The toggle only renders when a Maps API key is configured — without one the
  * page behaves exactly as the plain list always has.
@@ -65,7 +66,9 @@ export function Listing({
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Map/list mode: transient page state, independent of the URL (MRD #4).
-  const mapEnabled = isMapEnabled() && Boolean(location);
+  // The pinned price map is an availability-results feature: the /rooms
+  // catalogue and undated searches stay a clean list.
+  const mapEnabled = isMapEnabled() && Boolean(location) && availability;
   const [view, setView] = useState<"list" | "map">("list");
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const listViewScrollY = useRef<number | null>(null);
@@ -137,10 +140,6 @@ export function Listing({
   });
 
   const nights = stay ? nightsBetween(stay.checkIn, stay.checkOut) : 0;
-
-  const selectedRoom = selectedRoomId
-    ? (rooms.find((room) => room.id === selectedRoomId)?.name ?? null)
-    : null;
 
   const showMap = mapEnabled && view === "map";
 
@@ -363,10 +362,18 @@ export function Listing({
         {showMap && (
           /* The map pane is independent of the results: it stays visible even
            * when filters or dates yield zero rooms (MR-05). It mounts — and
-           * loads the Maps API — only when the guest switches to map view. */
+           * loads the Maps API — only when the guest switches to map view.
+           * The pin wears the honest hotel minimum; the card beside the pin
+           * mirrors exactly what the surrounding grid shows. */
           <aside className="map-pane" aria-label="Hotel location map">
             {location && (
-              <HotelMap location={location} selectedRoomName={selectedRoom} />
+              <SearchMap
+                location={location}
+                rooms={rooms}
+                results={results}
+                stay={stay}
+                currency={currency}
+              />
             )}
           </aside>
         )}

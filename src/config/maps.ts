@@ -19,3 +19,8 @@ export function googleMapsApiKey(): string | null {
 export function isMapEnabled(): boolean {
   return googleMapsApiKey() !== null;
 }
+
+/** Whether to label the current map position as a local-only demo point. */
+export function isDemoMapLocation(): boolean {
+  return process.env.NEXT_PUBLIC_MAP_DEMO_LOCATION === "true";
+}

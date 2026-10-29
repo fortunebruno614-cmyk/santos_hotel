@@ -3041,6 +3041,37 @@
   overflow: hidden;
   background: var(--card);
 }
+.listing-layout.with-map[data-view="map"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.listing-layout.with-map[data-view="map"] .filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  align-items: start;
+  gap: 0 24px;
+}
+.listing-layout.with-map[data-view="map"] .filter-heading,
+.listing-layout.with-map[data-view="map"] .filters > .tiny-note,
+.listing-layout.with-map[data-view="map"] .filters > .filter-done {
+  grid-column: 1 / -1;
+}
+.listing-layout.with-map[data-view="map"] .filters.is-open {
+  position: static;
+  width: auto;
+  padding: 0;
+  overflow: visible;
+  box-shadow: none;
+}
+.listing-layout.with-map[data-view="map"] .listing-results {
+  display: none;
+}
+.listing-layout.with-map[data-view="map"] .map-pane {
+  position: static;
+  width: 100%;
+  height: 70vh;
+  max-height: 780px;
+  min-height: 420px;
+}
 .map-pane-inner {
   position: relative;
   height: 100%;
@@ -3106,6 +3137,22 @@
 .map-address {
   font-style: normal;
 }
+.map-demo-notice {
+  position: absolute;
+  z-index: 1;
+  top: 14px;
+  right: 14px;
+  max-width: calc(100% - 28px);
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  pointer-events: none;
+}
 /* Keyboard/touch path to the info card (the marker click also opens it). */
 .map-info-trigger {
   position: absolute;
@@ -3125,12 +3172,14 @@
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
-/* Marker info card: name, address, link to the hotel page. */
+/* Marker info card: hotel header + price/availability rows (fazwaz-style). */
 .map-card {
   position: absolute;
   left: 15px;
   top: 55px;
-  width: min(280px, calc(100% - 30px));
+  width: min(340px, calc(100% - 30px));
+  max-height: calc(100% - 70px);
+  overflow-y: auto;
   background: var(--background);
   border: 1px solid var(--border);
   border-radius: 5px;
@@ -3165,13 +3214,131 @@
   color: var(--muted-foreground);
   line-height: 1.7;
 }
-.map-card-selection {
-  color: var(--primary) !important;
-  font-weight: 600;
-}
 .map-card .text-link {
   margin-top: 10px;
   font-size: 10px;
+}
+
+/* Price-over-the-map pin (DOM overlay on the map's marker layer). */
+.map-pin-wrap {
+  z-index: 900;
+  pointer-events: none;
+}
+.map-price-pin {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px 9px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: var(--shadow-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.map-price-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 10px;
+  height: 10px;
+  transform: translateX(-50%) rotate(45deg);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+}
+.map-price-pin:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.map-price-pin:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.map-card-from {
+  margin-top: 8px;
+  font-size: 11px;
+}
+.map-card-from strong {
+  color: var(--foreground);
+}
+/* Room rows in the pin card, mirroring the grid beside the map. */
+.map-room-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+.map-room-list li + li {
+  border-top: 1px solid var(--border);
+}
+.map-room-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 2px;
+  text-decoration: none;
+  color: var(--foreground);
+}
+.map-room-row:hover {
+  background: var(--muted);
+}
+.map-room-row:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.map-room-thumb {
+  width: 64px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.map-room-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.map-room-name {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-room-meta,
+.map-room-avail,
+.map-room-total {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+.map-room-avail {
+  color: var(--primary);
+  font-weight: 600;
+}
+.map-room-price {
+  display: grid;
+  gap: 1px;
+  justify-items: end;
+  text-align: right;
+}
+.map-room-price strong {
+  font-size: 13px;
+}
+.map-room-price > span:not(.map-room-total) {
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.map-card-empty {
+  margin-top: 10px;
 }
 
 /* Room selection (map view highlight; never colour-only � the card also
@@ -3205,11 +3372,10 @@
 
 /* Below the map breakpoint the toggle switches a full-width pane instead of
  * splitting the screen; the list's scroll position is restored on return. */
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .listing-layout.with-map {
     grid-template-columns: 1fr;
   }
-  .listing-layout.with-map[data-view="map"] .filters,
   .listing-layout.with-map[data-view="map"] .listing-results {
     display: none;
   }
@@ -3218,9 +3384,7 @@
     height: 70vh;
     max-height: none;
   }
-}
 
-@media (max-width: 767px) {
   .view-switch {
     display: flex;
     margin-top: 22px;
@@ -3231,7 +3395,10 @@
     padding: 11px 12px;
     font-size: 12px;
   }
-  .listing-layout.with-map .map-pane {
+}
+
+@media (max-width: 767px) {
+  .listing-layout.with-map[data-view="map"] .map-pane {
     height: 65vh;
     min-height: 340px;
   }
