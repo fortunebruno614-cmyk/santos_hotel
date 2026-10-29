@@ -1,4 +1,5 @@
 import { getSettings } from "@/server/console/settings";
+import { isDemoMapLocation } from "@/config/maps";
 import { SettingsForm } from "./settings-form";
 
 /** System settings (P7, admin only): hotel profile + operational policy. */
@@ -37,6 +38,7 @@ export default async function AdminSettingsPage() {
           latitude: settings.latitude,
           longitude: settings.longitude,
         }}
+        demoMapLocation={isDemoMapLocation()}
       />
     </div>
   );

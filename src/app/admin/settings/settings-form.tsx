@@ -43,7 +43,13 @@ function messageFor(error: string | undefined) {
   return (error && ERROR_MESSAGES[error]) || ERROR_MESSAGES.internal;
 }
 
-export function SettingsForm({ initial }: { initial: SettingsValues }) {
+export function SettingsForm({
+  initial,
+  demoMapLocation = false,
+}: {
+  initial: SettingsValues;
+  demoMapLocation?: boolean;
+}) {
   const [form, setForm] = useState({
     name: initial.name,
     description: initial.description ?? "",
@@ -158,7 +164,7 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
           <textarea className="border px-2 py-1 rounded-md w-full text-sm" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </Field>
         <div className="flex flex-wrap gap-3 text-sm">
-          <Field label="Map latitude (verified)">
+          <Field label={`Map latitude (${demoMapLocation ? "demo" : "verified"})`}>
             <input
               className="border px-2 py-1 rounded-md w-40"
               value={form.latitude}
@@ -167,7 +173,7 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
               onChange={(e) => setForm({ ...form, latitude: e.target.value })}
             />
           </Field>
-          <Field label="Map longitude (verified)">
+          <Field label={`Map longitude (${demoMapLocation ? "demo" : "verified"})`}>
             <input
               className="border px-2 py-1 rounded-md w-40"
               value={form.longitude}
@@ -178,10 +184,9 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
           </Field>
         </div>
         <p className="text-xs text-zinc-500">
-          Enter both coordinates from a verified source (survey, Google Maps
-          pin of the building entrance) or leave both empty — the public map
-          shows &quot;Map location unavailable&quot; until a verified position is
-          saved. Coordinates are never guessed from the address.
+          {demoMapLocation
+            ? "Local demo coordinates are synthetic, not the hotel's verified location. Replace them with coordinates from a trusted source before using this database outside local development."
+            : 'Enter both coordinates from a verified source (survey, Google Maps pin of the building entrance) or leave both empty — the public map shows "Map location unavailable" until a verified position is saved. Coordinates are never guessed from the address.'}
         </p>
       </section>
 

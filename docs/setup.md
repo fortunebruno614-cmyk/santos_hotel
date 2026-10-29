@@ -143,6 +143,11 @@ The map shows **one marker** for the hotel, positioned by `hotels.latitude` /
 them, and the public map then shows "Map location unavailable" rather than a
 guessed pin.
 
+For local UI testing only, synthetic coordinates may be saved to the local
+development database and `NEXT_PUBLIC_MAP_DEMO_LOCATION=true` added to
+`.env.local`. The map will label the point as demo data. Do not copy demo
+coordinates or this flag into staging or production.
+
 To set them: **Admin → Settings → Hotel profile → Map latitude/longitude**.
 Paste a position verified from a trustworthy source (survey data, or the pin
 dropped exactly on the building entrance in Google Maps — right-click the
