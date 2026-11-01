@@ -1,8 +1,19 @@
-# Santo Hotel — Entity Relationship Diagram (P2)
+# Santo Hotel — Entity Relationship Diagram
 
 ```mermaid
 erDiagram
+  ORGANIZATIONS ||--o{ HOTELS : owns
+  ORGANIZATIONS ||--o{ ORGANIZATION_MEMBERS : has
+  USERS ||--o{ ORGANIZATION_MEMBERS : joins
+  ORGANIZATION_MEMBERS ||--o{ ORGANIZATION_MEMBER_HOTELS : scopes
+  HOTELS ||--o{ ORGANIZATION_MEMBER_HOTELS : grants
+  HOTELS ||--o{ LISTING_REVIEWS : reviewed
+  HOTELS ||--o{ PUBLIC_SLUG_REDIRECTS : redirects
+  ORGANIZATIONS ||--o{ BOOKINGS : records
+  HOTELS ||--o{ BOOKINGS : hosts
   HOTELS ||--o{ ROOM_TYPES : offers
+  ORGANIZATIONS ||--o{ ROOM_TYPES : owns
+  HOTELS ||--o{ ROOMS : contains
   ROOM_TYPES ||--o{ ROOMS : "has physical"
   ROOM_TYPES ||--o{ RATES : "priced by"
   ROOM_TYPES ||--o{ ROOM_IMAGES : "shown by"
@@ -12,23 +23,57 @@ erDiagram
   USERS ||--o{ BOOKINGS : "created by (staff)"
   USERS ||--o{ AUDIT_LOGS : performs
   PROMOTIONS ||--o{ BOOKINGS : discounts
+  HOTELS ||--o{ PROMOTIONS : scopes
   BOOKINGS ||--o{ BOOKING_ROOMS : allocates
   ROOMS ||--o{ BOOKING_ROOMS : "allocated as"
   BOOKINGS ||--o{ PAYMENTS : "paid by"
   BOOKINGS ||--o{ NOTIFICATIONS : triggers
+  ORGANIZATIONS ||--o{ AMENITIES : scopes
+  ORGANIZATIONS ||--o{ SITE_CONTENT : scopes
+  HOTELS ||--o{ SITE_CONTENT : scopes
+  ORGANIZATIONS ||--o{ PAYMENTS : reports
+  HOTELS ||--o{ PAYMENTS : reports
+  ORGANIZATIONS ||--o{ AUDIT_LOGS : scopes
+  HOTELS ||--o{ AUDIT_LOGS : scopes
 
+  ORGANIZATIONS {
+    uuid id PK
+    text name
+    text slug UK
+    enum status
+    text email
+    text phone
+    text country
+  }
+  ORGANIZATION_MEMBERS {
+    uuid id PK
+    uuid organization_id FK
+    uuid user_id FK
+    enum role
+    enum status
+  }
+  ORGANIZATION_MEMBER_HOTELS {
+    uuid member_id PK_FK
+    uuid hotel_id PK_FK
+  }
   HOTELS {
     uuid id PK
+    uuid organization_id FK
     text name
     text slug UK
     text timezone
     text currency
+    enum publication_status
+    enum verification_status
+    enum location_verification
+    enum location_precision
   }
   USERS {
     uuid id PK
     text email UK
     text password_hash
     enum role "ADMIN, STAFF"
+    enum platform_role "nullable"
     bool is_active
   }
   GUESTS {
@@ -43,6 +88,7 @@ erDiagram
   ROOM_TYPES {
     uuid id PK
     uuid hotel_id FK
+    uuid organization_id FK "nullable during backfill"
     text name UK
     text slug UK
     int max_adults
@@ -53,12 +99,15 @@ erDiagram
   ROOMS {
     uuid id PK
     uuid room_type_id FK
+    uuid hotel_id FK "nullable during backfill"
     text room_number UK
     int floor
     enum status "RoomStatus"
   }
   AMENITIES {
     uuid id PK
+    uuid organization_id FK "nullable"
+    enum scope "PLATFORM, TENANT"
     text name UK
     text description
   }
@@ -84,6 +133,10 @@ erDiagram
   }
   BOOKINGS {
     uuid id PK
+    uuid hotel_id FK "nullable during backfill"
+    uuid organization_id FK "nullable during backfill"
+    text currency "nullable during backfill"
+    json terms_snapshot
     text booking_reference UK
     uuid guest_id FK
     uuid promotion_id FK "nullable"
@@ -103,6 +156,9 @@ erDiagram
   }
   BOOKING_ROOMS {
     uuid id PK
+    uuid hotel_id FK "nullable during backfill"
+    text room_type_name_snapshot
+    text room_type_slug_snapshot
     uuid booking_id FK
     uuid room_id FK
     decimal nightly_rate "historical snapshot"
@@ -111,6 +167,8 @@ erDiagram
   }
   PAYMENTS {
     uuid id PK
+    uuid hotel_id FK "nullable during backfill"
+    uuid organization_id FK "nullable during backfill"
     uuid booking_id FK
     text provider
     text provider_reference UK
@@ -123,6 +181,7 @@ erDiagram
   }
   PROMOTIONS {
     uuid id PK
+    uuid hotel_id FK "nullable during backfill"
     text code UK
     enum type "PERCENTAGE, FIXED_AMOUNT"
     decimal value
@@ -133,6 +192,8 @@ erDiagram
   }
   NOTIFICATIONS {
     uuid id PK
+    uuid hotel_id FK "nullable during backfill"
+    uuid organization_id FK "nullable during backfill"
     uuid booking_id FK "nullable"
     enum channel "EMAIL, SMS, WHATSAPP"
     text recipient
@@ -143,7 +204,14 @@ erDiagram
   }
   AUDIT_LOGS {
     uuid id PK
+    uuid organization_id FK "nullable"
+    uuid hotel_id FK "nullable"
     uuid user_id FK "nullable"
+    text actor_type
+    uuid actor_guest_id
+    text ip_address
+    text purpose
+    text outcome
     text action
     text entity_type
     text entity_id
@@ -151,13 +219,45 @@ erDiagram
     json new_values
     timestamptz created_at
   }
+  LISTING_REVIEWS {
+    uuid id PK
+    uuid hotel_id FK
+    enum from_status
+    enum to_status
+    text decision_reason
+    uuid reviewer_user_id
+    timestamptz decided_at
+  }
+  PUBLIC_SLUG_REDIRECTS {
+    uuid id PK
+    text entity_type
+    text from_slug UK
+    uuid hotel_id FK
+    text target_slug
+  }
+  SITE_CONTENT {
+    text key PK
+    enum scope
+    uuid organization_id FK "nullable"
+    uuid hotel_id FK "nullable"
+    text title
+    text body
+  }
 ```
+
+M1 adds the tenant foundation additively. Historical owner columns remain nullable
+until the M2 reconciliation/backfill; hotel ownership is backfilled to the initial
+Santo organization. Authorization and cross-tenant constraints are delivered in later
+phases, so these columns do not by themselves enable multi-tenant checkout.
 
 ## Cardinality summary
 
 | Relationship | Type | Notes |
 | ------------ | ---- | ----- |
-| Hotel → Room Types | 1—* | single-tenant, but modeled |
+| Organization → Hotels | 1—* | tenant ownership boundary |
+| Organization → Members | 1—* | user memberships are unique per organization |
+| Member ↔ Hotel | *—* | explicit property scope |
+| Hotel → Room Types | 1—* | property catalog |
 | Room Type → Room | 1—* | one category, many physical rooms |
 | Room Type → Rate | 1—* | date-bounded pricing |
 | Room Type ↔ Amenity | *—* | via `room_type_amenities` |

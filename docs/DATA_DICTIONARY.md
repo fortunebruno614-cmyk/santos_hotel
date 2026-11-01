@@ -1,4 +1,4 @@
-# Santo Hotel — Data Dictionary (P2)
+# Santo Hotel — Data Dictionary
 
 Database: PostgreSQL · Schema: [`prisma/schema.prisma`](../prisma/schema.prisma) ·
 ERD: [`docs/ERD.md`](ERD.md)
@@ -12,7 +12,7 @@ Open business values (currency, taxes, policies) are marked **pending** and trac
 
 | Enum | Values |
 | ---- | ------ |
-| `UserRole` | ADMIN, STAFF |
+| `UserRole` | ADMIN, STAFF, GUEST |
 | `RecordStatus` | ACTIVE, INACTIVE |
 | `RoomStatus` | AVAILABLE, RESERVED, OCCUPIED, CLEANING, MAINTENANCE, OUT_OF_SERVICE |
 | `BookingStatus` | PENDING, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, NO_SHOW |
@@ -20,12 +20,58 @@ Open business values (currency, taxes, policies) are marked **pending** and trac
 | `PromotionType` | PERCENTAGE, FIXED_AMOUNT |
 | `NotificationChannel` | EMAIL, SMS, WHATSAPP |
 | `NotificationStatus` | PENDING, SENT, FAILED |
+| `OrganizationStatus` | PROVISIONING, ACTIVE, SUSPENDED, CLOSED |
+| `OrganizationRole` | OWNER, MANAGER, STAFF |
+| `MemberStatus` | INVITED, ACTIVE, REVOKED |
+| `PlatformRole` | SUPPORT, OPERATIONS, ADMIN |
+| `PropertyPublicationStatus` | DRAFT, SUBMITTED, UNDER_REVIEW, PUBLISHED, PAUSED, SUSPENDED, ARCHIVED |
+| `VerificationStatus` | UNVERIFIED, PENDING, VERIFIED, REJECTED |
+| `LocationVerification` | NONE, PLATFORM_VERIFIED |
+| `LocationPrecision` | NONE, APPROXIMATE, NEIGHBORHOOD, EXACT |
+| `RecordScope` | PLATFORM, TENANT |
+
+## organizations
+
+| Column | Type | Required | Notes |
+| ------ | ---- | -------- | ----- |
+| id | uuid | yes | PK |
+| name | text | yes | |
+| slug | text | yes | unique |
+| status | OrganizationStatus | yes | default PROVISIONING |
+| email / phone / country | text | no | organization contact |
+| created_at / updated_at | timestamptz | yes | |
+
+## organization_members
+
+| Column | Type | Required | Notes |
+| ------ | ---- | -------- | ----- |
+| id | uuid | yes | PK |
+| organization_id / user_id | uuid | yes | FKs; unique together |
+| role | OrganizationRole | yes | tenant role |
+| status | MemberStatus | yes | default ACTIVE |
+| invited_by_user_id | uuid | no | inviter attribution |
+| invited_at / activated_at / revoked_at | timestamptz | no | membership lifecycle |
+| created_at / updated_at | timestamptz | yes | |
+
+Index: `(user_id, status)`.
+
+## organization_member_hotels
+
+| Column | Type | Required | Notes |
+| ------ | ---- | -------- | ----- |
+| member_id | uuid | yes | PK part, FK CASCADE |
+| hotel_id | uuid | yes | PK part, FK CASCADE |
 
 ## hotels
 
 | Column | Type | Required | Notes |
 | ------ | ---- | -------- | ----- |
 | id | uuid | yes | PK |
+| organization_id | uuid | yes | FK → organizations, RESTRICT; existing hotels are assigned to Santo |
+| publication_status | PropertyPublicationStatus | yes | default DRAFT; existing public hotel is migrated as PUBLISHED |
+| verification_status | VerificationStatus | yes | default UNVERIFIED; migration does not imply verification |
+| location_verification / location_precision | enum | yes | defaults NONE; map pin requires later verification workflow |
+| verified_at / verified_by_user_id | timestamptz / uuid | no | verification attribution |
 | name | text | yes | |
 | slug | text | yes | unique |
 | description | text | no | |
@@ -33,7 +79,7 @@ Open business values (currency, taxes, policies) are marked **pending** and trac
 | address_line1 / address_line2 / city / postcode / country | text | no | |
 | latitude / longitude | decimal(9,6) / decimal(10,6) | no | verified map coordinates (MR-07); both set or both NULL (`hotels_coordinates_pair_check`), range-checked (-90..90 / -180..180); set only by an authorized admin — the public map shows "Map location unavailable" while NULL |
 | timezone | text | yes | default `Asia/Kuala_Lumpur` |
-| currency | text | yes | default `MYR` — **pending Q1** |
+| currency | text | yes | default `NGN`; historical booking currency is added separately |
 | created_at / updated_at | timestamptz | yes | |
 
 ## users
@@ -47,6 +93,7 @@ Authenticated staff/admin accounts (guest login is a P3 decision, Q13).
 | email | text | yes | unique |
 | password_hash | text | yes | never store plaintext |
 | role | UserRole | yes | default STAFF |
+| platform_role | PlatformRole | no | marketplace governance role; never inferred from `role` |
 | is_active | boolean | yes | default true |
 | last_login_at | timestamptz | no | |
 | created_at / updated_at | timestamptz | yes | |
@@ -68,6 +115,7 @@ Authenticated staff/admin accounts (guest login is a P3 decision, Q13).
 | ------ | ---- | -------- | ----- |
 | id | uuid | yes | PK |
 | hotel_id | uuid | yes | FK → hotels, RESTRICT |
+| organization_id | uuid | no | FK → organizations; nullable until reconciliation |
 | name | text | yes | unique |
 | slug | text | yes | unique |
 | description | text | no | |
@@ -77,7 +125,7 @@ Authenticated staff/admin accounts (guest login is a P3 decision, Q13).
 | status | RecordStatus | yes | default ACTIVE |
 | created_at / updated_at | timestamptz | yes | |
 
-Indexes: `hotel_id`.
+Indexes: `hotel_id`, `(hotel_id, status)`, unique `(id, hotel_id)`.
 
 ## rooms
 
@@ -85,6 +133,7 @@ Indexes: `hotel_id`.
 | ------ | ---- | -------- | ----- |
 | id | uuid | yes | PK |
 | room_type_id | uuid | yes | FK → room_types, RESTRICT |
+| hotel_id | uuid | no | FK → hotels; nullable until reconciliation |
 | room_number | text | yes | unique |
 | floor | int | no | |
 | status | RoomStatus | yes | default AVAILABLE |
@@ -98,6 +147,8 @@ Indexes: `room_type_id`, `status`.
 | Table | Column | Type | Required | Notes |
 | ----- | ------ | ---- | -------- | ----- |
 | amenities | id | uuid | yes | PK |
+| amenities | scope | RecordScope | yes | default PLATFORM |
+| amenities | organization_id | uuid | no | FK → organizations; nullable for platform scope |
 | amenities | name | text | yes | unique |
 | amenities | description | text | no | |
 | room_type_amenities | room_type_id | uuid | yes | PK part, FK CASCADE |
@@ -126,7 +177,7 @@ Indexes: `room_type_id`.
 | room_type_id | uuid | yes | FK CASCADE |
 | name | text | yes | e.g. "Standard 2026" |
 | amount | decimal(10,2) | yes | CHECK ≥ 0 |
-| currency | text | yes | default MYR — **pending Q1** |
+| currency | text | yes | default NGN; currency policy remains subject to Q1 |
 | start_date / end_date | date | yes | CHECK end ≥ start |
 | status | RecordStatus | yes | default ACTIVE |
 | created_at / updated_at | timestamptz | yes | |
@@ -138,6 +189,10 @@ Indexes: `room_type_id`, `(start_date, end_date)`.
 | Column | Type | Required | Notes |
 | ------ | ---- | -------- | ----- |
 | id | uuid | yes | internal PK |
+| hotel_id | uuid | no | FK → hotels; nullable until reconciliation |
+| organization_id | uuid | no | FK → organizations; nullable until reconciliation |
+| currency | text | no | historical booking currency; use one recorded payment currency when present, otherwise the hotel's current currency |
+| terms_snapshot | json | no | migration-time copy of the hotel's current terms; not represented as the original booking-time terms |
 | booking_reference | text | yes | unique, customer-facing (`SH-2026-000123`) |
 | guest_id | uuid | yes | FK → guests, RESTRICT |
 | promotion_id | uuid | no | FK → promotions, SET NULL |
@@ -161,6 +216,8 @@ see below).
 | Column | Type | Required | Notes |
 | ------ | ---- | -------- | ----- |
 | id | uuid | yes | PK |
+| hotel_id | uuid | no | FK → hotels; nullable until reconciliation |
+| room_type_name_snapshot / room_type_slug_snapshot | text | no | historical listing identity |
 | booking_id | uuid | yes | FK CASCADE; unique with room_id |
 | room_id | uuid | yes | FK → rooms, RESTRICT |
 | nightly_rate | decimal(10,2) | yes | **historical snapshot** — never updated when rates change |
@@ -175,6 +232,7 @@ Indexes: unique `(booking_id, room_id)` (covers booking lookups), `room_id` (ava
 | Column | Type | Required | Notes |
 | ------ | ---- | -------- | ----- |
 | room_id | uuid | yes | FK → rooms, RESTRICT — **composite PK part 1** |
+| hotel_id | uuid | no | FK → hotels; nullable until reconciliation |
 | night | date | yes | calendar night the room is held (UTC midnight) — **composite PK part 2** |
 | booking_id | uuid | yes | FK → bookings, CASCADE |
 | created_at | timestamptz | yes | |
@@ -196,11 +254,12 @@ Indexes: `booking_id`.
 | Column | Type | Required | Notes |
 | ------ | ---- | -------- | ----- |
 | id | uuid | yes | PK |
+| hotel_id / organization_id | uuid | no | nullable ownership attribution |
 | booking_id | uuid | yes | FK RESTRICT (payments are auditable) |
 | provider | text | yes | gateway name — **pending Q4** |
 | provider_reference | text | no | unique; gateway transaction id |
 | amount | decimal(10,2) | yes | CHECK ≥ 0 |
-| currency | text | yes | default MYR |
+| currency | text | yes | default NGN |
 | status | PaymentStatus | yes | default PENDING |
 | refunded_amount | decimal(10,2) | yes | default 0, CHECK `0 ≤ refunded ≤ amount` |
 | paid_at / refunded_at | timestamptz | no | |
@@ -213,6 +272,7 @@ No raw card data is ever stored (P2 §16).
 | Column | Type | Required | Notes |
 | ------ | ---- | -------- | ----- |
 | id | uuid | yes | PK |
+| hotel_id | uuid | no | FK → hotels; nullable until reconciliation |
 | code | text | yes | unique |
 | type | PromotionType | yes | |
 | value | decimal(10,2) | yes | CHECK > 0 (percent or amount) |
@@ -228,6 +288,7 @@ Indexes: `status`. Applied discounts are snapshotted on the booking.
 | Column | Type | Required | Notes |
 | ------ | ---- | -------- | ----- |
 | id | uuid | yes | PK |
+| hotel_id / organization_id | uuid | no | nullable ownership attribution |
 | booking_id | uuid | no | FK SET NULL |
 | channel | NotificationChannel | yes | |
 | recipient | text | yes | email/phone snapshot |
@@ -244,13 +305,41 @@ Indexes: `booking_id`, `status`.
 | Column | Type | Required | Notes |
 | ------ | ---- | -------- | ----- |
 | id | uuid | yes | PK |
+| organization_id / hotel_id | uuid | no | nullable tenant attribution |
 | user_id | uuid | no | FK SET NULL |
+| actor_type / actor_guest_id | text / uuid | no | actor attribution |
+| ip_address / purpose / outcome | text | no | request context and result |
 | action | text | yes | e.g. `room_rate.updated` |
 | entity_type / entity_id | text | yes | affected record |
 | old_values / new_values | json | no | before/after snapshots |
 | created_at | timestamptz | yes | |
 
-Indexes: `user_id`, `(entity_type, entity_id)`, `created_at`.
+Indexes: `user_id`, `(entity_type, entity_id)`, `created_at`,
+`(organization_id, hotel_id, created_at)`.
+
+## booking reference sequence
+
+`booking_reference_seq` reserves the numeric portion of `SH-YYYY-NNNNNN`
+atomically. The migration initializes it above existing six-digit reference
+numbers. The existing booking-reference unique constraint remains the collision
+guard.
+
+## site_content
+
+| Column | Type | Required | Notes |
+| ------ | ---- | -------- | ----- |
+| key | text | yes | stable content slot PK |
+| scope | RecordScope | yes | default PLATFORM |
+| organization_id / hotel_id | uuid | no | optional tenant/property scope |
+| title / body | text | no / yes | editable site content |
+| updated_by_user_id | uuid | no | editor attribution |
+| created_at / updated_at | timestamptz | yes | |
+
+## listing_reviews / public_slug_redirects
+
+`listing_reviews` records the hotel, prior/next publication status, decision reason,
+reviewer, and timestamp. `public_slug_redirects` preserves the prior slug and target
+slug, scoped to a hotel; the pair `(entity_type, from_slug)` is unique.
 
 ## Migrations
 
@@ -264,6 +353,7 @@ Indexes: `user_id`, `(entity_type, entity_id)`, `created_at`.
 | `20261003040449_payments_notifications_audit` | payments, notifications, audit_logs |
 | `20261003040457_add_check_constraints` | raw-SQL CHECK constraints (13) |
 | `20261028090000_hotel_map_coordinates` | `hotels.latitude` / `hotels.longitude` + coordinate pair/range CHECKs (public room map) |
+| `20261029120000_multi_tenant_foundation` | Organization/membership/listing models, additive owner columns, booking reference sequence, and initial Santo organization backfill |
 
 Rebuild from scratch: `npm run db:reset` → migrations + seed.
 Integrity evidence: `npm run db:integrity` (15 checks).

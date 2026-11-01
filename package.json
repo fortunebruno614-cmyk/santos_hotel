@@ -21,6 +21,11 @@
     "db:smoke": "tsx scripts/db-smoke.ts",
     "db:dump": "tsx scripts/db-dump.ts",
     "db:restore": "tsx scripts/db-restore.ts",
+    "mt:preflight": "tsx scripts/mt00-preflight.ts",
+    "mt:backfill": "tsx scripts/mt01-backfill.ts",
+    "mt:reconcile": "tsx scripts/mt02-reconcile.ts",
+    "mt:backup": "tsx scripts/mt03-backup.ts",
+    "mt:restore": "tsx scripts/mt04-restore.ts",
     "authz:check": "tsx scripts/p3-authz-check.ts",
     "authz:fixtures": "tsx scripts/p3-authz-fixtures.ts",
     "db:indexes": "tsx scripts/p23-index-check.ts"

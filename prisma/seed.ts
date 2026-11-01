@@ -1,6 +1,6 @@
 import "../scripts/load-env";
 import { prisma } from "../src/lib/prisma";
-import { PromotionType, RecordStatus } from "../src/generated/prisma/enums";
+import { OrganizationStatus, PromotionType, RecordStatus } from "../src/generated/prisma/enums";
 import { hashPassword } from "../src/server/auth/crypto";
 
 const AMENITIES = [
@@ -139,12 +139,23 @@ async function seedAccounts() {
 }
 
 async function main() {
-  const hotel = await prisma.hotel.upsert({
+  const organization = await prisma.organization.upsert({
     where: { slug: "santo-hotel" },
     update: { name: "Santo Hotel" },
     create: {
       name: "Santo Hotel",
       slug: "santo-hotel",
+      status: OrganizationStatus.ACTIVE,
+    },
+  });
+
+  const hotel = await prisma.hotel.upsert({
+    where: { slug: "santo-hotel" },
+    update: { name: "Santo Hotel", organizationId: organization.id },
+    create: {
+      name: "Santo Hotel",
+      slug: "santo-hotel",
+      organizationId: organization.id,
       description: "Single-tenant hotel booking demo environment.",
       timezone: "Asia/Kuala_Lumpur",
       currency: "NGN",
@@ -165,6 +176,7 @@ async function main() {
     const roomType = await prisma.roomType.upsert({
       where: { slug: type.slug },
       update: {
+        organizationId: organization.id,
         name: type.name,
         description: type.description,
         maxAdults: type.maxAdults,
@@ -174,6 +186,7 @@ async function main() {
       },
       create: {
         hotelId: hotel.id,
+        organizationId: organization.id,
         slug: type.slug,
         name: type.name,
         description: type.description,
@@ -198,9 +211,10 @@ async function main() {
     for (const room of type.rooms) {
       await prisma.room.upsert({
         where: { roomNumber: room.roomNumber },
-        update: { roomTypeId: roomType.id, floor: room.floor },
+        update: { roomTypeId: roomType.id, hotelId: hotel.id, floor: room.floor },
         create: {
           roomTypeId: roomType.id,
+          hotelId: hotel.id,
           roomNumber: room.roomNumber,
           floor: room.floor,
         },
@@ -247,8 +261,9 @@ async function main() {
 
   await prisma.promotion.upsert({
     where: { code: "STAY10" },
-    update: {},
+    update: { hotelId: hotel.id },
     create: {
+      hotelId: hotel.id,
       code: "STAY10",
       type: PromotionType.PERCENTAGE,
       value: 10,

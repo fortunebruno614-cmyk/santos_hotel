@@ -76,24 +76,142 @@ enum NotificationStatus {
   FAILED
 }
 
+enum OrganizationStatus {
+  PROVISIONING
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum OrganizationRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum MemberStatus {
+  INVITED
+  ACTIVE
+  REVOKED
+}
+
+enum PlatformRole {
+  SUPPORT
+  OPERATIONS
+  ADMIN
+}
+
+enum PropertyPublicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  PUBLISHED
+  PAUSED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum LocationVerification {
+  NONE
+  PLATFORM_VERIFIED
+}
+
+enum LocationPrecision {
+  NONE
+  APPROXIMATE
+  NEIGHBORHOOD
+  EXACT
+}
+
+enum RecordScope {
+  PLATFORM
+  TENANT
+}
+
 // ---------------------------------------------------------------------------
-// 001 — Single-tenant hotel: core identity & configuration.
+// Tenant organization and membership foundation.
 // ---------------------------------------------------------------------------
 
+model Organization {
+  id        String             @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String             @unique
+  status    OrganizationStatus @default(PROVISIONING)
+  email     String?
+  phone     String?
+  country   String?
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz()
+
+  hotels        Hotel[]
+  members       OrganizationMember[]
+  roomTypes     RoomType[]
+  amenities     Amenity[]
+  content       SiteContent[]
+  bookings      Booking[]
+  payments      Payment[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  role           OrganizationRole
+  status         MemberStatus     @default(ACTIVE)
+  invitedById    String?          @map("invited_by_user_id") @db.Uuid
+  invitedAt      DateTime?        @map("invited_at") @db.Timestamptz()
+  activatedAt    DateTime?        @map("activated_at") @db.Timestamptz()
+  revokedAt      DateTime?        @map("revoked_at") @db.Timestamptz()
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz()
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotels       OrganizationMemberHotel[]
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@map("organization_members")
+}
+
+model OrganizationMemberHotel {
+  memberId String @map("member_id") @db.Uuid
+  hotelId  String @map("hotel_id") @db.Uuid
+
+  member OrganizationMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  hotel  Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@id([memberId, hotelId])
+  @@index([hotelId])
+  @@map("organization_member_hotels")
+}
+
 model Hotel {
-  id           String   @id @default(uuid()) @db.Uuid
-  name         String
-  slug         String   @unique
-  description  String?
-  phone        String?
-  email        String?
-  addressLine1 String?  @map("address_line1")
-  addressLine2 String?  @map("address_line2")
-  city         String?
-  postcode     String?
-  country      String?
-  timezone     String   @default("Asia/Kuala_Lumpur")
-  currency     String   @default("NGN")
+  id             String  @id @default(uuid()) @db.Uuid
+  organizationId String  @map("organization_id") @db.Uuid
+  name           String
+  slug           String  @unique
+  description    String?
+  phone          String?
+  email          String?
+  addressLine1   String? @map("address_line1")
+  addressLine2   String? @map("address_line2")
+  city           String?
+  postcode       String?
+  country        String?
+  timezone       String  @default("Asia/Kuala_Lumpur")
+  currency       String  @default("NGN")
 
   /// Verified location for the public room map (MR-07). Set only by an
   /// authorized operator from a verified source; NULL (both columns, enforced
@@ -101,6 +219,13 @@ model Hotel {
   /// a guessed pin. Never geocode an ambiguous address in production.
   latitude  Decimal? @map("latitude") @db.Decimal(9, 6)
   longitude Decimal? @map("longitude") @db.Decimal(10, 6)
+
+  publicationStatus    PropertyPublicationStatus @default(DRAFT) @map("publication_status")
+  verificationStatus   VerificationStatus        @default(UNVERIFIED) @map("verification_status")
+  locationVerification LocationVerification      @default(NONE) @map("location_verification")
+  locationPrecision    LocationPrecision         @default(NONE) @map("location_precision")
+  verifiedAt           DateTime?                 @map("verified_at") @db.Timestamptz()
+  verifiedById         String?                   @map("verified_by_user_id") @db.Uuid
 
   // P7 system settings — the admin console edits these; `src/config/booking.ts`
   // env vars are only the bootstrap fallback for a database that has none.
@@ -115,9 +240,55 @@ model Hotel {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
-  roomTypes RoomType[]
+  organization        Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  verifiedBy          User?                     @relation("HotelVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  roomTypes           RoomType[]
+  rooms               Room[]
+  bookings            Booking[]
+  bookingRooms        BookingRoom[]
+  roomNights          RoomNight[]
+  payments            Payment[]
+  notifications       Notification[]
+  promotions          Promotion[]
+  memberHotels        OrganizationMemberHotel[]
+  listingReviews      ListingReview[]
+  publicSlugRedirects PublicSlugRedirect[]
+  content             SiteContent[]
+  auditLogs           AuditLog[]
 
+  @@index([organizationId])
+  @@index([publicationStatus, id])
   @@map("hotels")
+}
+
+model ListingReview {
+  id             String                    @id @default(uuid()) @db.Uuid
+  hotelId        String                    @map("hotel_id") @db.Uuid
+  fromStatus     PropertyPublicationStatus @map("from_status")
+  toStatus       PropertyPublicationStatus @map("to_status")
+  decisionReason String?                   @map("decision_reason")
+  reviewerUserId String?                   @map("reviewer_user_id") @db.Uuid
+  decidedAt      DateTime                  @default(now()) @map("decided_at") @db.Timestamptz()
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId, decidedAt])
+  @@map("listing_reviews")
+}
+
+model PublicSlugRedirect {
+  id         String   @id @default(uuid()) @db.Uuid
+  entityType String   @map("entity_type")
+  fromSlug   String   @map("from_slug")
+  hotelId    String   @map("hotel_id") @db.Uuid
+  targetSlug String   @map("target_slug")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, fromSlug])
+  @@index([hotelId])
+  @@map("public_slug_redirects")
 }
 
 // ---------------------------------------------------------------------------
@@ -126,14 +297,19 @@ model Hotel {
 
 model SiteContent {
   /// Stable slot id the public site renders from, e.g. `home.hero`, `rooms.intro`.
-  key         String   @id
-  title       String?
-  body        String   @default("")
-  updatedById String?  @map("updated_by_user_id") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  key            String      @id
+  scope          RecordScope @default(PLATFORM)
+  organizationId String?     @map("organization_id") @db.Uuid
+  hotelId        String?     @map("hotel_id") @db.Uuid
+  title          String?
+  body           String      @default("")
+  updatedById    String?     @map("updated_by_user_id") @db.Uuid
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
 
-  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedBy    User?         @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  hotel        Hotel?        @relation(fields: [hotelId], references: [id], onDelete: Cascade)
 
   @@map("site_content")
 }
@@ -143,19 +319,22 @@ model SiteContent {
 // ---------------------------------------------------------------------------
 
 model User {
-  id           String    @id @default(uuid()) @db.Uuid
+  id           String        @id @default(uuid()) @db.Uuid
   name         String
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  role         UserRole  @default(STAFF)
-  isActive     Boolean   @default(true) @map("is_active")
-  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz()
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  role         UserRole      @default(STAFF)
+  platformRole PlatformRole? @map("platform_role")
+  isActive     Boolean       @default(true) @map("is_active")
+  lastLoginAt  DateTime?     @map("last_login_at") @db.Timestamptz()
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
 
-  bookingsCreated Booking[]  @relation("BookingCreatedBy")
-  auditLogs       AuditLog[]
-  siteContent     SiteContent[]
+  bookingsCreated         Booking[]            @relation("BookingCreatedBy")
+  auditLogs               AuditLog[]
+  siteContent             SiteContent[]
+  organizationMemberships OrganizationMember[]
+  verifiedHotels          Hotel[]              @relation("HotelVerifiedBy")
 
   @@map("users")
 }
@@ -189,25 +368,29 @@ model Guest {
 // ---------------------------------------------------------------------------
 
 model RoomType {
-  id          String       @id @default(uuid()) @db.Uuid
-  hotelId     String       @map("hotel_id") @db.Uuid
-  name        String       @unique
-  slug        String       @unique
-  description String?
-  maxAdults   Int          @map("max_adults")
-  maxChildren Int          @default(0) @map("max_children")
-  basePrice   Decimal      @map("base_price") @db.Decimal(10, 2)
-  status      RecordStatus @default(ACTIVE)
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
+  id             String       @id @default(uuid()) @db.Uuid
+  hotelId        String       @map("hotel_id") @db.Uuid
+  organizationId String?      @map("organization_id") @db.Uuid
+  name           String       @unique
+  slug           String       @unique
+  description    String?
+  maxAdults      Int          @map("max_adults")
+  maxChildren    Int          @default(0) @map("max_children")
+  basePrice      Decimal      @map("base_price") @db.Decimal(10, 2)
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
 
-  hotel     Hotel             @relation(fields: [hotelId], references: [id], onDelete: Restrict)
-  rooms     Room[]
-  rates     Rate[]
-  images    RoomImage[]
-  amenities RoomTypeAmenity[]
+  hotel        Hotel             @relation(fields: [hotelId], references: [id], onDelete: Restrict)
+  organization Organization?     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  rooms        Room[]
+  rates        Rate[]
+  images       RoomImage[]
+  amenities    RoomTypeAmenity[]
 
+  @@unique([id, hotelId])
   @@index([hotelId])
+  @@index([hotelId, status])
   @@map("room_types")
 }
 
@@ -218,6 +401,7 @@ model RoomType {
 model Room {
   id         String     @id @default(uuid()) @db.Uuid
   roomTypeId String     @map("room_type_id") @db.Uuid
+  hotelId    String?    @map("hotel_id") @db.Uuid
   roomNumber String     @unique @map("room_number")
   floor      Int?
   status     RoomStatus @default(AVAILABLE)
@@ -226,10 +410,12 @@ model Room {
   updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
 
   roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Restrict)
+  hotel    Hotel?   @relation(fields: [hotelId], references: [id], onDelete: Restrict)
 
   bookingRooms BookingRoom[]
   roomNights   RoomNight[]
 
+  @@unique([id, hotelId])
   // P2.3: (room_type_id) — rooms per category: `WHERE room_type_id = $1`.
   //        (status) — housekeeping/front-desk board: `WHERE status = 'AVAILABLE'`.
   @@index([roomTypeId])
@@ -242,13 +428,16 @@ model Room {
 // ---------------------------------------------------------------------------
 
 model Amenity {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  id             String      @id @default(uuid()) @db.Uuid
+  scope          RecordScope @default(PLATFORM)
+  organizationId String?     @map("organization_id") @db.Uuid
+  name           String      @unique
+  description    String?
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
 
-  roomTypes RoomTypeAmenity[]
+  organization Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roomTypes    RoomTypeAmenity[]
 
   @@map("amenities")
 }
@@ -311,6 +500,7 @@ model Rate {
 
 model Promotion {
   id        String        @id @default(uuid()) @db.Uuid
+  hotelId   String?       @map("hotel_id") @db.Uuid
   code      String        @unique
   type      PromotionType
   value     Decimal       @db.Decimal(10, 2)
@@ -321,6 +511,7 @@ model Promotion {
   createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
 
+  hotel    Hotel?    @relation(fields: [hotelId], references: [id], onDelete: Restrict)
   bookings Booking[]
 
   @@index([status])
@@ -333,6 +524,10 @@ model Promotion {
 
 model Booking {
   id               String        @id @default(uuid()) @db.Uuid
+  hotelId          String?       @map("hotel_id") @db.Uuid
+  organizationId   String?       @map("organization_id") @db.Uuid
+  currency         String?
+  termsSnapshot    Json?         @map("terms_snapshot")
   bookingReference String        @unique @map("booking_reference")
   guestId          String        @map("guest_id") @db.Uuid
   promotionId      String?       @map("promotion_id") @db.Uuid
@@ -353,6 +548,8 @@ model Booking {
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
 
+  hotel         Hotel?         @relation(fields: [hotelId], references: [id], onDelete: Restrict)
+  organization  Organization?  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   guest         Guest          @relation(fields: [guestId], references: [id], onDelete: Restrict)
   promotion     Promotion?     @relation(fields: [promotionId], references: [id], onDelete: SetNull)
   createdBy     User?          @relation("BookingCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
@@ -361,6 +558,7 @@ model Booking {
   payments      Payment[]
   notifications Notification[]
 
+  @@unique([id, hotelId])
   // P2.3 index justifications (query each one serves):
   // booking_reference unique — `SELECT * FROM bookings WHERE booking_reference = $1`
   //   (guest "find my booking", staff search, payment-webhook correlation).
@@ -386,16 +584,20 @@ model Booking {
 // ---------------------------------------------------------------------------
 
 model BookingRoom {
-  id          String   @id @default(uuid()) @db.Uuid
-  bookingId   String   @map("booking_id") @db.Uuid
-  roomId      String   @map("room_id") @db.Uuid
-  nightlyRate Decimal  @map("nightly_rate") @db.Decimal(10, 2)
-  nights      Int
-  roomTotal   Decimal  @map("room_total") @db.Decimal(10, 2)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  id                   String   @id @default(uuid()) @db.Uuid
+  hotelId              String?  @map("hotel_id") @db.Uuid
+  roomTypeNameSnapshot String?  @map("room_type_name_snapshot")
+  roomTypeSlugSnapshot String?  @map("room_type_slug_snapshot")
+  bookingId            String   @map("booking_id") @db.Uuid
+  roomId               String   @map("room_id") @db.Uuid
+  nightlyRate          Decimal  @map("nightly_rate") @db.Decimal(10, 2)
+  nights               Int
+  roomTotal            Decimal  @map("room_total") @db.Decimal(10, 2)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   room    Room    @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  hotel   Hotel?  @relation(fields: [hotelId], references: [id], onDelete: Restrict)
 
   // P2.3 index justifications:
   // unique (booking_id, room_id) — allocation lookup per booking:
@@ -416,13 +618,15 @@ model BookingRoom {
 
 model RoomNight {
   /// Calendar night the room is sold (date-only; `[check_in, check_out)`).
-  night     DateTime   @db.Date
-  roomId    String     @map("room_id") @db.Uuid
-  bookingId String     @map("booking_id") @db.Uuid
-  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  night     DateTime @db.Date
+  roomId    String   @map("room_id") @db.Uuid
+  hotelId   String?  @map("hotel_id") @db.Uuid
+  bookingId String   @map("booking_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   room    Room    @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  hotel   Hotel?  @relation(fields: [hotelId], references: [id], onDelete: Restrict)
 
   // P4 — the database-level double-booking guard. PRIMARY KEY (room_id, night)
   //   makes "two live bookings hold the same room for the same night" a
@@ -436,6 +640,7 @@ model RoomNight {
   //   and the cascade on booking deletion.
   @@id([roomId, night])
   @@index([bookingId])
+  @@index([hotelId, night])
   @@map("room_nights")
 }
 
@@ -446,6 +651,8 @@ model RoomNight {
 
 model Payment {
   id                String        @id @default(uuid()) @db.Uuid
+  hotelId           String?       @map("hotel_id") @db.Uuid
+  organizationId    String?       @map("organization_id") @db.Uuid
   bookingId         String        @map("booking_id") @db.Uuid
   provider          String
   providerReference String?       @unique @map("provider_reference")
@@ -458,7 +665,9 @@ model Payment {
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
 
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  hotel        Hotel?        @relation(fields: [hotelId], references: [id], onDelete: Restrict)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  booking      Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
 
   @@index([bookingId])
   @@index([status])
@@ -470,18 +679,22 @@ model Payment {
 // ---------------------------------------------------------------------------
 
 model Notification {
-  id        String              @id @default(uuid()) @db.Uuid
-  bookingId String?             @map("booking_id") @db.Uuid
-  channel   NotificationChannel
-  recipient String
-  subject   String?
-  body      String
-  status    NotificationStatus  @default(PENDING)
-  error     String?
-  sentAt    DateTime?           @map("sent_at") @db.Timestamptz()
-  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz()
+  id             String              @id @default(uuid()) @db.Uuid
+  hotelId        String?             @map("hotel_id") @db.Uuid
+  organizationId String?             @map("organization_id") @db.Uuid
+  bookingId      String?             @map("booking_id") @db.Uuid
+  channel        NotificationChannel
+  recipient      String
+  subject        String?
+  body           String
+  status         NotificationStatus  @default(PENDING)
+  error          String?
+  sentAt         DateTime?           @map("sent_at") @db.Timestamptz()
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz()
 
-  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  hotel        Hotel?        @relation(fields: [hotelId], references: [id], onDelete: Restrict)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  booking      Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
   @@index([bookingId])
   @@index([status])
@@ -493,19 +706,29 @@ model Notification {
 // ---------------------------------------------------------------------------
 
 model AuditLog {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String?  @map("user_id") @db.Uuid
-  action     String
-  entityType String   @map("entity_type")
-  entityId   String   @map("entity_id")
-  oldValues  Json?    @map("old_values")
-  newValues  Json?    @map("new_values")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid
+  hotelId        String?  @map("hotel_id") @db.Uuid
+  actorType      String?  @map("actor_type")
+  actorGuestId   String?  @map("actor_guest_id") @db.Uuid
+  ipAddress      String?  @map("ip_address")
+  purpose        String?
+  outcome        String?
+  userId         String?  @map("user_id") @db.Uuid
+  action         String
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id")
+  oldValues      Json?    @map("old_values")
+  newValues      Json?    @map("new_values")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  hotel        Hotel?        @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
+  @@index([organizationId, hotelId, createdAt])
   @@map("audit_logs")
 }

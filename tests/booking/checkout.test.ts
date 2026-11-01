@@ -12,7 +12,6 @@ import { computeQuote } from "../../src/server/pricing/service";
 import { moneyString } from "../../src/server/pricing/model";
 import {
   BOOKING_REFERENCE_REGEX,
-  currentSequence,
   formatBookingReference,
   nextBookingReference,
   parseBookingReference,
@@ -252,9 +251,13 @@ describe("P5 checkout", () => {
     assert.equal(parseBookingReference("P4AVAIL-x"), null);
 
     const year = new Date().getUTCFullYear();
-    const before = await currentSequence(prisma, year);
-    const next = await nextBookingReference(prisma);
-    assert.match(next, BOOKING_REFERENCE_REGEX);
-    assert.equal(next, formatBookingReference(year, before + 1));
+    const references = await Promise.all(
+      Array.from({ length: 8 }, () => nextBookingReference(prisma)),
+    );
+    assert.equal(new Set(references).size, references.length);
+    for (const reference of references) {
+      assert.match(reference, BOOKING_REFERENCE_REGEX);
+      assert.equal(parseBookingReference(reference)?.year, year);
+    }
   });
 });

@@ -356,14 +356,21 @@ Purpose: remove every decision that would force rework, and build the two-tenant
 
 Purpose: add every new column, table, and enum additively, with **no behaviour change** and **no constraint tightening**.
 
-- [ ] Add new enums and models from section 4.1 (`Organization`, `OrganizationMember`, `OrganizationMemberHotel`, `ListingReview`, `PublicSlugRedirect`).
-- [ ] Add nullable denormalised ownership columns from section 4.2.
-- [ ] Add composite unique keys `@@unique([id, hotelId])` on `RoomType`, `Room`, `Booking` (these are additive and break nothing).
-- [ ] Create Santo's `Organization` row and set `hotels.organization_id` for the existing hotel.
-- [ ] Add the `booking_reference_seq` sequence; switch the allocator in `src/server/booking/reference.ts` while keeping the format identical.
-- [ ] Add indexes: `hotels(organization_id)`, `hotels(publication_status, id)`, `room_types(hotel_id, status)`, `organization_members(user_id, status)`, `audit_logs(organization_id, hotel_id, created_at)`, `booking_nights(hotel_id, night)`.
-- [ ] Update `prisma/seed.ts` to create an organization alongside the hotel.
+- [x] Add new enums and models from section 4.1 (`Organization`, `OrganizationMember`, `OrganizationMemberHotel`, `ListingReview`, `PublicSlugRedirect`).
+- [x] Add nullable denormalised ownership columns from section 4.2.
+- [x] Add composite unique keys `@@unique([id, hotelId])` on `RoomType`, `Room`, `Booking` (these are additive and break nothing).
+- [x] Create Santo's `Organization` row and set `hotels.organization_id` for the existing hotel.
+- [x] Add the `booking_reference_seq` sequence; switch the allocator in `src/server/booking/reference.ts` while keeping the format identical.
+- [x] Add indexes: `hotels(organization_id)`, `hotels(publication_status, id)`, `room_types(hotel_id, status)`, `organization_members(user_id, status)`, `audit_logs(organization_id, hotel_id, created_at)`, `room_nights(hotel_id, night)`.
+- [x] Update `prisma/seed.ts` to create an organization alongside the hotel.
 - [ ] Verify `npm run db:migrate` is clean from an empty database and from a copy of production.
+
+Implementation note: the migration has been applied to the configured local development
+database. Typecheck, lint, the full test suite, Prisma validation, and database integrity
+checks pass. `npm run db:indexes` reports 13/14 checks passing; the remaining P4 plan
+check expects the booking-status composite index, while PostgreSQL chooses the
+check-in/check-out index. Fresh-database and production-copy migration verification
+remain open, so M1 is not yet fully signed off.
 
 **Gate:** `npm run typecheck`, `npm run lint`, `npm run test` all green. `npm run db:integrity` and `npm run db:indexes` pass. A production copy migrates without error and the app behaves identically, because no read path changed.
 
@@ -373,28 +380,50 @@ Purpose: add every new column, table, and enum additively, with **no behaviour c
 
 Purpose: make Santo a normal first tenant with zero unexplained variance (REQ-046 to REQ-049).
 
-- [ ] `scripts/mt00-preflight.ts` (dry-run, read-only) reporting:
+- [x] `scripts/mt00-preflight.ts` (dry-run, read-only) reporting:
   - Record counts per table, before and expected after.
   - Uniqueness conflicts: emails, room numbers, room-type names and slugs, promotion codes, amenity names, booking references.
   - Orphaned records: rows whose ownership path cannot be resolved.
   - Ambiguous bookings: bookings whose allocations resolve to more than one hotel, or to none. **Halt on any hit** - do not guess (MRD section 15).
   - Timezone/currency inconsistencies (F-18: the schema default pairs `Asia/Kuala_Lumpur` with `NGN`).
-- [ ] `scripts/mt01-backfill.ts`, transactional and re-runnable:
+- [x] `scripts/mt01-backfill.ts`, transactional and re-runnable:
   - `Booking.hotel_id` via `booking_rooms -> rooms -> room_types -> hotel_id`.
-  - **`Booking.currency`** from `hotels.currency` (F-01).
+  - **`Booking.currency`** from the single historical payment currency when present, otherwise `hotels.currency` (F-01). Never rewrite a historical payment currency or amount.
   - `Booking.terms_snapshot` from the hotel's then-current policy settings.
   - `rooms.hotel_id` from `room_types.hotel_id`.
   - `payments.hotel_id` / `organization_id` via booking.
   - `notifications.hotel_id` via booking.
   - `room_nights.hotel_id` via room.
   - Users to `OrganizationMember` per the reviewed role mapping: `ADMIN -> OWNER`, `STAFF -> STAFF`, and **no platform role granted implicitly** (REQ-047).
-- [ ] `scripts/mt02-reconcile.ts` producing a signed report:
+- [x] `scripts/mt02-reconcile.ts` producing a checksummed report:
   - Counts per table, per property.
   - Financial totals: sum of `total`, `taxes`, `fees`, `discount`, `subtotal` by currency, before vs after - **exact match required**.
   - Booking reference set is identical; every reference still resolves.
   - Every booking has exactly one `hotel_id`; every payment matches its booking's currency.
-- [ ] `scripts/mt03-backup.ts` and `scripts/mt04-restore.ts`; run one full restore drill.
+- [x] Add `scripts/mt03-backup.ts` and `scripts/mt04-restore.ts`; both refuse unsafe overwrite/remote restore targets.
+- [ ] Run one full restore drill against a dedicated local scratch database.
 - [ ] Freeze/dual-write decision documented with a maintenance window length.
+
+Implementation note: the migration tooling is implemented and its dry-run passed on
+the configured local development database. The backfill SQL ran in a local
+serializable transaction that was deliberately rolled back. Preflight found no
+blocking ownership or uniqueness issues; it did flag two legacy MYR payments while
+Santo's current hotel currency is NGN, plus the existing Kuala Lumpur timezone/NGN
+pairing. The backfill preserves the recorded payment currency by using it for the
+booking's historical currency snapshot. No persistent M2 backfill has been run.
+The restore drill and maintenance-window decision remain open, so the M2 gate is
+not yet passed.
+
+Commands: `npm run mt:preflight`, `npm run mt:backfill` (dry-run),
+`npm run mt:backfill -- --check` (transactional rollback validation), and
+`npm run mt:backfill -- --apply --backup=dumps/multi-tenant/backup.dump --baseline=dumps/multi-tenant/baseline.json --confirm-maintenance-window=<approved-window>`.
+Persistent apply requires a matching SHA-256 backup manifest for the configured
+database and an explicitly approved maintenance-window identifier; the baseline
+path must be new.
+After an approved apply, use `npm run mt:reconcile -- --baseline=dumps/multi-tenant/baseline.json`.
+Backups use `npm run mt:backup`; restore requires an explicit local
+`MT_RESTORE_DATABASE_URL` whose database name contains `restore`, plus matching
+`--confirm-target`.
 
 **Gate:** zero unexplained variance in `mt02-reconcile.ts`. Restore drill passes with a measured RTO/RPO. `npm test` green. Santo's end-to-end booking, refund, and staff flows verified manually against the migrated database.
 

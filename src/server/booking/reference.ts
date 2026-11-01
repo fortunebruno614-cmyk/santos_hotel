@@ -7,11 +7,9 @@ import { BOOKING_REFERENCE_YEAR_PREFIX } from "@/config/booking";
  * (docs/DEVELOPMENT_PLAN.md P5, format from P2: "separate customer-facing
  * booking_reference (e.g. SH-2026-000123) from PK").
  *
- * The sequence restarts every calendar year and is derived from the highest
- * reference already stored for that year. That read is not a lock: two
- * checkouts racing for the same number resolve through the unique constraint on
- * `bookings.booking_reference` — the loser gets P2002 and the checkout retries
- * with the next number (see `createBooking`).
+ * A database sequence reserves references atomically, avoiding the race in a
+ * `MAX()` scan. The unique constraint remains the final collision guard and
+ * `createBooking` retries a rejected reference.
  */
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -36,22 +34,17 @@ export function parseBookingReference(reference: string): ParsedBookingReference
   return { year: Number(match[1]), sequence: Number(match[2]) };
 }
 
-/** Highest sequence used for `year` (0 when the year has no references yet). */
-export async function currentSequence(client: Db, year: number): Promise<number> {
-  const prefix = `${BOOKING_REFERENCE_YEAR_PREFIX}-${year}-%`;
-  const rows = await client.$queryRaw<Array<{ seq: number | null }>>`
-    SELECT MAX(CAST(RIGHT("booking_reference", 6) AS integer)) AS "seq"
-    FROM "bookings"
-    WHERE "booking_reference" LIKE ${prefix}
-  `;
-  return rows[0]?.seq ?? 0;
-}
-
-/** The next free reference for the year of `now` (does not reserve it). */
+/** Reserves the next reference number and formats it for the year of `now`. */
 export async function nextBookingReference(client: Db = prisma, now: Date = new Date()): Promise<string> {
   const year = now.getUTCFullYear();
-  const sequence = await currentSequence(client, year);
-  return formatBookingReference(year, sequence + 1);
+  const rows = await client.$queryRaw<Array<{ sequence: bigint }>>`
+    SELECT nextval('"booking_reference_seq"') AS "sequence"
+  `;
+  const sequence = rows[0]?.sequence;
+  if (sequence === undefined) {
+    throw new Error("booking reference sequence returned no value");
+  }
+  return formatBookingReference(year, Number(sequence));
 }
 
 /** True when a unique-constraint violation rejected *this* reference. */
