@@ -11,6 +11,7 @@ import {
   bedForRoomType,
   fallbackImageForSlug,
   isSuiteName,
+  type HotelLocation,
   type ListingRoom,
 } from "@/lib/hotel";
 import { RoomDetailContent } from "./room-detail";
@@ -40,6 +41,17 @@ export default async function RoomDetailPage({
     loadHotelContext(),
     Promise.resolve(parsePublicStay(sp)),
   ]);
+
+  /** Verified hotel position (MR-07) — null coordinates until an operator sets them. */
+  const location: HotelLocation = {
+    name: hotel.name,
+    address:
+      [hotel.addressLine1, hotel.addressLine2, hotel.city, hotel.postcode, hotel.country]
+        .filter(Boolean)
+        .join(", ") || null,
+    latitude: hotel.latitude,
+    longitude: hotel.longitude,
+  };
 
   const images = roomType.images.map((image) => image.url);
   if (images.length === 0) images.push(fallbackImageForSlug(roomType.slug));
@@ -115,6 +127,7 @@ export default async function RoomDetailPage({
       stay={parsed.stay}
       stayError={parsed.error}
       availableRooms={availableRooms}
+      location={location}
       nightlyRate={nightlyRate}
       stayTotal={stayTotal}
       estimate={estimate}

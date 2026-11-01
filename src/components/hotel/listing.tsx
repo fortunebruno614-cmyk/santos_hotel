@@ -25,10 +25,11 @@ import {
  * The view mode is transient page state (MRD decision #4): it lives in this
  * component only, never in the URL, so search params stay shareable and
  * switching views preserves dates, filters, sort, currency and selection.
- * The map is offered on availability results only — it pins the hotel's
- * verified position with its lowest nightly rate and mirrors the filtered
- * results in the pin's card (see `SearchMap`). The /rooms catalogue and
- * undated searches stay a clean list.
+ * The map is offered wherever a verified hotel position exists — it pins the
+ * hotel's position with its lowest nightly rate and mirrors the current
+ * results in the pin's card (see `SearchMap`). On availability results the
+ * card carries live rates and room counts; on the catalogue and undated
+ * searches it falls back to each room's base rate.
  *
  * The toggle only renders when a Maps API key is configured — without one the
  * page behaves exactly as the plain list always has.
@@ -66,9 +67,10 @@ export function Listing({
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Map/list mode: transient page state, independent of the URL (MRD #4).
-  // The pinned price map is an availability-results feature: the /rooms
-  // catalogue and undated searches stay a clean list.
-  const mapEnabled = isMapEnabled() && Boolean(location) && availability;
+  // The map opens on every room surface — catalogue, dated search and the
+  // room detail page — wherever a verified position exists. It never depends
+  // on availability: `SearchMap` falls back to base rates without dates.
+  const mapEnabled = isMapEnabled() && Boolean(location);
   const [view, setView] = useState<"list" | "map">("list");
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const listViewScrollY = useRef<number | null>(null);

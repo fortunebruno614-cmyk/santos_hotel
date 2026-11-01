@@ -19,6 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, Gallery, ViewAllPhotos } from "@/components/hotel/shared";
 import { SearchPanel } from "@/components/hotel/search-panel";
+import { SearchMap } from "@/components/hotel/search-map";
+import { isMapEnabled } from "@/config/maps";
 import { BookingSummary, type SummaryRow } from "@/components/hotel/booking-summary";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
 import {
@@ -26,6 +28,7 @@ import {
   defaultStayDates,
   formatMoney,
   nightsBetween,
+  type HotelLocation,
   type ListingRoom,
   type StayQuery,
 } from "@/lib/hotel";
@@ -55,6 +58,7 @@ export function RoomDetailContent({
   stay,
   stayError,
   availableRooms,
+  location,
   nightlyRate,
   estimate,
   searchFailed,
@@ -65,6 +69,7 @@ export function RoomDetailContent({
   stay: StayQuery | null;
   stayError: string | null;
   availableRooms: Array<{ id: string; roomNumber: string; floor: number | null }>;
+  location: HotelLocation;
   nightlyRate: string;
   stayTotal: string | null;
   estimate: { subtotal: string; taxes: string; fees: string; total: string } | null;
@@ -324,6 +329,26 @@ export function RoomDetailContent({
           )}
         </BookingSummary>
       </div>
+
+      {isMapEnabled() && (
+        /* Every room page pins the hotel's verified position (MR-07). The one
+         * room on screen is both the full set and the current result, so the
+         * pin card lists just this room. Without dates the card carries its
+         * base rate — `SearchMap` never quotes a price the server hasn't set. */
+        <section className="room-detail-map" aria-label="Hotel location map">
+          <h2>Where you&rsquo;ll be staying</h2>
+          <p className="tiny-note">{location.address ?? location.name}</p>
+          <div className="room-detail-map-frame">
+            <SearchMap
+              location={location}
+              rooms={[room]}
+              results={[room]}
+              stay={stay ?? undefined}
+              currency={hotel.currency}
+            />
+          </div>
+        </section>
+      )}
 
       <Gallery images={galleryImages} open={gallery} setOpen={setGallery} />
     </div>
