@@ -9,6 +9,7 @@ import {
   BedDouble,
   Check,
   Coffee,
+  MapPin,
   Maximize,
   Refrigerator,
   Tv,
@@ -118,6 +119,15 @@ export function RoomDetailContent({
     router.push(bookingHref(stay, selected));
   };
 
+  /** Jump to the room map without making the guest hunt for it (MR-07). */
+  const openMap = () => {
+    const target = document.getElementById("room-map");
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Move focus too, so keyboard and screen-reader users land on it.
+    target.focus({ preventScroll: true });
+  };
+
   return (
     <div className="container page-content room-detail-page">
       <Breadcrumb current={room.name} />
@@ -126,6 +136,15 @@ export function RoomDetailContent({
         <div>
           <span className="eyebrow">{room.isSuite ? "THE SUITE COLLECTION" : "YOUR PERSONAL RETREAT"}</span>
           <h1>{room.name}</h1>
+          {isMapEnabled() && (
+            /* Sits with the name so the location is one click away, instead of
+             * buried at the foot of the page. Hidden entirely when no Maps key
+             * is configured — same rule the List/Map toggle follows. */
+            <button type="button" className="room-map-link" onClick={openMap}>
+              <MapPin size={15} aria-hidden="true" />
+              Open map
+            </button>
+          )}
           <p>{room.description}</p>
         </div>
         <span className="subtle-badge">Santo accommodation</span>
@@ -335,7 +354,12 @@ export function RoomDetailContent({
          * room on screen is both the full set and the current result, so the
          * pin card lists just this room. Without dates the card carries its
          * base rate — `SearchMap` never quotes a price the server hasn't set. */
-        <section className="room-detail-map" aria-label="Hotel location map">
+        <section
+          id="room-map"
+          tabIndex={-1}
+          className="room-detail-map"
+          aria-label="Hotel location map"
+        >
           <h2>Where you&rsquo;ll be staying</h2>
           <p className="tiny-note">{location.address ?? location.name}</p>
           <div className="room-detail-map-frame">

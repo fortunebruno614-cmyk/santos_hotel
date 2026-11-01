@@ -3086,6 +3086,32 @@
  * outside `.listing-layout.with-map`, so reusing it here would hide the map. */
 .room-detail-map {
   margin-top: 34px;
+  /* "Open map" scrolls here; clear the sticky mobile booking bar. */
+  scroll-margin-top: 24px;
+}
+/* Sits with the room name so the location is one click away — a quiet link,
+ * not a call to action. */
+.room-map-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.room-map-link:hover {
+  text-decoration: underline;
+}
+.room-map-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
 }
 .room-detail-map h2 {
   margin-bottom: 4px;
@@ -3099,6 +3125,9 @@
   background: var(--card);
 }
 @media (max-width: 767px) {
+  .room-detail-map {
+    scroll-margin-top: 84px;
+  }
   .room-detail-map-frame {
     height: 65vh;
     min-height: 320px;
