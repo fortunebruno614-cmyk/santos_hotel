@@ -12,6 +12,7 @@
     "test": "node --import tsx --test --test-concurrency=1 \"tests/**/*.test.ts\"",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
+    "db:pglite": "pglite-server -d ./.pglite-data -p 5432 -m 10",
     "db:migrate": "prisma migrate dev && prisma generate",
     "db:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset && prisma generate",

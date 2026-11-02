@@ -157,6 +157,13 @@ coordinates takes effect on the next page load — no restart.
 
 ## Troubleshooting
 
+- **`Can't reach database server at 127.0.0.1:5432`** — nothing is listening on
+  5432: the Postgres you were using has stopped (or was never started). On a
+  machine with neither Docker nor PostgreSQL installed, start the repo's
+  dependency-free dev database in a separate terminal and leave it running:
+  `npm run db:pglite` (PGlite wire server, data in git-ignored `.pglite-data/`;
+  a fresh one needs `npm run db:deploy && npm run db:seed` once). With Docker:
+  `docker compose up -d`.
 - **`Address already in use` on 5432** — stop one server: `brew services stop postgresql@14`
   before `docker compose up -d`, or vice versa.
 - **`role "santos" does not exist`** — you're on the committed `.env` while running
