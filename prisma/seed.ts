@@ -157,6 +157,19 @@ async function main() {
       slug: "santo-hotel",
       organizationId: organization.id,
       description: "Single-tenant hotel booking demo environment.",
+      // Public map location (MR-07): street midpoint of Adetokunbo Ademola
+      // Street, Victoria Island, Lagos — verified against OpenStreetMap
+      // (way 8564522), so a fresh database renders a pin instead of
+      // "Map location unavailable".
+      addressLine1: "Adetokunbo Ademola Street",
+      addressLine2: "Victoria Island",
+      city: "Lagos",
+      postcode: "500001",
+      country: "Nigeria",
+      latitude: 6.426588,
+      longitude: 3.429399,
+      locationVerification: "PLATFORM_VERIFIED",
+      locationPrecision: "APPROXIMATE",
       timezone: "Asia/Kuala_Lumpur",
       currency: "NGN",
     },

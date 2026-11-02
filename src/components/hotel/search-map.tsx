@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ExternalLink, Navigation } from "lucide-react";
 import { hasCoordinates, mapZoomForCoordinates, searchHref, fallbackImageForSlug, formatMoney, nightsBetween, type HotelLocation, type ListingRoom, type StayQuery } from "@/lib/hotel";
 import { googleMapsApiKey, isDemoMapLocation } from "@/config/maps";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
@@ -211,10 +212,15 @@ export function SearchMap({
           zoom,
           // Never zoom past the verified precision (MR-04).
           maxZoom: zoom,
+          // The chrome guests expect from Google Maps: zoom + fullscreen on
+          // the edges, POIs clickable, no map-type or street-view clutter.
+          zoomControl: true,
+          fullscreenControl: true,
+          clickableIcons: true,
+          rotateControl: false,
+          scaleControl: false,
           mapTypeControl: false,
           streetViewControl: false,
-          fullscreenControl: false,
-          clickableIcons: false,
         });
         const overlay = createPricePinOverlay(maps, center, chip);
         overlay.setMap(map);
@@ -246,6 +252,13 @@ export function SearchMap({
 
   const address = location.address;
   const nights = stay ? nightsBetween(stay.checkIn, stay.checkOut) : 0;
+  // Hand-offs to Google Maps itself: the verified position, and directions to it.
+  const mapsHref = coordinates
+    ? `https://www.google.com/maps/search/?api=1&query=${coordinates.latitude},${coordinates.longitude}`
+    : null;
+  const directionsHref = coordinates
+    ? `https://www.google.com/maps/dir/?api=1&destination=${coordinates.latitude},${coordinates.longitude}`
+    : null;
 
   return (
     <div className="map-pane-inner">
@@ -310,6 +323,17 @@ export function SearchMap({
                 </button>
               </div>
               {address && <p className="map-address">{address}</p>}
+              {directionsHref && (
+                <a
+                  className="map-directions"
+                  href={directionsHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Navigation size={13} aria-hidden="true" />
+                  Get directions
+                </a>
+              )}
               <p className="map-card-from">
                 Nightly rates from{" "}
                 <strong>{formatMoney(fromPrice, currency, display)}</strong>
@@ -374,6 +398,20 @@ export function SearchMap({
                 </ul>
               )}
             </div>
+          )}
+
+          {loadState === "ready" && mapsHref && (
+            /* The corner link every professional map carries: opens this exact
+             * position in Google Maps (new tab — the listing stays put). */
+            <a
+              className="map-open-gmaps"
+              href={mapsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open in Google Maps
+              <ExternalLink size={12} aria-hidden="true" />
+            </a>
           )}
         </>
       ) : (

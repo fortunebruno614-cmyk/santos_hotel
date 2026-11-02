@@ -3190,12 +3190,15 @@
 .map-address {
   font-style: normal;
 }
+/* Bottom-right, stacked above the "Open in Google Maps" chip: the top-right
+ * corner now belongs to the fullscreen control, so the notice must not
+ * claim it (it only renders when the demo flag is on). */
 .map-demo-notice {
   position: absolute;
-  z-index: 1;
-  top: 14px;
-  right: 14px;
-  max-width: calc(100% - 28px);
+  z-index: 940;
+  bottom: 54px;
+  right: 12px;
+  max-width: calc(100% - 24px);
   padding: 8px 11px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -3225,7 +3228,9 @@
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
-/* Marker info card: hotel header + price/availability rows (fazwaz-style). */
+/* Marker info card: hotel header + price/availability rows (fazwaz-style).
+ * 8px radius and a real shadow so it reads as a Google place card floating
+ * over the tiles, not a panel welded to the pane. */
 .map-card {
   position: absolute;
   left: 15px;
@@ -3235,8 +3240,8 @@
   overflow-y: auto;
   background: var(--background);
   border: 1px solid var(--border);
-  border-radius: 5px;
-  box-shadow: var(--shadow-soft);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px oklch(0 0 0 / 22%);
   padding: 16px;
 }
 .map-card-head {
@@ -3272,21 +3277,26 @@
   font-size: 10px;
 }
 
-/* Price-over-the-map pin (DOM overlay on the map's marker layer). */
+/* Price-over-the-map pin (DOM overlay on the map's marker layer): a white
+ * price bubble with a pointer, the way Google's own place labels sit on the
+ * tiles rather than a flat box floating above them. */
 .map-pin-wrap {
   z-index: 900;
   pointer-events: none;
 }
 .map-price-pin {
+  position: relative;
   pointer-events: auto;
   display: inline-flex;
   align-items: center;
-  padding: 7px 14px 9px;
+  padding: 7px 15px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 999px;
   background: var(--background);
   color: var(--foreground);
-  box-shadow: var(--shadow-soft);
+  /* Crisp and close: a marker has to lift off the map tiles, unlike the
+   * page's diffuse --shadow-soft. */
+  box-shadow: 0 2px 7px oklch(0 0 0 / 28%);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.2px;
@@ -3311,6 +3321,50 @@
   color: var(--primary-foreground);
 }
 .map-price-pin:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* Bottom-right chip: hands the verified position to Google Maps itself. */
+.map-open-gmaps {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 950;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 1px 5px oklch(0 0 0 / 25%);
+}
+.map-open-gmaps:hover {
+  background: var(--muted);
+}
+.map-open-gmaps:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* Card action: turn-by-turn directions to the hotel in Google Maps. */
+.map-directions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+.map-directions:hover {
+  text-decoration: underline;
+}
+.map-directions:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
