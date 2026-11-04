@@ -4,11 +4,11 @@ import assert from "node:assert/strict";
 import { BookingStatus, PaymentStatus } from "../../src/generated/prisma/enums";
 import {
   BookingError,
-  createBooking,
+  createBooking as rawCreateBooking,
   type BookingActor,
 } from "../../src/server/booking/service";
 import { AvailabilityConflictError } from "../../src/server/availability/service";
-import { computeQuote } from "../../src/server/pricing/service";
+import { computeQuote as rawComputeQuote } from "../../src/server/pricing/service";
 import { moneyString } from "../../src/server/pricing/model";
 import {
   BOOKING_REFERENCE_REGEX,
@@ -23,12 +23,33 @@ import {
   ensureTestStaffUser,
   loadInventory,
   prisma,
+  testHotelId,
+  testOrganizationId,
 } from "../helpers";
 
 /** P5 checkout gate: reference format, price re-validation, in-tx re-check. */
 
 let inventory: Awaited<ReturnType<typeof loadInventory>>;
 let staffId = "";
+let hotelId = "";
+let organizationId = "";
+
+type LooseBookingActor =
+  | { kind: "staff"; userId: string; email?: string | null }
+  | { kind: "guest"; guestId: string }
+  | { kind: "anonymous" };
+
+const createBooking = (
+  input: Omit<Parameters<typeof rawCreateBooking>[0], "hotelId">,
+  actor: LooseBookingActor,
+) =>
+  rawCreateBooking(
+    { ...input, hotelId },
+    actor.kind === "staff" ? { ...actor, organizationId, organizationWide: true } : actor,
+  );
+
+const computeQuote = (request: Omit<Parameters<typeof rawComputeQuote>[0], "hotelId">) =>
+  rawComputeQuote({ ...request, hotelId });
 const guestEmail = `checkout${BOOKING_TEST_SUFFIX}`;
 
 function guestActor(guestId: string): BookingActor {
@@ -55,6 +76,8 @@ async function quotedTotal(roomIds: string[], checkIn: string, checkOut: string)
 
 describe("P5 checkout", () => {
   before(async () => {
+    hotelId = await testHotelId();
+    organizationId = await testOrganizationId();
     inventory = await loadInventory();
     staffId = await ensureTestStaffUser();
   });

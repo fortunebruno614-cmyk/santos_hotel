@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import { bookingStatusLabel } from "@/components/labels";
 import { getDashboard } from "@/server/console/dashboard";
+import { getConsoleContext } from "@/server/console/context";
 
 /**
  * P7 dashboard — today at a glance: arrivals, departures, in-house guests,
@@ -9,7 +10,8 @@ import { getDashboard } from "@/server/console/dashboard";
  * timezone (`hotelToday`).
  */
 export default async function AdminPage() {
-  const data = await getDashboard();
+  const { hotel } = await getConsoleContext();
+  const data = await getDashboard(hotel.id);
 
   return (
     <div className="space-y-6">

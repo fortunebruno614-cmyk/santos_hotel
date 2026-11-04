@@ -1,10 +1,12 @@
 import { getSettings } from "@/server/console/settings";
+import { getConsoleContext } from "@/server/console/context";
 import { isDemoMapLocation } from "@/config/maps";
 import { SettingsForm } from "./settings-form";
 
 /** System settings (P7, admin only): hotel profile + operational policy. */
 export default async function AdminSettingsPage() {
-  const settings = await getSettings();
+  const { hotel } = await getConsoleContext();
+  const settings = await getSettings(hotel.id);
 
   return (
     <div className="space-y-4">

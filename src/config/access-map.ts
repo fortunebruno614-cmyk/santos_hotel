@@ -27,7 +27,9 @@ export type Principal = "staff" | "guest";
 export type Access =
   | { kind: "public" }
   | { kind: "authenticated" }
-  | { kind: "restricted"; principal: Principal; roles: AppRole[]; permission?: Permission };
+  | { kind: "restricted"; principal: Principal; roles: AppRole[]; permission?: Permission }
+  /** Unregistered tenant/platform surface: answer 404, never fall through. */
+  | { kind: "deny" };
 
 export type AccessRule = { path: string; access: Access };
 
@@ -46,6 +48,7 @@ const open = (path: string): AccessRule => ({ path, access: { kind: "public" } }
 export const ACCESS_RULES: AccessRule[] = [
   // --- Public site (home, room list/detail, availability search, booking flow) ---
   open("/"),
+  open("/hotels"),
   open("/rooms"),
   open("/search"),
   open("/offers"),
@@ -59,6 +62,10 @@ export const ACCESS_RULES: AccessRule[] = [
 
   // --- Guest area (profile, booking history) ---
   guest("/account"),
+
+  // --- Santo platform console (separate axis; handlers/pages re-check
+  //     User.platformRole and platform permissions — REQ-026) ---
+  staff("/platform", [AppRole.STAFF, AppRole.ADMIN]),
 
   // --- Staff/admin console (dashboard, reservations, rooms, rates, guests,
   //     payments, reports) — everything under /admin is staff-only by catch-all ---
@@ -74,6 +81,9 @@ export const ACCESS_RULES: AccessRule[] = [
 
   // --- API: guest-only (never accepts a guest id from the request) ---
   guest("/api/account"),
+
+  // --- API: platform operators (tenant permissions never grant this) ---
+  staff("/api/platform", [AppRole.STAFF, AppRole.ADMIN]),
 
   // --- API: admin-only ---
   staff("/api/admin/users", [AppRole.ADMIN], "MANAGE_USERS"),
@@ -99,8 +109,14 @@ export const ACCESS_RULES: AccessRule[] = [
   staff("/api/staff", [AppRole.STAFF, AppRole.ADMIN]),
 ];
 
-/** Unlisted API routes are not anonymous: they require a session of any role. */
+/**
+ * Unlisted API routes are not anonymous: they require a session of any role.
+ * Tenant and platform namespaces are the exception — an endpoint that was added
+ * without an access rule fails closed with 404 instead of becoming readable by
+ * every signed-in principal (M3/F-08, NFR-002).
+ */
 const API_FALLBACK: Access = { kind: "authenticated" };
+const DENY: Access = { kind: "deny" };
 const PAGE_FALLBACK: Access = { kind: "public" };
 
 export function isApiPath(path: string) {
@@ -115,6 +131,8 @@ export function matchAccess(path: string): Access {
   for (const rule of ACCESS_RULES) {
     if (matches(path, rule.path)) return rule.access;
   }
+  if (path === "/api/admin" || path.startsWith("/api/admin/")) return DENY;
+  if (path === "/api/platform" || path.startsWith("/api/platform/")) return DENY;
   return isApiPath(path) ? API_FALLBACK : PAGE_FALLBACK;
 }
 
@@ -124,6 +142,8 @@ export type SessionLike = {
   role: AppRole;
   userId?: string;
   guestId?: string;
+  orgId?: string;
+  platformRole?: string | null;
 } | null;
 
 export type AccessDecision = "allow" | "unauthenticated" | "forbidden";
@@ -134,6 +154,7 @@ export type AccessDecision = "allow" | "unauthenticated" | "forbidden";
  */
 export function evaluateAccess(access: Access, session: SessionLike): AccessDecision {
   if (access.kind === "public") return "allow";
+  if (access.kind === "deny") return "forbidden";
   if (!session) return "unauthenticated";
 
   if (access.kind === "authenticated") return "allow";
@@ -177,5 +198,6 @@ export function resolvePostLoginPath(session: SessionLike, rawNext: unknown): st
   if (next && session && canAccess(next, session) === "allow") return next;
   if (!session) return "/";
   if (session.kind === "guest") return "/account";
+  if (session.platformRole && !session.orgId) return "/platform";
   return "/admin";
 }

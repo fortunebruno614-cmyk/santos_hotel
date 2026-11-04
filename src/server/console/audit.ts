@@ -27,8 +27,11 @@ export type AuditSearchResult = {
   pageSize: number;
 };
 
-export async function searchAudit(query: AuditSearchInput): Promise<AuditSearchResult> {
-  const conditions: Prisma.AuditLogWhereInput[] = [];
+export async function searchAudit(
+  hotelId: string,
+  query: AuditSearchInput,
+): Promise<AuditSearchResult> {
+  const conditions: Prisma.AuditLogWhereInput[] = [{ hotelId }];
   if (query.action) conditions.push({ action: { contains: query.action, mode: "insensitive" } });
   if (query.entityType) conditions.push({ entityType: query.entityType });
   if (query.entityId) conditions.push({ entityId: query.entityId });
@@ -43,7 +46,7 @@ export async function searchAudit(query: AuditSearchInput): Promise<AuditSearchR
       },
     });
   }
-  const where: Prisma.AuditLogWhereInput = conditions.length > 0 ? { AND: conditions } : {};
+  const where: Prisma.AuditLogWhereInput = { AND: conditions };
 
   const [total, logs] = await Promise.all([
     prisma.auditLog.count({ where }),

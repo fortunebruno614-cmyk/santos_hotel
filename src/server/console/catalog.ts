@@ -3,6 +3,7 @@ import { Prisma, RecordStatus, RoomStatus } from "@/generated/prisma/client";
 import { writeAuditLog, type AuditAction } from "@/server/audit/write";
 import { assertRoomTransition } from "@/server/booking/policy";
 import { ConsoleError } from "@/server/console/errors";
+import { requireHotelContext } from "@/server/pricing/context";
 import type {
   AmenityUpsertSchema,
   PromotionUpsertSchema,
@@ -13,17 +14,12 @@ import type {
 import type { z } from "zod";
 
 /**
- * P7 catalog services — the hotel's configuration entities (room types,
- * physical rooms, amenities, rates, promotions) with create/update/delete.
+ * P7/M4 catalog services — tenant-scoped configuration entities (room types,
+ * physical rooms, amenities, rates, promotions).
  *
- * Every mutation:
- *   1. re-reads the row it is about to change (never trusts the client),
- *   2. refuses conflicts (duplicate room number / code / name) and destructive
- *      deletes of rows still in use (`ConsoleError`),
- *   3. writes an `AuditLog` with the old and new values after the change.
- *
- * Availability and pricing keep reading these tables exactly as before — this
- * module only *writes* them.
+ * Every function takes an explicit `hotelId`. Mutations re-read the row and
+ * verify it belongs to that hotel (and therefore the caller's organization)
+ * before changing it; a valid id from another tenant answers `not_found`.
  */
 
 export type ConsoleActor = { userId: string };
@@ -34,6 +30,8 @@ type AmenityUpsert = z.infer<typeof AmenityUpsertSchema>;
 type RateUpsert = z.infer<typeof RateUpsertSchema>;
 type PromotionUpsert = z.infer<typeof PromotionUpsertSchema>;
 
+type Db = Prisma.TransactionClient | typeof prisma;
+
 async function audit(
   actor: ConsoleActor,
   action: AuditAction,
@@ -41,9 +39,13 @@ async function audit(
   entityId: string,
   oldValues: Record<string, unknown> | null,
   newValues: Record<string, unknown> | null,
+  organizationId?: string | null,
+  hotelId?: string | null,
 ) {
   await writeAuditLog({
     userId: actor.userId,
+    organizationId: organizationId ?? null,
+    hotelId: hotelId ?? null,
     action,
     entityType,
     entityId,
@@ -52,10 +54,8 @@ async function audit(
   });
 }
 
-async function hotelIdOrThrow(client: Prisma.TransactionClient | typeof prisma): Promise<string> {
-  const hotel = await client.hotel.findFirst({ orderBy: { createdAt: "asc" } });
-  if (!hotel) throw new ConsoleError("not_found", "no hotel row — run the database seed");
-  return hotel.id;
+async function tenant(hotelId: string) {
+  return requireHotelContext(hotelId);
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -87,8 +87,9 @@ export function roomTypeAuditValues(row: {
   };
 }
 
-export async function listRoomTypes() {
+export async function listRoomTypes(hotelId: string) {
   return prisma.roomType.findMany({
+    where: { hotelId },
     orderBy: [{ status: "asc" }, { name: "asc" }],
     include: {
       _count: { select: { rooms: true } },
@@ -97,25 +98,45 @@ export async function listRoomTypes() {
   });
 }
 
-export async function createRoomType(input: RoomTypeUpsert, actor: ConsoleActor) {
-  const hotelId = await hotelIdOrThrow(prisma);
+async function assertAmenitiesInScope(
+  client: Db,
+  organizationId: string,
+  amenityIds: string[],
+) {
+  if (amenityIds.length === 0) return;
+  const rows = await client.amenity.findMany({
+    where: {
+      id: { in: amenityIds },
+      OR: [{ scope: "PLATFORM" }, { organizationId }],
+    },
+    select: { id: true },
+  });
+  if (rows.length !== new Set(amenityIds).size) {
+    throw new ConsoleError("not_found", "one or more amenities are not available to this hotel");
+  }
+}
+
+export async function createRoomType(
+  hotelId: string,
+  input: RoomTypeUpsert,
+  actor: ConsoleActor,
+) {
+  const hotel = await tenant(hotelId);
   const amenityIds = input.amenityIds ?? [];
   try {
     const created = await prisma.$transaction(async (tx) => {
-      // Uniqueness is checked here instead of relying on the unique index:
-      // the local dev database (PGlite wire server) poisons the connection on
-      // any SQL-level error inside a transaction, so conflicts must surface
-      // as application errors. The index still guards against races.
       const clash = await tx.roomType.findFirst({
-        where: { OR: [{ name: input.name }, { slug: input.slug }] },
+        where: { hotelId, OR: [{ name: input.name }, { slug: input.slug }] },
         select: { id: true },
       });
       if (clash) {
         throw new ConsoleError("conflict", "a room type with that name or slug already exists");
       }
+      await assertAmenitiesInScope(tx, hotel.organizationId, amenityIds);
       const row = await tx.roomType.create({
         data: {
           hotelId,
+          organizationId: hotel.organizationId,
           name: input.name,
           slug: input.slug,
           description: input.description ?? null,
@@ -133,18 +154,33 @@ export async function createRoomType(input: RoomTypeUpsert, actor: ConsoleActor)
       }
       return row;
     });
-    await audit(actor, "room_type.create", "room_type", created.id, null, roomTypeAuditValues(created));
+    await audit(
+      actor,
+      "room_type.create",
+      "room_type",
+      created.id,
+      null,
+      roomTypeAuditValues(created),
+      hotel.organizationId,
+      hotelId,
+    );
     return created;
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new ConsoleError("conflict", `a room type with that name or slug already exists`);
+      throw new ConsoleError("conflict", "a room type with that name or slug already exists");
     }
     throw error;
   }
 }
 
-export async function updateRoomType(id: string, input: RoomTypeUpsert, actor: ConsoleActor) {
-  const existing = await prisma.roomType.findUnique({ where: { id } });
+export async function updateRoomType(
+  hotelId: string,
+  id: string,
+  input: RoomTypeUpsert,
+  actor: ConsoleActor,
+) {
+  const hotel = await tenant(hotelId);
+  const existing = await prisma.roomType.findFirst({ where: { id, hotelId } });
   if (!existing) throw new ConsoleError("not_found", "room type not found");
   const amenityIds = input.amenityIds;
 
@@ -152,6 +188,7 @@ export async function updateRoomType(id: string, input: RoomTypeUpsert, actor: C
     const updated = await prisma.$transaction(async (tx) => {
       const clash = await tx.roomType.findFirst({
         where: {
+          hotelId,
           id: { not: id },
           OR: [{ name: input.name }, { slug: input.slug }],
         },
@@ -159,6 +196,9 @@ export async function updateRoomType(id: string, input: RoomTypeUpsert, actor: C
       });
       if (clash) {
         throw new ConsoleError("conflict", "a room type with that name or slug already exists");
+      }
+      if (amenityIds) {
+        await assertAmenitiesInScope(tx, hotel.organizationId, amenityIds);
       }
       const row = await tx.roomType.update({
         where: { id },
@@ -190,20 +230,23 @@ export async function updateRoomType(id: string, input: RoomTypeUpsert, actor: C
       id,
       roomTypeAuditValues(existing),
       roomTypeAuditValues(updated),
+      hotel.organizationId,
+      hotelId,
     );
     return updated;
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new ConsoleError("conflict", `a room type with that name or slug already exists`);
+      throw new ConsoleError("conflict", "a room type with that name or slug already exists");
     }
     throw error;
   }
 }
 
 /** Deactivate instead of deleting when the type has rooms or history. */
-export async function deleteRoomType(id: string, actor: ConsoleActor) {
-  const existing = await prisma.roomType.findUnique({
-    where: { id },
+export async function deleteRoomType(hotelId: string, id: string, actor: ConsoleActor) {
+  const hotel = await tenant(hotelId);
+  const existing = await prisma.roomType.findFirst({
+    where: { id, hotelId },
     include: { _count: { select: { rooms: true } } },
   });
   if (!existing) throw new ConsoleError("not_found", "room type not found");
@@ -220,7 +263,16 @@ export async function deleteRoomType(id: string, actor: ConsoleActor) {
     await tx.rate.deleteMany({ where: { roomTypeId: id } });
     await tx.roomType.delete({ where: { id } });
   });
-  await audit(actor, "room_type.delete", "room_type", id, roomTypeAuditValues(existing), null);
+  await audit(
+    actor,
+    "room_type.delete",
+    "room_type",
+    id,
+    roomTypeAuditValues(existing),
+    null,
+    hotel.organizationId,
+    hotelId,
+  );
   return { id };
 }
 
@@ -244,19 +296,23 @@ export function roomAuditValues(row: {
   };
 }
 
-export async function listRooms() {
+export async function listRooms(hotelId: string) {
   return prisma.room.findMany({
+    where: { roomType: { hotelId } },
     orderBy: { roomNumber: "asc" },
     include: { roomType: { select: { id: true, name: true, status: true } } },
   });
 }
 
-export async function createRoom(input: RoomUpsert, actor: ConsoleActor) {
-  const roomType = await prisma.roomType.findUnique({ where: { id: input.roomTypeId } });
+export async function createRoom(hotelId: string, input: RoomUpsert, actor: ConsoleActor) {
+  const hotel = await tenant(hotelId);
+  const roomType = await prisma.roomType.findFirst({
+    where: { id: input.roomTypeId, hotelId },
+  });
   if (!roomType) throw new ConsoleError("not_found", "room type not found");
 
-  const clash = await prisma.room.findUnique({
-    where: { roomNumber: input.roomNumber },
+  const clash = await prisma.room.findFirst({
+    where: { hotelId, roomNumber: input.roomNumber },
     select: { id: true },
   });
   if (clash) throw new ConsoleError("conflict", `room ${input.roomNumber} already exists`);
@@ -264,6 +320,7 @@ export async function createRoom(input: RoomUpsert, actor: ConsoleActor) {
   try {
     const created = await prisma.room.create({
       data: {
+        hotelId,
         roomTypeId: input.roomTypeId,
         roomNumber: input.roomNumber,
         floor: input.floor ?? null,
@@ -271,7 +328,16 @@ export async function createRoom(input: RoomUpsert, actor: ConsoleActor) {
         notes: input.notes ?? null,
       },
     });
-    await audit(actor, "room.create", "room", created.id, null, roomAuditValues(created));
+    await audit(
+      actor,
+      "room.create",
+      "room",
+      created.id,
+      null,
+      roomAuditValues(created),
+      hotel.organizationId,
+      hotelId,
+    );
     return created;
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -281,10 +347,20 @@ export async function createRoom(input: RoomUpsert, actor: ConsoleActor) {
   }
 }
 
-export async function updateRoom(id: string, input: RoomUpsert, actor: ConsoleActor) {
-  const existing = await prisma.room.findUnique({ where: { id } });
+export async function updateRoom(
+  hotelId: string,
+  id: string,
+  input: RoomUpsert,
+  actor: ConsoleActor,
+) {
+  const hotel = await tenant(hotelId);
+  const existing = await prisma.room.findFirst({
+    where: { id, roomType: { hotelId } },
+  });
   if (!existing) throw new ConsoleError("not_found", "room not found");
-  const roomType = await prisma.roomType.findUnique({ where: { id: input.roomTypeId } });
+  const roomType = await prisma.roomType.findFirst({
+    where: { id: input.roomTypeId, hotelId },
+  });
   if (!roomType) throw new ConsoleError("not_found", "room type not found");
 
   // A status change here still obeys the housekeeping transition table — the
@@ -294,7 +370,7 @@ export async function updateRoom(id: string, input: RoomUpsert, actor: ConsoleAc
   }
 
   const clash = await prisma.room.findFirst({
-    where: { roomNumber: input.roomNumber, id: { not: id } },
+    where: { hotelId, roomNumber: input.roomNumber, id: { not: id } },
     select: { id: true },
   });
   if (clash) throw new ConsoleError("conflict", `room ${input.roomNumber} already exists`);
@@ -303,6 +379,7 @@ export async function updateRoom(id: string, input: RoomUpsert, actor: ConsoleAc
     const updated = await prisma.room.update({
       where: { id },
       data: {
+        hotelId,
         roomTypeId: input.roomTypeId,
         roomNumber: input.roomNumber,
         floor: input.floor ?? null,
@@ -310,7 +387,16 @@ export async function updateRoom(id: string, input: RoomUpsert, actor: ConsoleAc
         notes: input.notes ?? null,
       },
     });
-    await audit(actor, "room.update", "room", id, roomAuditValues(existing), roomAuditValues(updated));
+    await audit(
+      actor,
+      "room.update",
+      "room",
+      id,
+      roomAuditValues(existing),
+      roomAuditValues(updated),
+      hotel.organizationId,
+      hotelId,
+    );
     return updated;
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -320,9 +406,10 @@ export async function updateRoom(id: string, input: RoomUpsert, actor: ConsoleAc
   }
 }
 
-export async function deleteRoom(id: string, actor: ConsoleActor) {
-  const existing = await prisma.room.findUnique({
-    where: { id },
+export async function deleteRoom(hotelId: string, id: string, actor: ConsoleActor) {
+  const hotel = await tenant(hotelId);
+  const existing = await prisma.room.findFirst({
+    where: { id, roomType: { hotelId } },
     include: { _count: { select: { bookingRooms: true, roomNights: true } } },
   });
   if (!existing) throw new ConsoleError("not_found", "room not found");
@@ -334,7 +421,16 @@ export async function deleteRoom(id: string, actor: ConsoleActor) {
   }
 
   await prisma.room.delete({ where: { id } });
-  await audit(actor, "room.delete", "room", id, roomAuditValues(existing), null);
+  await audit(
+    actor,
+    "room.delete",
+    "room",
+    id,
+    roomAuditValues(existing),
+    null,
+    hotel.organizationId,
+    hotelId,
+  );
   return { id };
 }
 
@@ -342,28 +438,51 @@ export async function deleteRoom(id: string, actor: ConsoleActor) {
 // Amenities
 // ---------------------------------------------------------------------------
 
-export async function listAmenities() {
+export async function listAmenities(hotelId: string) {
+  const hotel = await tenant(hotelId);
   return prisma.amenity.findMany({
+    where: {
+      OR: [{ scope: "PLATFORM" }, { organizationId: hotel.organizationId }],
+    },
     orderBy: { name: "asc" },
     include: { _count: { select: { roomTypes: true } } },
   });
 }
 
-export async function createAmenity(input: AmenityUpsert, actor: ConsoleActor) {
+export async function createAmenity(
+  hotelId: string,
+  input: AmenityUpsert,
+  actor: ConsoleActor,
+) {
+  const hotel = await tenant(hotelId);
   const clash = await prisma.amenity.findFirst({
-    where: { name: input.name },
+    where: {
+      name: input.name,
+      OR: [{ scope: "PLATFORM" }, { organizationId: hotel.organizationId }],
+    },
     select: { id: true },
   });
   if (clash) throw new ConsoleError("conflict", "that amenity already exists");
 
   try {
     const created = await prisma.amenity.create({
-      data: { name: input.name, description: input.description ?? null },
+      data: {
+        scope: "TENANT",
+        organizationId: hotel.organizationId,
+        name: input.name,
+        description: input.description ?? null,
+      },
     });
-    await audit(actor, "amenity.create", "amenity", created.id, null, {
-      name: created.name,
-      description: created.description,
-    });
+    await audit(
+      actor,
+      "amenity.create",
+      "amenity",
+      created.id,
+      null,
+      { name: created.name, description: created.description },
+      hotel.organizationId,
+      hotelId,
+    );
     return created;
   } catch (error) {
     if (isUniqueViolation(error)) throw new ConsoleError("conflict", "that amenity already exists");
@@ -371,11 +490,29 @@ export async function createAmenity(input: AmenityUpsert, actor: ConsoleActor) {
   }
 }
 
-export async function updateAmenity(id: string, input: AmenityUpsert, actor: ConsoleActor) {
-  const existing = await prisma.amenity.findUnique({ where: { id } });
+async function tenantAmenity(hotelId: string, id: string) {
+  const hotel = await tenant(hotelId);
+  const existing = await prisma.amenity.findFirst({
+    where: { id, scope: "TENANT", organizationId: hotel.organizationId },
+  });
+  // Platform taxonomy is read-only to tenants.
   if (!existing) throw new ConsoleError("not_found", "amenity not found");
+  return { existing, hotel };
+}
+
+export async function updateAmenity(
+  hotelId: string,
+  id: string,
+  input: AmenityUpsert,
+  actor: ConsoleActor,
+) {
+  const { existing, hotel } = await tenantAmenity(hotelId, id);
   const clash = await prisma.amenity.findFirst({
-    where: { name: input.name, id: { not: id } },
+    where: {
+      name: input.name,
+      id: { not: id },
+      OR: [{ scope: "PLATFORM" }, { organizationId: hotel.organizationId }],
+    },
     select: { id: true },
   });
   if (clash) throw new ConsoleError("conflict", "that amenity already exists");
@@ -391,6 +528,8 @@ export async function updateAmenity(id: string, input: AmenityUpsert, actor: Con
       id,
       { name: existing.name, description: existing.description },
       { name: updated.name, description: updated.description },
+      hotel.organizationId,
+      hotelId,
     );
     return updated;
   } catch (error) {
@@ -399,17 +538,23 @@ export async function updateAmenity(id: string, input: AmenityUpsert, actor: Con
   }
 }
 
-export async function deleteAmenity(id: string, actor: ConsoleActor) {
-  const existing = await prisma.amenity.findUnique({
-    where: { id },
-    include: { _count: { select: { roomTypes: true } } },
-  });
-  if (!existing) throw new ConsoleError("not_found", "amenity not found");
-  if (existing._count.roomTypes > 0) {
+export async function deleteAmenity(hotelId: string, id: string, actor: ConsoleActor) {
+  const { existing, hotel } = await tenantAmenity(hotelId, id);
+  const usage = await prisma.roomTypeAmenity.count({ where: { amenityId: id } });
+  if (usage > 0) {
     throw new ConsoleError("in_use", "this amenity is still linked to room types");
   }
   await prisma.amenity.delete({ where: { id } });
-  await audit(actor, "amenity.delete", "amenity", id, { name: existing.name }, null);
+  await audit(
+    actor,
+    "amenity.delete",
+    "amenity",
+    id,
+    { name: existing.name },
+    null,
+    hotel.organizationId,
+    hotelId,
+  );
   return { id };
 }
 
@@ -435,16 +580,22 @@ function rateAuditValues(row: {
   };
 }
 
-export async function listRates(roomTypeId?: string) {
+export async function listRates(hotelId: string, roomTypeId?: string) {
   return prisma.rate.findMany({
-    ...(roomTypeId ? { where: { roomTypeId } } : {}),
+    where: {
+      roomType: { hotelId },
+      ...(roomTypeId ? { roomTypeId } : {}),
+    },
     orderBy: [{ startDate: "desc" }, { name: "asc" }],
     include: { roomType: { select: { name: true } } },
   });
 }
 
-export async function createRate(input: RateUpsert, actor: ConsoleActor) {
-  const roomType = await prisma.roomType.findUnique({ where: { id: input.roomTypeId } });
+export async function createRate(hotelId: string, input: RateUpsert, actor: ConsoleActor) {
+  const hotel = await tenant(hotelId);
+  const roomType = await prisma.roomType.findFirst({
+    where: { id: input.roomTypeId, hotelId },
+  });
   if (!roomType) throw new ConsoleError("not_found", "room type not found");
 
   const created = await prisma.rate.create({
@@ -457,14 +608,33 @@ export async function createRate(input: RateUpsert, actor: ConsoleActor) {
       status: input.status,
     },
   });
-  await audit(actor, "rate.create", "rate", created.id, null, rateAuditValues(created));
+  await audit(
+    actor,
+    "rate.create",
+    "rate",
+    created.id,
+    null,
+    rateAuditValues(created),
+    hotel.organizationId,
+    hotelId,
+  );
   return created;
 }
 
-export async function updateRate(id: string, input: RateUpsert, actor: ConsoleActor) {
-  const existing = await prisma.rate.findUnique({ where: { id } });
+export async function updateRate(
+  hotelId: string,
+  id: string,
+  input: RateUpsert,
+  actor: ConsoleActor,
+) {
+  const hotel = await tenant(hotelId);
+  const existing = await prisma.rate.findFirst({
+    where: { id, roomType: { hotelId } },
+  });
   if (!existing) throw new ConsoleError("not_found", "rate not found");
-  const roomType = await prisma.roomType.findUnique({ where: { id: input.roomTypeId } });
+  const roomType = await prisma.roomType.findFirst({
+    where: { id: input.roomTypeId, hotelId },
+  });
   if (!roomType) throw new ConsoleError("not_found", "room type not found");
 
   const updated = await prisma.rate.update({
@@ -478,15 +648,36 @@ export async function updateRate(id: string, input: RateUpsert, actor: ConsoleAc
       status: input.status,
     },
   });
-  await audit(actor, "rate.update", "rate", id, rateAuditValues(existing), rateAuditValues(updated));
+  await audit(
+    actor,
+    "rate.update",
+    "rate",
+    id,
+    rateAuditValues(existing),
+    rateAuditValues(updated),
+    hotel.organizationId,
+    hotelId,
+  );
   return updated;
 }
 
-export async function deleteRate(id: string, actor: ConsoleActor) {
-  const existing = await prisma.rate.findUnique({ where: { id } });
+export async function deleteRate(hotelId: string, id: string, actor: ConsoleActor) {
+  const hotel = await tenant(hotelId);
+  const existing = await prisma.rate.findFirst({
+    where: { id, roomType: { hotelId } },
+  });
   if (!existing) throw new ConsoleError("not_found", "rate not found");
   await prisma.rate.delete({ where: { id } });
-  await audit(actor, "rate.delete", "rate", id, rateAuditValues(existing), null);
+  await audit(
+    actor,
+    "rate.delete",
+    "rate",
+    id,
+    rateAuditValues(existing),
+    null,
+    hotel.organizationId,
+    hotelId,
+  );
   return { id };
 }
 
@@ -514,17 +705,23 @@ function promotionAuditValues(row: {
   };
 }
 
-export async function listPromotions() {
+export async function listPromotions(hotelId: string) {
   return prisma.promotion.findMany({
+    where: { hotelId },
     orderBy: [{ status: "asc" }, { code: "asc" }],
     include: { _count: { select: { bookings: true } } },
   });
 }
 
-export async function createPromotion(input: PromotionUpsert, actor: ConsoleActor) {
+export async function createPromotion(
+  hotelId: string,
+  input: PromotionUpsert,
+  actor: ConsoleActor,
+) {
+  const hotel = await tenant(hotelId);
   const code = input.code.toUpperCase();
   const clash = await prisma.promotion.findFirst({
-    where: { code },
+    where: { hotelId, code },
     select: { id: true },
   });
   if (clash) throw new ConsoleError("conflict", `promotion code ${code} already exists`);
@@ -532,7 +729,8 @@ export async function createPromotion(input: PromotionUpsert, actor: ConsoleActo
   try {
     const created = await prisma.promotion.create({
       data: {
-        code: input.code.toUpperCase(),
+        hotelId,
+        code,
         type: input.type,
         value: input.value,
         startAt: new Date(input.startAt),
@@ -541,22 +739,37 @@ export async function createPromotion(input: PromotionUpsert, actor: ConsoleActo
         status: input.status,
       },
     });
-    await audit(actor, "promotion.create", "promotion", created.id, null, promotionAuditValues(created));
+    await audit(
+      actor,
+      "promotion.create",
+      "promotion",
+      created.id,
+      null,
+      promotionAuditValues(created),
+      hotel.organizationId,
+      hotelId,
+    );
     return created;
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new ConsoleError("conflict", `promotion code ${input.code.toUpperCase()} already exists`);
+      throw new ConsoleError("conflict", `promotion code ${code} already exists`);
     }
     throw error;
   }
 }
 
-export async function updatePromotion(id: string, input: PromotionUpsert, actor: ConsoleActor) {
-  const existing = await prisma.promotion.findUnique({ where: { id } });
+export async function updatePromotion(
+  hotelId: string,
+  id: string,
+  input: PromotionUpsert,
+  actor: ConsoleActor,
+) {
+  const hotel = await tenant(hotelId);
+  const existing = await prisma.promotion.findFirst({ where: { id, hotelId } });
   if (!existing) throw new ConsoleError("not_found", "promotion not found");
   const code = input.code.toUpperCase();
   const clash = await prisma.promotion.findFirst({
-    where: { code, id: { not: id } },
+    where: { hotelId, code, id: { not: id } },
     select: { id: true },
   });
   if (clash) throw new ConsoleError("conflict", `promotion code ${code} already exists`);
@@ -564,7 +777,7 @@ export async function updatePromotion(id: string, input: PromotionUpsert, actor:
     const updated = await prisma.promotion.update({
       where: { id },
       data: {
-        code: input.code.toUpperCase(),
+        code,
         type: input.type,
         value: input.value,
         startAt: new Date(input.startAt),
@@ -580,19 +793,22 @@ export async function updatePromotion(id: string, input: PromotionUpsert, actor:
       id,
       promotionAuditValues(existing),
       promotionAuditValues(updated),
+      hotel.organizationId,
+      hotelId,
     );
     return updated;
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new ConsoleError("conflict", `promotion code ${input.code.toUpperCase()} already exists`);
+      throw new ConsoleError("conflict", `promotion code ${code} already exists`);
     }
     throw error;
   }
 }
 
-export async function deletePromotion(id: string, actor: ConsoleActor) {
-  const existing = await prisma.promotion.findUnique({
-    where: { id },
+export async function deletePromotion(hotelId: string, id: string, actor: ConsoleActor) {
+  const hotel = await tenant(hotelId);
+  const existing = await prisma.promotion.findFirst({
+    where: { id, hotelId },
     include: { _count: { select: { bookings: true } } },
   });
   if (!existing) throw new ConsoleError("not_found", "promotion not found");
@@ -603,6 +819,15 @@ export async function deletePromotion(id: string, actor: ConsoleActor) {
     );
   }
   await prisma.promotion.delete({ where: { id } });
-  await audit(actor, "promotion.delete", "promotion", id, promotionAuditValues(existing), null);
+  await audit(
+    actor,
+    "promotion.delete",
+    "promotion",
+    id,
+    promotionAuditValues(existing),
+    null,
+    hotel.organizationId,
+    hotelId,
+  );
   return { id };
 }

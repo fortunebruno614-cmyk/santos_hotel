@@ -21,7 +21,10 @@ import {
  * fallbacks so a fresh database still quotes and guards correctly.
  */
 export type HotelContext = {
-  id: string | null;
+  id: string;
+  organizationId: string;
+  slug: string;
+  publicationStatus: string;
   name: string;
   currency: string;
   timezone: string;
@@ -42,20 +45,41 @@ type Db = Prisma.TransactionClient | typeof prisma;
  * transaction, and on Postgres it would simply be a wasted round-trip that
  * cannot see the transaction's own writes.
  */
-export async function loadHotelContext(client: Db = prisma): Promise<HotelContext> {
-  const hotel = await client.hotel.findFirst({ orderBy: { createdAt: "asc" } });
+export class HotelContextError extends Error {
+  constructor(message = "hotel context is required") {
+    super(message);
+    this.name = "HotelContextError";
+  }
+}
+
+/**
+ * Resolves the operational context for exactly one hotel. The parameter is
+ * required on purpose (M3/F-02): there is no ambient "oldest hotel" fallback,
+ * so a missed call site fails the build rather than silently pricing another
+ * tenant's booking.
+ */
+export async function requireHotelContext(
+  hotelId: string,
+  client: Db = prisma,
+): Promise<HotelContext> {
+  if (!hotelId) throw new HotelContextError("hotelId is required");
+  const hotel = await client.hotel.findUnique({ where: { id: hotelId } });
+  if (!hotel) throw new HotelContextError(`hotel ${hotelId} not found`);
   return {
-    id: hotel?.id ?? null,
-    name: hotel?.name ?? "Santo Hotel",
-    currency: hotel?.currency || CURRENCY,
-    timezone: hotel?.timezone || "Asia/Kuala_Lumpur",
-    checkInTime: hotel?.checkInTime || CHECK_IN_TIME,
-    checkOutTime: hotel?.checkOutTime || CHECK_OUT_TIME,
-    taxRatePercent: hotel ? hotel.taxRatePercent.toNumber() : TAX_RATE_PERCENT,
-    serviceFee: hotel ? hotel.serviceFee.toNumber() : SERVICE_FEE,
-    cancellationWindowHours: hotel?.cancellationWindowHours ?? CANCELLATION_WINDOW_HOURS,
-    guestCancellationEnabled: hotel?.guestCancellationEnabled ?? GUEST_CANCELLATION_ENABLED,
-    maxRoomsPerBooking: hotel?.maxRoomsPerBooking ?? MAX_ROOMS_PER_BOOKING,
+    id: hotel.id,
+    organizationId: hotel.organizationId,
+    slug: hotel.slug,
+    publicationStatus: hotel.publicationStatus,
+    name: hotel.name,
+    currency: hotel.currency || CURRENCY,
+    timezone: hotel.timezone || "Asia/Kuala_Lumpur",
+    checkInTime: hotel.checkInTime || CHECK_IN_TIME,
+    checkOutTime: hotel.checkOutTime || CHECK_OUT_TIME,
+    taxRatePercent: hotel.taxRatePercent.toNumber(),
+    serviceFee: hotel.serviceFee.toNumber(),
+    cancellationWindowHours: hotel.cancellationWindowHours,
+    guestCancellationEnabled: hotel.guestCancellationEnabled,
+    maxRoomsPerBooking: hotel.maxRoomsPerBooking,
   };
 }
 

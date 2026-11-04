@@ -5,6 +5,7 @@ import { parseDateOnly } from "@/server/availability/overlap";
 import { assertRoomsAvailable } from "@/server/availability/service";
 import { buildQuote } from "@/server/pricing/service";
 import { bookingErrorResponse, invalidBody } from "@/server/booking/http";
+import { getDefaultHotel, getPublishedHotelBySlug } from "@/server/public/hotels";
 
 /**
  * Public price quote (anonymous — under `/api/public` in src/config/access-map.ts).
@@ -19,6 +20,11 @@ import { bookingErrorResponse, invalidBody } from "@/server/booking/http";
  */
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
+  const slug = params.get("hotel");
+  const hotel = slug ? await getPublishedHotelBySlug(slug) : await getDefaultHotel();
+  if (!hotel || hotel.publicationStatus !== "PUBLISHED") {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
   const parsed = QuoteQuerySchema.safeParse({
     checkIn: params.get("checkIn") ?? undefined,
     checkOut: params.get("checkOut") ?? undefined,
@@ -34,6 +40,7 @@ export async function GET(request: Request) {
     const checkIn = parseDateOnly(parsed.data.checkIn)!;
     const checkOut = parseDateOnly(parsed.data.checkOut)!;
     const stay = {
+      hotelId: hotel.id,
       checkIn,
       checkOut,
       adults: parsed.data.adults,

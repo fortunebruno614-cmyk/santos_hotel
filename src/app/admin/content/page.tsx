@@ -1,9 +1,11 @@
 import { listContent } from "@/server/console/settings";
+import { getConsoleContext } from "@/server/console/context";
 import { ContentEditor } from "./content-editor";
 
 /** Website content (P7, admin only): hero, rooms intro, footer copy. */
 export default async function AdminContentPage() {
-  const slots = await listContent();
+  const { hotel } = await getConsoleContext();
+  const slots = await listContent(hotel.id);
 
   return (
     <div className="space-y-4">

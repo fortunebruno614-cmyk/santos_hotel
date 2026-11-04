@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { BookingStatus, RoomStatus } from "@/generated/prisma/enums";
 import { addDays } from "@/server/availability/overlap";
-import { hotelToday, loadHotelContext } from "@/server/pricing/context";
+import { hotelToday, requireHotelContext } from "@/server/pricing/context";
 
 /**
  * P7 dashboard — the front desk's morning view, computed on the server from
@@ -100,8 +100,11 @@ const BOARD_INCLUDE = {
   rooms: { select: { room: { select: { roomNumber: true } } } },
 } as const;
 
-export async function getDashboard(now: Date = new Date()): Promise<DashboardData> {
-  const hotel = await loadHotelContext();
+export async function getDashboard(
+  hotelId: string,
+  now: Date = new Date(),
+): Promise<DashboardData> {
+  const hotel = await requireHotelContext(hotelId);
   const today = hotelToday(now, hotel.timezone);
   const lastNight = addDays(today, BOARD_NIGHTS - 1);
   const tomorrow = addDays(today, 1);
@@ -110,6 +113,7 @@ export async function getDashboard(now: Date = new Date()): Promise<DashboardDat
     await Promise.all([
       prisma.booking.findMany({
         where: {
+          hotelId,
           checkIn: today,
           bookingStatus: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
         },
@@ -117,35 +121,41 @@ export async function getDashboard(now: Date = new Date()): Promise<DashboardDat
         include: BOARD_INCLUDE,
       }),
       prisma.booking.findMany({
-        where: { checkOut: today, bookingStatus: BookingStatus.CHECKED_IN },
+        where: { hotelId, checkOut: today, bookingStatus: BookingStatus.CHECKED_IN },
         orderBy: { createdAt: "asc" },
         include: BOARD_INCLUDE,
       }),
       prisma.booking.findMany({
-        where: { bookingStatus: BookingStatus.CHECKED_IN },
+        where: { hotelId, bookingStatus: BookingStatus.CHECKED_IN },
         orderBy: { checkOut: "asc" },
         include: BOARD_INCLUDE,
       }),
       prisma.booking.count({
         where: {
+          hotelId,
           checkOut: today,
           bookingStatus: BookingStatus.CHECKED_OUT,
           updatedAt: { gte: today, lt: tomorrow },
         },
       }),
       prisma.room.findMany({
+        where: { roomType: { hotelId } },
         orderBy: { roomNumber: "asc" },
         include: { roomType: { select: { name: true } } },
       }),
       prisma.roomNight.findMany({
-        where: { night: { gte: today, lte: lastNight } },
+        where: { hotelId, night: { gte: today, lte: lastNight } },
         select: {
           roomId: true,
           night: true,
           booking: { select: { bookingReference: true } },
         },
       }),
-      prisma.room.groupBy({ by: ["status"], _count: { _all: true } }),
+      prisma.room.groupBy({
+        by: ["status"],
+        where: { roomType: { hotelId } },
+        _count: { _all: true },
+      }),
     ]);
 
   const blockedStatuses = new Set<RoomStatus>([RoomStatus.MAINTENANCE, RoomStatus.OUT_OF_SERVICE]);

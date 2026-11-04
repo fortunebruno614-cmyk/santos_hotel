@@ -1,5 +1,6 @@
 import { Listing } from "@/components/hotel/listing";
 import { loadHotelProfile, loadPublicRoomTypes } from "@/server/public/catalog";
+import { getDefaultHotel } from "@/server/public/hotels";
 import { getContent } from "@/server/console/settings";
 
 export const metadata = {
@@ -9,10 +10,13 @@ export const metadata = {
 };
 
 export default async function RoomsPage() {
+  const defaultHotel = await getDefaultHotel();
+  if (!defaultHotel) return null;
+  const hotelId = defaultHotel.id;
   const [rooms, hotel, intro] = await Promise.all([
-    loadPublicRoomTypes(),
-    loadHotelProfile(),
-    getContent("rooms.intro"),
+    loadPublicRoomTypes(hotelId),
+    loadHotelProfile(hotelId),
+    getContent("rooms.intro", hotelId),
   ]);
 
   return (

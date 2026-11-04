@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PaymentStatus } from "@/generated/prisma/enums";
 import { searchPayments } from "@/server/console/payments";
+import { getConsoleContext } from "@/server/console/context";
 import { PaymentSearchSchema } from "@/server/console/validation";
 import { RefundButton } from "./refund-button";
 
@@ -23,7 +24,8 @@ export default async function AdminPaymentsPage({
   });
   const query = parsed.success ? parsed.data : PaymentSearchSchema.parse({});
 
-  const result = await searchPayments(query);
+  const { hotel } = await getConsoleContext();
+  const result = await searchPayments(hotel.id, query);
   const pages = Math.max(1, Math.ceil(result.total / query.pageSize));
   const statuses = Object.values(PaymentStatus);
 

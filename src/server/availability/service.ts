@@ -66,6 +66,7 @@ const HARD_BLOCKING_STATUSES: BookingStatus[] = [
 type Db = Prisma.TransactionClient | typeof prisma;
 
 export type AvailabilityRequest = {
+  hotelId: string;
   checkIn: Date;
   checkOut: Date;
   adults: number;
@@ -138,6 +139,7 @@ function holdCutoff(now: Date = new Date()): Date {
 }
 
 type NormalizedRequest = {
+  hotelId: string;
   checkIn: Date;
   checkOut: Date;
   adults: number;
@@ -167,7 +169,14 @@ export function normalizeRequest(request: AvailabilityRequest): NormalizedReques
   if (!Number.isInteger(request.children) || request.children < 0 || request.children > 20) {
     throw new StayValidationError("invalid_occupancy", "children must be an integer in 0..20");
   }
-  return { checkIn, checkOut, adults: request.adults, children: request.children, nights };
+  return {
+    hotelId: request.hotelId,
+    checkIn,
+    checkOut,
+    adults: request.adults,
+    children: request.children,
+    nights,
+  };
 }
 
 /**
@@ -248,10 +257,10 @@ function overlappingRows(rows: BlockingRow[], window: StayWindow): BlockingRow[]
  * can tell "no such room type" from "no rooms left".
  */
 export async function findAvailability(request: AvailabilityRequest): Promise<AvailabilityResult> {
-  const { checkIn, checkOut, adults, children, nights } = normalizeRequest(request);
+  const { hotelId, checkIn, checkOut, adults, children, nights } = normalizeRequest(request);
 
   const roomTypes = await prisma.roomType.findMany({
-    where: { status: RecordStatus.ACTIVE },
+    where: { hotelId, status: RecordStatus.ACTIVE },
     include: { rooms: { orderBy: { roomNumber: "asc" } } },
     orderBy: { name: "asc" },
   });
@@ -318,7 +327,7 @@ export async function assertRoomsAvailable(
   roomIds: string[],
   options: { excludeBookingId?: string } = {},
 ): Promise<void> {
-  const { checkIn, checkOut, adults, children } = normalizeRequest(request);
+  const { hotelId, checkIn, checkOut, adults, children } = normalizeRequest(request);
 
   const uniqueIds = [...new Set(roomIds)];
   if (uniqueIds.length === 0) {
@@ -333,6 +342,14 @@ export async function assertRoomsAvailable(
   const missing = uniqueIds.filter((id) => !foundIds.has(id));
   if (missing.length > 0) {
     throw new AvailabilityConflictError("room_not_found", missing);
+  }
+  // A valid room id from another hotel is indistinguishable from a missing one.
+  const foreign = rooms.filter((room) => room.roomType.hotelId !== hotelId);
+  if (foreign.length > 0) {
+    throw new AvailabilityConflictError(
+      "room_not_found",
+      foreign.map((room) => room.id),
+    );
   }
 
   const inactiveType = rooms.filter((room) => room.roomType.status !== RecordStatus.ACTIVE);
@@ -417,6 +434,10 @@ export type PendingBookingRoom = {
 export type InitialBookingStatus = Extract<BookingStatus, "PENDING" | "CONFIRMED">;
 
 export type PendingBookingInput = {
+  hotelId: string;
+  organizationId: string;
+  currency: string;
+  termsSnapshot?: Prisma.InputJsonValue;
   guestId: string;
   /** P5 owns the `SH-YYYY-NNNNNN` generator; callers must pass a unique reference. */
   bookingReference: string;
@@ -492,7 +513,10 @@ export async function createPendingBooking(
   input: PendingBookingInput,
 ): Promise<PendingBookingResult> {
   const request = normalizeRequest(input);
-  const { checkIn, checkOut, adults, children, nights } = request;
+  const { hotelId, checkIn, checkOut, adults, children, nights } = request;
+  if (input.hotelId !== hotelId) {
+    throw new Error("hotel context mismatch");
+  }
 
   if (input.rooms.length === 0) {
     throw new AvailabilityConflictError("room_not_found", [], "at least one room is required");
@@ -530,7 +554,7 @@ export async function createPendingBooking(
       )}) ORDER BY "id" FOR UPDATE`;
 
       await releaseExpiredHolds(tx, window);
-      await assertRoomsAvailable(tx, { checkIn, checkOut, adults, children }, roomIds);
+      await assertRoomsAvailable(tx, { hotelId, checkIn, checkOut, adults, children }, roomIds);
 
       // P5 price re-validation: re-derive the quote under the lock and refuse
       // to store anything the caller was not quoted.
@@ -566,6 +590,10 @@ export async function createPendingBooking(
       const booking = await tx.booking.create({
         data: {
           bookingReference: input.bookingReference,
+          hotelId: input.hotelId,
+          organizationId: input.organizationId,
+          currency: input.currency,
+          termsSnapshot: input.termsSnapshot,
           guestId: input.guestId,
           promotionId: pricing?.promotion?.id ?? null,
           promotionCode: pricing?.promotion?.code ?? null,
@@ -597,6 +625,7 @@ export async function createPendingBooking(
         await tx.bookingRoom.create({
           data: {
             bookingId: booking.id,
+            hotelId: input.hotelId,
             roomId: room.roomId,
             nightlyRate,
             nights,
@@ -608,7 +637,12 @@ export async function createPendingBooking(
       try {
         await tx.roomNight.createMany({
           data: expandNights(checkIn, checkOut, ALLOW_SAME_DAY_TURNOVER).flatMap((night) =>
-            roomIds.map((roomId) => ({ night, roomId, bookingId: booking.id })),
+            roomIds.map((roomId) => ({
+              night,
+              roomId,
+              bookingId: booking.id,
+              hotelId: input.hotelId,
+            })),
           ),
         });
       } catch (error) {

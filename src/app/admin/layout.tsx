@@ -1,16 +1,25 @@
 ﻿import Link from "next/link";
-import { requireStaffOrAdmin } from "@/server/auth/dal";
 import { logout } from "@/server/auth/actions";
-import { Permissions, hasPermission } from "@/server/auth/roles";
+import { Permissions, hasOrgPermission } from "@/server/auth/roles";
+import {
+  accessibleHotels,
+  listUserMemberships,
+} from "@/server/auth/tenancy";
+import { switchHotel, switchOrganization } from "@/server/auth/tenant-actions";
+import { getConsoleContext } from "@/server/console/context";
 
 /**
- * Staff console chrome. The links mirror the P3 access map: staff see the
- * operational sections their permissions allow; settings, content, users and
- * the audit trail are admin-only, and the backend enforces the same split.
+ * Staff console chrome. The active organization/property context is always
+ * visible where data can change (NFR-016) and can only be switched through
+ * server-side membership checks.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await requireStaffOrAdmin();
-  const isAdmin = hasPermission(session.role, Permissions.MANAGE_USERS);
+  const { session, member, hotel } = await getConsoleContext();
+  const [memberships, hotels] = await Promise.all([
+    listUserMemberships(session.userId!),
+    accessibleHotels(member),
+  ]);
+  const isAdmin = hasOrgPermission(member.role, Permissions.MANAGE_USERS);
 
   const sections = [
     { href: "/admin", label: "Dashboard" },
@@ -33,17 +42,70 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b px-6 py-3 flex items-center justify-between gap-4">
+      <header className="border-b px-6 py-3 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href="/admin" className="font-medium">
-            Santo Hotel Admin
+            {member.organization.name} Admin
           </Link>
-          <span className="text-xs text-zinc-500">{session.role}</span>
+          <span className="text-xs text-zinc-500">
+            {member.role} · {session.email ?? session.userId}
+          </span>
         </div>
-        <form action={logout}>
-          <button className="border px-3 py-1 rounded-md">Sign out</button>
-        </form>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          {memberships.length > 1 && (
+            <form action={switchOrganization} className="flex items-center gap-1">
+              <label htmlFor="orgId" className="text-xs text-zinc-500">
+                Organization
+              </label>
+              <select
+                id="orgId"
+                name="orgId"
+                defaultValue={member.organizationId}
+                className="border px-2 py-1 rounded-md"
+              >
+                {memberships.map((entry) => (
+                  <option key={entry.organizationId} value={entry.organizationId}>
+                    {entry.organization.name}
+                  </option>
+                ))}
+              </select>
+              <button className="border px-2 py-1 rounded-md">Switch</button>
+            </form>
+          )}
+          {hotels.length > 1 && (
+            <form action={switchHotel} className="flex items-center gap-1">
+              <label htmlFor="hotelId" className="text-xs text-zinc-500">
+                Property
+              </label>
+              <select
+                id="hotelId"
+                name="hotelId"
+                defaultValue={hotel.id}
+                className="border px-2 py-1 rounded-md"
+              >
+                {hotels.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </select>
+              <button className="border px-2 py-1 rounded-md">Switch</button>
+            </form>
+          )}
+          {session.platformRole && (
+            <Link href="/platform" className="border px-2 py-1 rounded-md">
+              Platform ({session.platformRole})
+            </Link>
+          )}
+          <form action={logout}>
+            <button className="border px-3 py-1 rounded-md">Sign out</button>
+          </form>
+        </div>
       </header>
+      <div className="border-b bg-zinc-50 px-6 py-1 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
+        Active property: <strong>{hotel.name}</strong> · {hotel.currency} ·{" "}
+        {hotel.publicationStatus}
+      </div>
       <nav className="border-b px-6 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
         {sections.map((section) => (
           <Link key={section.href} href={section.href} className="hover:underline">

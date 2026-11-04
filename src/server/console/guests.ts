@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/server/audit/write";
 import { ConsoleError } from "@/server/console/errors";
 import type { GuestUpdateSchema } from "@/server/console/validation";
-import { loadHotelContext } from "@/server/pricing/context";
+import { requireHotelContext } from "@/server/pricing/context";
 import type { z } from "zod";
 
 /**
@@ -31,22 +31,28 @@ function escapeLike(value: string) {
   return value.replace(/[\\%_]/g, (match) => `\\${match}`);
 }
 
-export async function searchGuests(query: {
-  q?: string;
-  page: number;
-  pageSize: number;
-}): Promise<{ rows: GuestListRow[]; total: number; page: number; pageSize: number }> {
+export async function searchGuests(
+  hotelId: string,
+  query: {
+    q?: string;
+    page: number;
+    pageSize: number;
+  },
+): Promise<{ rows: GuestListRow[]; total: number; page: number; pageSize: number }> {
   const q = query.q?.trim();
-  const where = q
-    ? {
-        OR: [
-          { firstName: { contains: escapeLike(q), mode: "insensitive" as const } },
-          { lastName: { contains: escapeLike(q), mode: "insensitive" as const } },
-          { email: { contains: escapeLike(q), mode: "insensitive" as const } },
-          { phone: { contains: escapeLike(q) } },
-        ],
-      }
-    : {};
+  const where = {
+    bookings: { some: { hotelId } },
+    ...(q
+      ? {
+          OR: [
+            { firstName: { contains: escapeLike(q), mode: "insensitive" as const } },
+            { lastName: { contains: escapeLike(q), mode: "insensitive" as const } },
+            { email: { contains: escapeLike(q), mode: "insensitive" as const } },
+            { phone: { contains: escapeLike(q) } },
+          ],
+        }
+      : {}),
+  };
 
   const [total, rows] = await Promise.all([
     prisma.guest.count({ where }),
@@ -57,6 +63,8 @@ export async function searchGuests(query: {
       take: query.pageSize,
       include: {
         bookings: {
+          // Guest access is reservation-scoped: only stays at this hotel count.
+          where: { hotelId },
           select: { checkIn: true, bookingStatus: true },
           orderBy: { checkIn: "desc" },
           take: 50,
@@ -117,11 +125,12 @@ export type GuestDetail = {
   }>;
 };
 
-export async function getGuestDetail(id: string): Promise<GuestDetail> {
+export async function getGuestDetail(hotelId: string, id: string): Promise<GuestDetail> {
   const guest = await prisma.guest.findUnique({
     where: { id },
     include: {
       bookings: {
+        where: { hotelId },
         orderBy: { checkIn: "desc" },
         include: {
           rooms: { select: { room: { select: { roomNumber: true } } } },
@@ -139,8 +148,11 @@ export async function getGuestDetail(id: string): Promise<GuestDetail> {
       },
     },
   });
-  if (!guest) throw new ConsoleError("not_found", "guest not found");
-  const { currency } = await loadHotelContext();
+  if (!guest || guest.bookings.length === 0) {
+    // A guest with no reservation at this hotel does not exist for this tenant.
+    throw new ConsoleError("not_found", "guest not found");
+  }
+  const { currency } = await requireHotelContext(hotelId);
 
   return {
     id: guest.id,
@@ -177,9 +189,16 @@ export async function getGuestDetail(id: string): Promise<GuestDetail> {
   };
 }
 
-export async function updateGuest(id: string, input: GuestUpdate, actor: { userId: string }) {
+export async function updateGuest(
+  hotelId: string,
+  id: string,
+  input: GuestUpdate,
+  actor: { userId: string },
+) {
   const existing = await prisma.guest.findUnique({ where: { id } });
   if (!existing) throw new ConsoleError("not_found", "guest not found");
+  const reachable = await prisma.booking.count({ where: { guestId: id, hotelId } });
+  if (reachable === 0) throw new ConsoleError("not_found", "guest not found");
 
   if (input.email && input.email !== existing.email) {
     const clash = await prisma.guest.findUnique({ where: { email: input.email } });
@@ -209,6 +228,7 @@ export async function updateGuest(id: string, input: GuestUpdate, actor: { userI
   const updated = await prisma.guest.update({ where: { id }, data });
   await writeAuditLog({
     userId: actor.userId,
+    hotelId,
     action: "guest.update",
     entityType: "guest",
     entityId: id,

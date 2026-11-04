@@ -5,6 +5,7 @@ import {
   findAvailability,
   StayValidationError,
 } from "@/server/availability/service";
+import { getDefaultHotel, getPublishedHotelBySlug } from "@/server/public/hotels";
 
 /**
  * Public availability search (anonymous — already listed under `/api/public` in
@@ -18,6 +19,11 @@ import {
  */
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
+  const slug = params.get("hotel");
+  const hotel = slug ? await getPublishedHotelBySlug(slug) : await getDefaultHotel();
+  if (!hotel || hotel.publicationStatus !== "PUBLISHED") {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
   const parsed = StaySearchSchema.safeParse({
     checkIn: params.get("checkIn") ?? undefined,
     checkOut: params.get("checkOut") ?? undefined,
@@ -34,6 +40,7 @@ export async function GET(request: Request) {
 
   try {
     const result = await findAvailability({
+      hotelId: hotel.id,
       checkIn: parseDateOnly(parsed.data.checkIn)!,
       checkOut: parseDateOnly(parsed.data.checkOut)!,
       adults: parsed.data.adults,

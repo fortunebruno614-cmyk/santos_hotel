@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { deleteAmenity, updateAmenity } from "@/server/console/catalog";
 import { AmenityUpsertSchema } from "@/server/console/validation";
@@ -15,13 +15,17 @@ export async function PATCH(request: Request, { params }: Params) {
     permission: Permissions.MANAGE_ROOMS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_ROOMS);
+  if (tenant instanceof NextResponse) return tenant;
   const { id } = await params;
 
   const parsed = AmenityUpsertSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
   try {
-    const updated = await updateAmenity(id, parsed.data, { userId: auth.userId! });
+    const updated = await updateAmenity(tenant.hotelId, id, parsed.data, {
+      userId: auth.userId!,
+    });
     return NextResponse.json({ id: updated.id });
   } catch (error) {
     return consoleErrorResponse(error);
@@ -35,10 +39,14 @@ export async function DELETE(_request: Request, { params }: Params) {
     permission: Permissions.MANAGE_ROOMS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_ROOMS);
+  if (tenant instanceof NextResponse) return tenant;
   const { id } = await params;
 
   try {
-    return NextResponse.json(await deleteAmenity(id, { userId: auth.userId! }));
+    return NextResponse.json(
+      await deleteAmenity(tenant.hotelId, id, { userId: auth.userId! }),
+    );
   } catch (error) {
     return consoleErrorResponse(error);
   }

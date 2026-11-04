@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import { verifySession } from "@/server/auth/session";
 import { AppRole, isAdmin, isStaffOrAdmin } from "@/server/auth/roles";
+import type { PlatformRole } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 
 export type CurrentSession = {
@@ -11,6 +12,10 @@ export type CurrentSession = {
   userId?: string;
   guestId?: string;
   email?: string | null;
+  /** Active tenant organization context (staff only). */
+  orgId?: string;
+  /** Santo platform role, orthogonal to tenant membership (REQ-026). */
+  platformRole?: PlatformRole | null;
 };
 
 export const getCurrentSession = cache(async (): Promise<CurrentSession | null> => {
@@ -25,6 +30,8 @@ export const getCurrentSession = cache(async (): Promise<CurrentSession | null> 
     userId: payload.userId,
     guestId: payload.guestId,
     email: payload.email,
+    orgId: payload.orgId,
+    platformRole: payload.platformRole ?? null,
   };
 });
 
@@ -44,7 +51,22 @@ export const isSessionValid = cache(
         select: { role: true, isActive: true },
       });
       if (!user) return false;
-      return user.isActive && user.role === session.role;
+      if (!user.isActive) return false;
+      // A tenant context in the token is only trusted while the membership and
+      // the organization are still active (revocation takes effect immediately).
+      if (session.orgId) {
+        const membership = await prisma.organizationMember.findFirst({
+          where: {
+            userId: session.userId,
+            organizationId: session.orgId,
+            status: "ACTIVE",
+            organization: { status: "ACTIVE" },
+          },
+          select: { id: true },
+        });
+        if (!membership) return false;
+      }
+      return user.role === session.role;
     }
 
     if (!session.guestId) return false;
@@ -108,7 +130,14 @@ export async function getCurrentUser() {
   if (s.kind === "staff" && s.userId) {
     return prisma.user.findUnique({
       where: { id: s.userId },
-      select: { id: true, name: true, email: true, role: true, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        platformRole: true,
+      },
     });
   }
   if (s.kind === "guest" && s.guestId) {

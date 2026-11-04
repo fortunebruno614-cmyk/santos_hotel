@@ -78,7 +78,7 @@ export default async function ConfirmationPage({
   const cancelled = detail.bookingStatus === "CANCELLED";
   const type = detail.rooms[0]
     ? await prisma.roomType.findFirst({
-        where: { name: detail.rooms[0].roomTypeName },
+        where: { name: detail.rooms[0].roomTypeName, hotelId: detail.hotelId },
         include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
       })
     : null;

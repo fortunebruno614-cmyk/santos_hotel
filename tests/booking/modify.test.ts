@@ -4,17 +4,17 @@ import assert from "node:assert/strict";
 import { BookingStatus, RoomStatus } from "../../src/generated/prisma/enums";
 import {
   BookingError,
-  addBookingNote,
+  addBookingNote as rawAddBookingNote,
   cancelBooking,
-  createBooking,
+  createBooking as rawCreateBooking,
   getBookingDetail,
   getBookingDetailByReference,
-  modifyBooking,
-  transitionBooking,
+  modifyBooking as rawModifyBooking,
+  transitionBooking as rawTransitionBooking,
   type StaffActor,
 } from "../../src/server/booking/service";
 import { AvailabilityConflictError } from "../../src/server/availability/service";
-import { loadHotelContext, hotelToday } from "../../src/server/pricing/context";
+import { requireHotelContext, hotelToday } from "../../src/server/pricing/context";
 import { addDays } from "../../src/server/availability/overlap";
 import {
   BOOKING_TEST_SUFFIX,
@@ -22,13 +22,43 @@ import {
   ensureTestStaffUser,
   loadInventory,
   prisma,
+  testHotelId,
+  testOrganizationId,
 } from "../helpers";
 
 /** P5 staff modification, operational notes and the shared read model. */
 
 let inventory: Awaited<ReturnType<typeof loadInventory>>;
 let guestId = "";
+let hotelId = "";
+let organizationId = "";
 let staff: StaffActor;
+
+const createBooking = (
+  input: Omit<Parameters<typeof rawCreateBooking>[0], "hotelId">,
+  actor: Parameters<typeof rawCreateBooking>[1],
+) => rawCreateBooking({ ...input, hotelId }, actor);
+
+const tenantStaff = (actor: StaffActor): StaffActor => ({
+  ...actor,
+  organizationId,
+  organizationWide: true,
+});
+
+const modifyBooking = (
+  input: Parameters<typeof rawModifyBooking>[0],
+  actor: Parameters<typeof rawModifyBooking>[1],
+) => rawModifyBooking(input, tenantStaff(actor));
+
+const transitionBooking = (
+  input: Parameters<typeof rawTransitionBooking>[0],
+  actor: Parameters<typeof rawTransitionBooking>[1],
+) => rawTransitionBooking(input, tenantStaff(actor));
+
+const addBookingNote = (
+  input: Parameters<typeof rawAddBookingNote>[0],
+  actor: Parameters<typeof rawAddBookingNote>[1],
+) => rawAddBookingNote(input, tenantStaff(actor));
 
 function iso(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -50,9 +80,17 @@ async function createStay(roomId: string, checkIn: Date, checkOut: Date) {
 
 describe("P5 modification, notes and read models", () => {
   before(async () => {
+    hotelId = await testHotelId();
+    organizationId = await testOrganizationId();
     inventory = await loadInventory();
     const staffId = await ensureTestStaffUser();
-    staff = { kind: "staff", userId: staffId, email: `p5-staff${BOOKING_TEST_SUFFIX}` };
+    staff = {
+      kind: "staff",
+      userId: staffId,
+      email: `p5-staff${BOOKING_TEST_SUFFIX}`,
+      organizationId,
+      organizationWide: true,
+    };
 
     await deleteTestBookingGuests();
     const guest = await prisma.guest.create({
@@ -143,7 +181,7 @@ describe("P5 modification, notes and read models", () => {
 
   it("refuses to modify a checked-in reservation", async () => {
     const room = inventory.bySlug.get("family-room")!.rooms[0];
-    const today = hotelToday(new Date(), (await loadHotelContext()).timezone);
+    const today = hotelToday(new Date(), (await requireHotelContext(hotelId)).timezone);
     const booking = await createStay(room.id, today, addDays(today, 2));
     try {
       await transitionBooking({ bookingId: booking.id, to: BookingStatus.CONFIRMED }, staff);

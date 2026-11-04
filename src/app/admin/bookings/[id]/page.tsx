@@ -5,6 +5,8 @@ import { PaymentActions } from "./payment-actions";
 import { BookingError, getBookingDetail } from "@/server/booking/service";
 import { bookingStatusLabel } from "@/components/labels";
 import { formatMoney } from "@/server/pricing/context";
+import { getConsoleContext } from "@/server/console/context";
+import { assertHotelAccess } from "@/server/auth/tenancy";
 
 /** Staff reservation detail: everything the desk needs on one screen. */
 export default async function AdminBookingDetailPage({
@@ -13,10 +15,12 @@ export default async function AdminBookingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { member } = await getConsoleContext();
 
   let booking: Awaited<ReturnType<typeof getBookingDetail>>;
   try {
     booking = await getBookingDetail(id, { kind: "staff" });
+    await assertHotelAccess(member, booking.hotelId);
   } catch (error) {
     if (error instanceof BookingError && error.code === "booking_not_found") notFound();
     throw error;

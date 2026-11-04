@@ -6,7 +6,7 @@ import {
   normalizeRequest,
 } from "@/server/availability/service";
 import { addDays, nightsCount, toUtcDateOnly } from "@/server/availability/overlap";
-import { loadHotelContext, type HotelContext } from "@/server/pricing/context";
+import { requireHotelContext, type HotelContext } from "@/server/pricing/context";
 import {
   money,
   moneyString,
@@ -53,6 +53,7 @@ export class QuoteError extends Error {
 }
 
 export type QuoteRequest = {
+  hotelId: string;
   checkIn: Date;
   checkOut: Date;
   adults: number;
@@ -132,12 +133,17 @@ type ComputedQuote = {
  */
 async function evaluatePromotion(
   client: Db,
+  hotelId: string,
   rawCode: string,
   now: Date,
   lock: boolean,
 ): Promise<AppliedPromotion> {
   const found = await client.promotion.findFirst({
-    where: { code: { equals: rawCode, mode: "insensitive" } },
+    where: {
+      hotelId,
+      code: { equals: rawCode, mode: "insensitive" },
+      status: RecordStatus.ACTIVE,
+    },
   });
   if (!found) {
     throw new QuoteError("promotion_not_found", `no promotion matches code "${rawCode}"`);
@@ -242,7 +248,7 @@ export async function computeQuote(request: QuoteRequest, client: Db = prisma): 
   const stay = normalizeRequest(request);
   const { checkIn, checkOut, adults, children, nights } = stay;
   const now = request.now ?? new Date();
-  const hotel = await loadHotelContext(client);
+  const hotel = await requireHotelContext(request.hotelId, client);
 
   const roomIds = [...new Set(request.roomIds)];
   if (roomIds.length === 0) {
@@ -256,7 +262,7 @@ export async function computeQuote(request: QuoteRequest, client: Db = prisma): 
   }
 
   const rooms = await client.room.findMany({
-    where: { id: { in: roomIds } },
+    where: { id: { in: roomIds }, roomType: { hotelId: request.hotelId } },
     include: { roomType: true },
     orderBy: { roomNumber: "asc" },
   });
@@ -328,7 +334,13 @@ export async function computeQuote(request: QuoteRequest, client: Db = prisma): 
   let discount = money(0);
   const code = request.promotionCode?.trim();
   if (code) {
-    promotion = await evaluatePromotion(client, code, now, request.lockPromotion ?? false);
+    promotion = await evaluatePromotion(
+      client,
+      request.hotelId,
+      code,
+      now,
+      request.lockPromotion ?? false,
+    );
     discount = promotionDiscount(promotion, subtotal);
   }
 
@@ -408,6 +420,7 @@ export type RoomTypePrice = {
  * room of each type, priced by the same rule as a real quote.
  */
 export async function computeTypePrices(
+  hotelId: string,
   roomTypeIds: string[],
   checkIn: Date,
   checkOut: Date,
@@ -420,7 +433,7 @@ export async function computeTypePrices(
   if (roomTypeIds.length === 0 || nights < 1) return prices;
 
   const types = await client.roomType.findMany({
-    where: { id: { in: roomTypeIds }, status: RecordStatus.ACTIVE },
+    where: { hotelId, id: { in: roomTypeIds }, status: RecordStatus.ACTIVE },
     select: { id: true, basePrice: true },
   });
   const rates = await loadRatesForTypes(client, roomTypeIds, from, to);
@@ -430,7 +443,7 @@ export async function computeTypePrices(
     list.push(rate);
     ratesByType.set(rate.roomTypeId, list);
   }
-  const hotel = await loadHotelContext(client);
+  const hotel = await requireHotelContext(hotelId, client);
 
   for (const type of types) {
     const perNight = nightlyAmounts(

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
+import { hotelOfBooking } from "@/server/auth/tenancy";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { InitiatePaymentSchema } from "@/server/booking/validation";
 import { PaymentSearchSchema } from "@/server/console/validation";
@@ -30,6 +31,8 @@ export async function GET(request: Request) {
     permission: Permissions.MANAGE_PAYMENTS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_PAYMENTS);
+  if (tenant instanceof NextResponse) return tenant;
 
   const params = new URL(request.url).searchParams;
   const parsed = PaymentSearchSchema.safeParse({
@@ -40,7 +43,7 @@ export async function GET(request: Request) {
   });
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
-  return NextResponse.json(await searchPayments(parsed.data));
+  return NextResponse.json(await searchPayments(tenant.hotelId, parsed.data));
 }
 
 export async function POST(request: Request) {
@@ -57,6 +60,13 @@ export async function POST(request: Request) {
 
   const mode =
     body && typeof body === "object" && "mode" in body && body.mode === "desk" ? "desk" : "online";
+
+  const tenant = await guardTenantHotel(
+    auth,
+    Permissions.MANAGE_PAYMENTS,
+    () => hotelOfBooking(parsedInitiate.data.bookingId),
+  );
+  if (tenant instanceof NextResponse) return tenant;
 
   try {
     if (mode === "desk") {

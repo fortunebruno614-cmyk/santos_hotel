@@ -1,6 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
 import { AppRole, Permissions } from "@/server/auth/roles";
 
 export async function GET() {
@@ -10,8 +10,11 @@ export async function GET() {
     permission: Permissions.MANAGE_RESERVATIONS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_RESERVATIONS);
+  if (tenant instanceof NextResponse) return tenant;
 
   const reservations = await prisma.booking.findMany({
+    where: { hotelId: tenant.hotelId },
     take: 50,
     orderBy: { createdAt: "desc" },
     select: {

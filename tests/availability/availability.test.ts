@@ -15,10 +15,10 @@ import {
 import {
   AvailabilityConflictError,
   StayValidationError,
-  assertRoomsAvailable,
+  assertRoomsAvailable as rawAssertRoomsAvailable,
   capacityFits,
-  createPendingBooking,
-  findAvailability,
+  createPendingBooking as rawCreatePendingBooking,
+  findAvailability as rawFindAvailability,
 } from "../../src/server/availability/service";
 import {
   dateOnly,
@@ -26,13 +26,41 @@ import {
   ensureTestGuest,
   loadInventory,
   prisma,
+  testHotelId,
+  testOrganizationId,
   uniqRef,
 } from "../helpers";
 
 const PREFIX = "P4AVAIL-";
 
 let guestId = "";
+let hotelId = "";
+let organizationId = "";
 let inventory: Awaited<ReturnType<typeof loadInventory>>;
+
+type AvailabilityInput = Omit<Parameters<typeof rawFindAvailability>[0], "hotelId">;
+type PendingInput = Omit<
+  Parameters<typeof rawCreatePendingBooking>[0],
+  "hotelId" | "organizationId" | "currency"
+>;
+
+const findAvailability = (request: AvailabilityInput) =>
+  rawFindAvailability({ ...request, hotelId });
+
+const assertRoomsAvailable = (
+  client: Parameters<typeof rawAssertRoomsAvailable>[0],
+  request: AvailabilityInput,
+  roomIds: string[],
+  options?: { excludeBookingId?: string },
+) => rawAssertRoomsAvailable(client, { ...request, hotelId }, roomIds, options);
+
+const createPendingBooking = (input: PendingInput) =>
+  rawCreatePendingBooking({
+    ...input,
+    hotelId,
+    organizationId,
+    currency: "NGN",
+  });
 
 async function restoreRooms(rows: Array<{ id: string; status: RoomStatus }>) {
   for (const row of rows) {
@@ -49,6 +77,8 @@ describe("availability engine (P4)", () => {
     );
     assert.equal(CHILDREN_COUNT_AS_ADULTS, false, "tests assume default children counting");
     guestId = await ensureTestGuest();
+    hotelId = await testHotelId();
+    organizationId = await testOrganizationId();
     inventory = await loadInventory();
   });
 

@@ -5,13 +5,17 @@ import {
   loadPublicRoomTypes,
   loadRoomsInventory,
 } from "@/server/public/catalog";
+import { getDefaultHotel } from "@/server/public/hotels";
 
 export default async function Home() {
+  const defaultHotel = await getDefaultHotel();
+  if (!defaultHotel) return null;
+  const hotelId = defaultHotel.id;
   const [hero, rooms, hotel, inventory] = await Promise.all([
-    getContent("home.hero"),
-    loadPublicRoomTypes(),
-    loadHotelProfile(),
-    loadRoomsInventory(),
+    getContent("home.hero", hotelId),
+    loadPublicRoomTypes(hotelId),
+    loadHotelProfile(hotelId),
+    loadRoomsInventory(hotelId),
   ]);
 
   const address =

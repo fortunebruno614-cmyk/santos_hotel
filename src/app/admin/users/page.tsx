@@ -1,10 +1,11 @@
 ﻿import { listUsers } from "@/server/console/users";
-import { getCurrentSession } from "@/server/auth/dal";
+import { getConsoleContext } from "@/server/console/context";
 import { UsersManager } from "./users-manager";
 
 /** Users & permissions (P7, admin only). */
 export default async function AdminUsersPage() {
-  const [session, users] = await Promise.all([getCurrentSession(), listUsers()]);
+  const { session, member } = await getConsoleContext();
+  const users = await listUsers(member.organizationId);
 
   return (
     <div className="space-y-4">
@@ -16,7 +17,7 @@ export default async function AdminUsersPage() {
         </p>
       </div>
       <UsersManager
-        selfId={session?.userId ?? ""}
+        selfId={session.userId ?? ""}
         users={users.map((user) => ({
           id: user.id,
           name: user.name,

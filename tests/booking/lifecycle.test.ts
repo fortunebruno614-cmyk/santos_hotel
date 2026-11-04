@@ -4,16 +4,16 @@ import assert from "node:assert/strict";
 import { BookingStatus, RoomStatus } from "../../src/generated/prisma/enums";
 import {
   BookingError,
-  cancelBooking,
-  cancelBookingByClaim,
-  createBooking,
-  transitionBooking,
-  updateRoomStatus,
+  createBooking as rawCreateBooking,
+  transitionBooking as rawTransitionBooking,
+  updateRoomStatus as rawUpdateRoomStatus,
+  cancelBooking as rawCancelBooking,
+  cancelBookingByClaim as rawCancelBookingByClaim,
   type StaffActor,
 } from "../../src/server/booking/service";
 import { TransitionError } from "../../src/server/booking/policy";
 import { signBookingClaim } from "../../src/server/booking/claim";
-import { loadHotelContext, hotelToday } from "../../src/server/pricing/context";
+import { requireHotelContext, hotelToday } from "../../src/server/pricing/context";
 import { addDays } from "../../src/server/availability/overlap";
 import {
   BOOKING_TEST_SUFFIX,
@@ -21,6 +21,8 @@ import {
   ensureTestStaffUser,
   loadInventory,
   prisma,
+  testHotelId,
+  testOrganizationId,
 } from "../helpers";
 
 /**
@@ -33,7 +35,39 @@ let inventory: Awaited<ReturnType<typeof loadInventory>>;
 let guestId = "";
 let otherGuestId = "";
 let staffId = "";
+let hotelId = "";
+let organizationId = "";
 let staff: StaffActor;
+
+const createBooking = (
+  input: Omit<Parameters<typeof rawCreateBooking>[0], "hotelId">,
+  actor: Parameters<typeof rawCreateBooking>[1],
+) => rawCreateBooking({ ...input, hotelId }, actor);
+
+const cancelBooking = (
+  input: Parameters<typeof rawCancelBooking>[0],
+  actor: Parameters<typeof rawCancelBooking>[1],
+) => rawCancelBooking(input, actor);
+
+const cancelBookingByClaim = (
+  input: Parameters<typeof rawCancelBookingByClaim>[0],
+) => rawCancelBookingByClaim(input);
+
+const tenantStaff = (actor: StaffActor): StaffActor => ({
+  ...actor,
+  organizationId,
+  organizationWide: true,
+});
+
+const transitionBooking = (
+  input: Parameters<typeof rawTransitionBooking>[0],
+  actor: Parameters<typeof rawTransitionBooking>[1],
+) => rawTransitionBooking(input, tenantStaff(actor));
+
+const updateRoomStatus = (
+  input: Parameters<typeof rawUpdateRoomStatus>[0],
+  actor: Parameters<typeof rawUpdateRoomStatus>[1],
+) => rawUpdateRoomStatus(input, tenantStaff(actor));
 
 function iso(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -55,9 +89,17 @@ async function createStay(roomId: string, checkIn: Date, checkOut: Date, guest =
 
 describe("P5 cancellation and transitions", () => {
   before(async () => {
+    hotelId = await testHotelId();
+    organizationId = await testOrganizationId();
     inventory = await loadInventory();
     staffId = await ensureTestStaffUser();
-    staff = { kind: "staff", userId: staffId, email: `p5-staff${BOOKING_TEST_SUFFIX}` };
+    staff = {
+      kind: "staff",
+      userId: staffId,
+      email: `p5-staff${BOOKING_TEST_SUFFIX}`,
+      organizationId,
+      organizationWide: true,
+    };
 
     await deleteTestBookingGuests();
     const guest = await prisma.guest.create({
@@ -144,7 +186,7 @@ describe("P5 cancellation and transitions", () => {
   it("refuses to cancel a stay that already happened", async () => {
     const room = inventory.bySlug.get("executive-suite")!.rooms[0];
     const original = await prisma.room.findUniqueOrThrow({ where: { id: room.id } });
-    const today = hotelToday(new Date(), (await loadHotelContext()).timezone);
+    const today = hotelToday(new Date(), (await requireHotelContext(hotelId)).timezone);
     const booking = await createStay(room.id, today, addDays(today, 2));
     try {
       await transitionBooking({ bookingId: booking.id, to: BookingStatus.CONFIRMED }, staff);
@@ -164,7 +206,7 @@ describe("P5 cancellation and transitions", () => {
 
   it("walks PENDING → CONFIRMED → CHECKED_IN → CHECKED_OUT with room side effects", async () => {
     const room = inventory.bySlug.get("executive-suite")!.rooms[1];
-    const today = hotelToday(new Date(), (await loadHotelContext()).timezone);
+    const today = hotelToday(new Date(), (await requireHotelContext(hotelId)).timezone);
     const booking = await createStay(room.id, today, addDays(today, 3));
 
     const confirmed = await transitionBooking(

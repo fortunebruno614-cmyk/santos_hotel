@@ -1,23 +1,31 @@
 import { prisma } from "@/lib/prisma";
-import { UserRole } from "@/generated/prisma/enums";
+import { MemberStatus, OrganizationRole, UserRole } from "@/generated/prisma/enums";
 import { writeAuditLog } from "@/server/audit/write";
 import { hashPassword } from "@/server/auth/crypto";
 import { ConsoleError } from "@/server/console/errors";
-import type { UserCreateSchema, UserUpdateSchema } from "@/server/console/validation";
+import type {
+  MemberCreateSchema,
+  MemberUpdateSchema,
+  UserCreateSchema,
+  UserUpdateSchema,
+} from "@/server/console/validation";
 import type { z } from "zod";
 
 /**
- * P7 user & permission management.
+ * P7/M4 organization members and their login accounts.
  *
- * Guards that must hold no matter which UI calls the service:
- *   - an admin can never demote, deactivate or delete themselves (the console
- *     must not be able to lock out its own operator),
- *   - the last active ADMIN can never be removed or demoted,
- *   - passwords are stored only as scrypt hashes and never appear in audit rows.
+ * Tenant access is membership-driven (OrganizationMember). The legacy
+ * `User.role` column is kept consistent for the access map but never grants
+ * permissions on its own. Guards:
+ *   - a member can never demote/deactivate/delete themselves,
+ *   - the last active OWNER of an organization can never be removed/demoted,
+ *   - revocation preserves historical attribution (the user row remains).
  */
 
 export type UserCreate = z.infer<typeof UserCreateSchema>;
 export type UserUpdate = z.infer<typeof UserUpdateSchema>;
+export type MemberCreate = z.infer<typeof MemberCreateSchema>;
+export type MemberUpdate = z.infer<typeof MemberUpdateSchema>;
 
 const USER_PUBLIC_SELECT = {
   id: true,
@@ -29,107 +37,318 @@ const USER_PUBLIC_SELECT = {
   createdAt: true,
 } as const;
 
-export async function listUsers() {
-  return prisma.user.findMany({ select: USER_PUBLIC_SELECT, orderBy: { createdAt: "desc" } });
+function legacyRole(role: OrganizationRole): UserRole {
+  return role === OrganizationRole.OWNER ? UserRole.ADMIN : UserRole.STAFF;
 }
 
-async function countActiveAdmins(excludeUserId?: string) {
-  return prisma.user.count({
+async function countActiveOwners(organizationId: string, excludeMemberId?: string) {
+  return prisma.organizationMember.count({
     where: {
-      role: UserRole.ADMIN,
-      isActive: true,
-      ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+      organizationId,
+      role: OrganizationRole.OWNER,
+      status: MemberStatus.ACTIVE,
+      user: { isActive: true },
+      ...(excludeMemberId ? { id: { not: excludeMemberId } } : {}),
     },
   });
 }
 
-export async function createUser(input: UserCreate, actor: { userId: string }) {
-  const existing = await prisma.user.findUnique({ where: { email: input.email } });
-  if (existing) throw new ConsoleError("conflict", `a user with ${input.email} already exists`);
+async function validateHotelScope(organizationId: string, hotelIds: string[]) {
+  if (hotelIds.length === 0) return;
+  const count = await prisma.hotel.count({
+    where: { organizationId, id: { in: hotelIds } },
+  });
+  if (count !== new Set(hotelIds).size) {
+    throw new ConsoleError("not_found", "one or more hotels are outside this organization");
+  }
+}
 
-  const passwordHash = await hashPassword(input.password);
-  const created = await prisma.user.create({
-    data: {
-      name: input.name,
-      email: input.email,
-      passwordHash,
-      role: input.role,
-      isActive: true,
+// ---------------------------------------------------------------------------
+// Memberships (the tenant access list)
+// ---------------------------------------------------------------------------
+
+export async function listMembers(organizationId: string) {
+  return prisma.organizationMember.findMany({
+    where: { organizationId },
+    orderBy: [{ status: "asc" }, { createdAt: "asc" }],
+    include: {
+      user: { select: USER_PUBLIC_SELECT },
+      hotels: { select: { hotelId: true } },
     },
-    select: USER_PUBLIC_SELECT,
+  });
+}
+
+export async function createMember(
+  organizationId: string,
+  input: MemberCreate,
+  actor: { userId: string },
+) {
+  await validateHotelScope(organizationId, input.hotelIds ?? []);
+
+  const existingUser = await prisma.user.findUnique({ where: { email: input.email } });
+  const clash = existingUser
+    ? await prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId,
+            userId: existingUser.id,
+          },
+        },
+      })
+    : null;
+  if (clash) throw new ConsoleError("conflict", `${input.email} is already a member`);
+
+  const user = existingUser
+    ? await prisma.user.update({
+        where: { id: existingUser.id },
+        data: { name: input.name, isActive: true },
+        select: USER_PUBLIC_SELECT,
+      })
+    : await prisma.user.create({
+        data: {
+          name: input.name,
+          email: input.email,
+          passwordHash: await hashPassword(input.password),
+          role: legacyRole(input.role),
+          isActive: true,
+        },
+        select: USER_PUBLIC_SELECT,
+      });
+
+  const member = await prisma.organizationMember.create({
+    data: {
+      organizationId,
+      userId: user.id,
+      role: input.role,
+      status: MemberStatus.ACTIVE,
+      activatedAt: new Date(),
+      hotels: {
+        create: (input.hotelIds ?? []).map((hotelId) => ({ hotelId })),
+      },
+    },
   });
 
   await writeAuditLog({
     userId: actor.userId,
-    action: "user.create",
-    entityType: "user",
-    entityId: created.id,
-    oldValues: null,
-    newValues: { name: created.name, email: created.email, role: created.role, isActive: true },
+    organizationId,
+    action: "membership.invite",
+    entityType: "organization_member",
+    entityId: member.id,
+    newValues: { userId: user.id, email: user.email, role: member.role },
   });
-  return created;
+  return { ...member, user };
 }
 
-export async function updateUser(id: string, input: UserUpdate, actor: { userId: string }) {
-  const target = await prisma.user.findUnique({ where: { id } });
-  if (!target) throw new ConsoleError("not_found", "user not found");
+export async function updateMember(
+  organizationId: string,
+  memberId: string,
+  input: MemberUpdate,
+  actor: { userId: string },
+) {
+  const member = await prisma.organizationMember.findFirst({
+    where: { id: memberId, organizationId },
+  });
+  if (!member) throw new ConsoleError("not_found", "member not found");
 
-  if (target.id === actor.userId && (input.role !== undefined || input.isActive !== undefined)) {
+  if (member.userId === actor.userId) {
+    throw new ConsoleError("cannot_change_self", "you cannot change your own access");
+  }
+  if (input.hotelIds) await validateHotelScope(organizationId, input.hotelIds);
+
+  const losesOwner =
+    member.role === OrganizationRole.OWNER &&
+    ((input.role !== undefined && input.role !== OrganizationRole.OWNER) ||
+      (input.status !== undefined && input.status !== MemberStatus.ACTIVE));
+  if (losesOwner && (await countActiveOwners(organizationId, member.id)) === 0) {
+    throw new ConsoleError("last_owner", "at least one active owner must remain");
+  }
+
+  const data: Record<string, unknown> = {};
+  const oldValues: Record<string, unknown> = {};
+  const newValues: Record<string, unknown> = {};
+  if (input.role !== undefined && input.role !== member.role) {
+    data.role = input.role;
+    oldValues.role = member.role;
+    newValues.role = input.role;
+  }
+  if (input.status !== undefined && input.status !== member.status) {
+    data.status = input.status;
+    if (input.status === MemberStatus.REVOKED) data.revokedAt = new Date();
+    if (input.status === MemberStatus.ACTIVE) {
+      data.activatedAt = member.activatedAt ?? new Date();
+      data.revokedAt = null;
+    }
+    oldValues.status = member.status;
+    newValues.status = input.status;
+  }
+  if (input.name) {
+    await prisma.user.update({ where: { id: member.userId }, data: { name: input.name } });
+    oldValues.name = "changed";
+    newValues.name = input.name;
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.organizationMember.update({ where: { id: member.id }, data });
+    if (input.hotelIds) {
+      await tx.organizationMemberHotel.deleteMany({ where: { memberId: member.id } });
+      if (input.hotelIds.length > 0) {
+        await tx.organizationMemberHotel.createMany({
+          data: input.hotelIds.map((hotelId) => ({ memberId: member.id, hotelId })),
+        });
+      }
+    }
+    return row;
+  });
+
+  await writeAuditLog({
+    userId: actor.userId,
+    organizationId,
+    action: "membership.update",
+    entityType: "organization_member",
+    entityId: member.id,
+    oldValues,
+    newValues: { ...newValues, hotelIds: input.hotelIds ?? undefined },
+  });
+  return updated;
+}
+
+export async function revokeMember(
+  organizationId: string,
+  memberId: string,
+  actor: { userId: string },
+) {
+  return updateMember(
+    organizationId,
+    memberId,
+    { status: MemberStatus.REVOKED } as MemberUpdate,
+    actor,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Legacy account helpers (kept for the existing user API, now org-scoped)
+// ---------------------------------------------------------------------------
+
+export async function listUsers(organizationId: string) {
+  const members = await listMembers(organizationId);
+  return members.map((member) => ({
+    ...member.user,
+    memberId: member.id,
+    organizationRole: member.role,
+    membershipStatus: member.status,
+    hotelIds: member.hotels.map((hotel) => hotel.hotelId),
+  }));
+}
+
+export async function createUser(
+  organizationId: string,
+  input: UserCreate,
+  actor: { userId: string },
+) {
+  const member = await createMember(
+    organizationId,
+    {
+      name: input.name,
+      email: input.email,
+      password: input.password,
+      role:
+        input.role === UserRole.ADMIN ? OrganizationRole.OWNER : OrganizationRole.STAFF,
+      hotelIds: [],
+    },
+    actor,
+  );
+  return {
+    ...member.user,
+    memberId: member.id,
+    organizationRole: member.role,
+    membershipStatus: member.status,
+    hotelIds: [] as string[],
+  };
+}
+
+export async function updateUser(
+  organizationId: string,
+  memberId: string,
+  input: UserUpdate,
+  actor: { userId: string },
+) {
+  const member = await prisma.organizationMember.findFirst({
+    where: { id: memberId, organizationId },
+    include: { user: { select: USER_PUBLIC_SELECT } },
+  });
+  if (!member) throw new ConsoleError("not_found", "member not found");
+  if (member.userId === actor.userId && (input.role !== undefined || input.isActive !== undefined)) {
     throw new ConsoleError("cannot_change_self", "you cannot change your own role or access");
   }
 
-  const losesAdmin =
-    target.role === UserRole.ADMIN &&
-    ((input.role !== undefined && input.role !== UserRole.ADMIN) ||
+  const nextOrgRole =
+    input.role === undefined
+      ? undefined
+      : input.role === UserRole.ADMIN
+        ? OrganizationRole.OWNER
+        : OrganizationRole.STAFF;
+  const losesOwner =
+    member.role === OrganizationRole.OWNER &&
+    ((nextOrgRole !== undefined && nextOrgRole !== OrganizationRole.OWNER) ||
       (input.isActive !== undefined && !input.isActive));
-  if (losesAdmin && (await countActiveAdmins(target.id)) === 0) {
-    throw new ConsoleError("last_admin", "at least one active administrator must remain");
+  if (
+    losesOwner &&
+    member.status === MemberStatus.ACTIVE &&
+    (await countActiveOwners(organizationId, member.id)) === 0
+  ) {
+    throw new ConsoleError("last_owner", "at least one active owner must remain");
   }
 
+  const data: Record<string, unknown> = {};
   const oldValues: Record<string, unknown> = {};
   const newValues: Record<string, unknown> = {};
-  const data: Record<string, unknown> = {};
-
-  if (input.name !== undefined && input.name !== target.name) {
+  if (input.name !== undefined) {
     data.name = input.name;
-    oldValues.name = target.name;
+    oldValues.name = "changed";
     newValues.name = input.name;
   }
-  if (input.role !== undefined && input.role !== target.role) {
+  if (input.role !== undefined && input.role !== member.user.role) {
     data.role = input.role;
-    oldValues.role = target.role;
+    oldValues.role = member.user.role;
     newValues.role = input.role;
   }
-  if (input.isActive !== undefined && input.isActive !== target.isActive) {
+  if (input.isActive !== undefined && input.isActive !== member.user.isActive) {
     data.isActive = input.isActive;
-    oldValues.isActive = target.isActive;
+    oldValues.isActive = member.user.isActive;
     newValues.isActive = input.isActive;
   }
   if (input.password) {
     data.passwordHash = await hashPassword(input.password);
-    newValues.password = "changed";
     oldValues.password = "unchanged";
+    newValues.password = "changed";
   }
 
-  if (Object.keys(data).length === 0) {
-    return prisma.user.findUniqueOrThrow({ where: { id }, select: USER_PUBLIC_SELECT });
-  }
+  if (Object.keys(data).length === 0) return member.user;
 
-  const updated = await prisma.user.update({
-    where: { id },
-    data,
-    select: USER_PUBLIC_SELECT,
+  const updated = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.update({
+      where: { id: member.userId },
+      data,
+      select: USER_PUBLIC_SELECT,
+    });
+    if (nextOrgRole !== undefined && nextOrgRole !== member.role) {
+      await tx.organizationMember.update({
+        where: { id: member.id },
+        data: { role: nextOrgRole },
+      });
+    }
+    return user;
   });
 
   if (oldValues.role || newValues.role) {
-    // Role changes keep their dedicated audit action (P3 contract).
     await writeAuditLog({
       userId: actor.userId,
+      organizationId,
       action: "permission.change",
       entityType: "user",
-      entityId: id,
-      oldValues: { role: oldValues.role ?? target.role },
-      newValues: { role: newValues.role ?? target.role },
+      entityId: member.userId,
+      oldValues: { role: oldValues.role },
+      newValues: { role: newValues.role },
     });
   }
   const otherOld = { ...oldValues };
@@ -139,35 +358,48 @@ export async function updateUser(id: string, input: UserUpdate, actor: { userId:
   if (Object.keys(otherNew).length > 0) {
     await writeAuditLog({
       userId: actor.userId,
+      organizationId,
       action: "user.update",
       entityType: "user",
-      entityId: id,
+      entityId: member.userId,
       oldValues: Object.keys(otherOld).length > 0 ? otherOld : null,
       newValues: otherNew,
     });
   }
-
   return updated;
 }
 
-export async function deleteUser(id: string, actor: { userId: string }) {
-  const target = await prisma.user.findUnique({ where: { id } });
-  if (!target) throw new ConsoleError("not_found", "user not found");
-  if (target.id === actor.userId) {
+export async function deleteUser(
+  organizationId: string,
+  memberId: string,
+  actor: { userId: string },
+) {
+  const member = await prisma.organizationMember.findFirst({
+    where: { id: memberId, organizationId },
+    include: { user: { select: USER_PUBLIC_SELECT } },
+  });
+  if (!member) throw new ConsoleError("not_found", "member not found");
+  if (member.userId === actor.userId) {
     throw new ConsoleError("cannot_delete_self", "you cannot delete your own account");
   }
-  if (target.role === UserRole.ADMIN && (await countActiveAdmins(target.id)) === 0) {
-    throw new ConsoleError("last_admin", "at least one active administrator must remain");
+  if (
+    member.role === OrganizationRole.OWNER &&
+    member.status === MemberStatus.ACTIVE &&
+    (await countActiveOwners(organizationId, member.id)) === 0
+  ) {
+    throw new ConsoleError("last_owner", "at least one active owner must remain");
   }
 
-  await prisma.user.delete({ where: { id } });
+  // Revocation, not deletion: historical audit/booking attribution must survive.
+  await prisma.organizationMember.delete({ where: { id: member.id } });
   await writeAuditLog({
     userId: actor.userId,
-    action: "user.delete",
-    entityType: "user",
-    entityId: id,
-    oldValues: { name: target.name, email: target.email, role: target.role },
+    organizationId,
+    action: "membership.revoke",
+    entityType: "organization_member",
+    entityId: member.id,
+    oldValues: { email: member.user.email, role: member.role },
     newValues: null,
   });
-  return { id };
+  return { id: member.id };
 }

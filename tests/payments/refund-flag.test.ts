@@ -29,10 +29,14 @@ describe("P6 cancellation with REFUND_ON_CANCELLATION=false", () => {
       ensureTestPaymentStaffUser,
       loadInventory,
       prisma,
+      testHotelId,
+      testOrganizationId,
     } = await import("../helpers");
 
     assert.equal(REFUND_ON_CANCELLATION, false, "flag must be off before config loads");
 
+    const hotelId = await testHotelId();
+    const organizationId = await testOrganizationId();
     const inventory = await loadInventory();
     const staffId = await ensureTestPaymentStaffUser();
     await deleteTestPaymentGuests();
@@ -43,6 +47,7 @@ describe("P6 cancellation with REFUND_ON_CANCELLATION=false", () => {
     });
     const room = inventory.bySlug.get("deluxe-king")!.rooms[0];
     const quote = await computeQuote({
+      hotelId,
       checkIn: dateOnly("2027-11-01"),
       checkOut: dateOnly("2027-11-03"),
       adults: 2,
@@ -52,6 +57,7 @@ describe("P6 cancellation with REFUND_ON_CANCELLATION=false", () => {
     const total = moneyString(quote.snapshot.breakdown.total);
     const booking = await createBooking(
       {
+        hotelId,
         checkIn: "2027-11-01",
         checkOut: "2027-11-03",
         adults: 2,
@@ -75,7 +81,13 @@ describe("P6 cancellation with REFUND_ON_CANCELLATION=false", () => {
 
     await transitionBooking(
       { bookingId: booking.id, to: BookingStatus.CANCELLED },
-      { kind: "staff", userId: staffId, email: "p6-staff" + PAYMENT_TEST_SUFFIX },
+      {
+        kind: "staff",
+        userId: staffId,
+        email: "p6-staff" + PAYMENT_TEST_SUFFIX,
+        organizationId,
+        organizationWide: true,
+      },
     );
 
     const payments = await getPaymentsForBooking(booking.id);

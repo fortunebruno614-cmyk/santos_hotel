@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
+import { staffActor } from "@/server/auth/actor";
+import { hotelOfBooking } from "@/server/auth/tenancy";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { createBooking, type StaffActor } from "@/server/booking/service";
 import { searchBookings } from "@/server/console/bookings";
@@ -27,6 +29,8 @@ export async function GET(request: Request) {
     permission: Permissions.MANAGE_RESERVATIONS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_RESERVATIONS);
+  if (tenant instanceof NextResponse) return tenant;
 
   const params = new URL(request.url).searchParams;
   const parsed = BookingSearchSchema.safeParse({
@@ -40,7 +44,7 @@ export async function GET(request: Request) {
   });
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
-  return NextResponse.json(await searchBookings(parsed.data));
+  return NextResponse.json(await searchBookings(tenant.hotelId, parsed.data));
 }
 
 export async function POST(request: Request) {
@@ -50,14 +54,20 @@ export async function POST(request: Request) {
     permission: Permissions.MANAGE_RESERVATIONS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_RESERVATIONS);
+  if (tenant instanceof NextResponse) return tenant;
 
   const parsed = StaffBookingSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
-  const actor: StaffActor = { kind: "staff", userId: auth.userId!, email: auth.email ?? null };
+  const actor: StaffActor = staffActor(auth, tenant.member);
   try {
     const booking = await createBooking(
-      { ...parsed.data, expectedTotal: parsed.data.expectedTotal ?? null },
+      {
+        ...parsed.data,
+        hotelId: tenant.hotelId,
+        expectedTotal: parsed.data.expectedTotal ?? null,
+      },
       actor,
     );
     return NextResponse.json({ booking }, { status: 201 });

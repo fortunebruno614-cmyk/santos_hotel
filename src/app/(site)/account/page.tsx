@@ -7,7 +7,8 @@ import { logout } from "@/server/auth/actions";
 import { requireGuest, getCurrentUser } from "@/server/auth/dal";
 import { prisma } from "@/lib/prisma";
 import { cancellationInfoFor } from "@/server/booking/service";
-import { loadHotelContext, hotelToday } from "@/server/pricing/context";
+import { requireHotelContext, hotelToday } from "@/server/pricing/context";
+import { getDefaultHotel } from "@/server/public/hotels";
 import { displayCurrency } from "@/server/currency/display";
 import { BookingStatus } from "@/generated/prisma/enums";
 import { fallbackImageForSlug, formatMoney as publicMoney } from "@/lib/hotel";
@@ -21,7 +22,9 @@ export default async function AccountPage({
   const tab = sp.tab === "profile" || sp.tab === "bookings" ? sp.tab : "overview";
   const session = await requireGuest();
   const user = await getCurrentUser();
-  const hotel = await loadHotelContext();
+  const defaultHotel = await getDefaultHotel();
+  if (!defaultHotel) return null;
+  const hotel = await requireHotelContext(defaultHotel.id);
   const display = await displayCurrency();
   const today = hotelToday(new Date(), hotel.timezone);
 
@@ -40,6 +43,14 @@ export default async function AccountPage({
       })
     : [];
 
+  const hotelContexts = new Map(
+    await Promise.all(
+      [...new Set(bookings.map((booking) => booking.hotelId).filter(Boolean))].map(
+        async (hotelId) => [hotelId!, await requireHotelContext(hotelId!)] as const,
+      ),
+    ),
+  );
+
   const roomTypes = await prisma.roomType.findMany({
     where: { name: { in: [...new Set(bookings.flatMap((booking) => booking.rooms.map((line) => line.room.roomType.name)))] } },
     include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
@@ -55,10 +66,12 @@ export default async function AccountPage({
   const past = bookings.filter((booking) => booking.checkOut.getTime() < today.getTime());
 
   const renderBooking = (booking: (typeof bookings)[number]) => {
-    const cancellation = cancellationInfoFor(booking, hotel);
+    const context =
+      (booking.hotelId ? hotelContexts.get(booking.hotelId) : null) ?? hotel;
+    const cancellation = cancellationInfoFor(booking, context);
     const roomName = booking.rooms[0]?.room.roomType.name ?? "Santo stay";
     const image = imageByName.get(roomName) ?? fallbackImageForSlug("");
-    const total = publicMoney(booking.total.toString(), hotel.currency, display);
+    const total = publicMoney(booking.total.toString(), context.currency, display);
     return (
       <article className="account-booking" key={booking.id}>
         {/* eslint-disable-next-line @next/next/no-img-element */}

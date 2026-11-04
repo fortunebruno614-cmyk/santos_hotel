@@ -42,8 +42,11 @@ function escapeLike(value: string) {
   return value.replace(/[\\%_]/g, (match) => `\\${match}`);
 }
 
-export async function searchBookings(input: BookingSearchInput): Promise<BookingSearchResult> {
-  const conditions: Prisma.BookingWhereInput[] = [];
+export async function searchBookings(
+  hotelId: string,
+  input: BookingSearchInput,
+): Promise<BookingSearchResult> {
+  const conditions: Prisma.BookingWhereInput[] = [{ hotelId }];
 
   const q = input.q?.trim();
   if (q) {
@@ -71,7 +74,7 @@ export async function searchBookings(input: BookingSearchInput): Promise<Booking
     conditions.push({ checkIn: { lt: to } });
   }
 
-  const where: Prisma.BookingWhereInput = conditions.length > 0 ? { AND: conditions } : {};
+  const where: Prisma.BookingWhereInput = { AND: conditions };
 
   const [total, bookings] = await Promise.all([
     prisma.booking.count({ where }),

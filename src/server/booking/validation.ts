@@ -81,6 +81,8 @@ export const MoneyStringSchema = z
 /** Public/guest checkout body (email required — the contact point for a booking). */
 export const CheckoutSchema = z
   .object({
+    /** Property being booked; validated again against the rooms server-side. */
+    hotelId: z.string().uuid(),
     ...stayShape,
     roomIds: roomIdsSchema,
     guest: GuestDetailsSchema.extend({ email: z.string().trim().toLowerCase().email().max(200) }),

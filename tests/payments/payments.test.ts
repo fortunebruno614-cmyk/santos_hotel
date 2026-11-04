@@ -3,11 +3,13 @@ import { describe, it, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { BookingStatus, PaymentStatus } from "../../src/generated/prisma/enums";
 import {
-  cancelBooking,
-  createBooking,
-  transitionBooking,
+  cancelBooking as rawCancelBooking,
+  createBooking as rawCreateBooking,
+  transitionBooking as rawTransitionBooking,
+  type BookingActor,
+  type StaffActor,
 } from "../../src/server/booking/service";
-import { computeQuote } from "../../src/server/pricing/service";
+import { computeQuote as rawComputeQuote } from "../../src/server/pricing/service";
 import { moneyString } from "../../src/server/pricing/model";
 import {
   getPaymentProvider,
@@ -27,12 +29,55 @@ import {
   ensureTestPaymentStaffUser,
   loadInventory,
   prisma,
+  testHotelId,
+  testOrganizationId,
 } from "../helpers";
 
 /** P6 payments gate: initiate, webhook, replay, failure, refund, reconcile. */
 
 let inventory: Awaited<ReturnType<typeof loadInventory>>;
 let staffId = "";
+let hotelId = "";
+let organizationId = "";
+
+type LooseBookingActor =
+  | { kind: "staff"; userId: string; email?: string | null }
+  | { kind: "guest"; guestId: string }
+  | { kind: "anonymous" };
+
+const tenantStaff = (
+  actor: Extract<LooseBookingActor, { kind: "staff" }>,
+): StaffActor => ({
+  ...actor,
+  organizationId,
+  organizationWide: true,
+});
+
+const createBooking = (
+  input: Omit<Parameters<typeof rawCreateBooking>[0], "hotelId">,
+  actor: LooseBookingActor,
+) =>
+  rawCreateBooking(
+    { ...input, hotelId },
+    actor.kind === "staff" ? tenantStaff(actor) : actor,
+  );
+
+const computeQuote = (request: Omit<Parameters<typeof rawComputeQuote>[0], "hotelId">) =>
+  rawComputeQuote({ ...request, hotelId });
+
+const cancelBooking = (
+  input: Parameters<typeof rawCancelBooking>[0],
+  actor: LooseBookingActor,
+) =>
+  rawCancelBooking(
+    input,
+    actor.kind === "staff" ? tenantStaff(actor) : actor,
+  );
+
+const transitionBooking = (
+  input: Parameters<typeof rawTransitionBooking>[0],
+  actor: Extract<LooseBookingActor, { kind: "staff" }>,
+) => rawTransitionBooking(input, tenantStaff(actor));
 const guestEmail = `payments${PAYMENT_TEST_SUFFIX}`;
 
 async function ensureGuest(email: string): Promise<string> {
@@ -100,6 +145,8 @@ function signedEvent(
 
 describe("P6 payments", () => {
   before(async () => {
+    hotelId = await testHotelId();
+    organizationId = await testOrganizationId();
     inventory = await loadInventory();
     staffId = await ensureTestPaymentStaffUser();
   });

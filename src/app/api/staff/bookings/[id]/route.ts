@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
+import { staffActor } from "@/server/auth/actor";
+import { hotelOfBooking } from "@/server/auth/tenancy";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { getBookingDetail, modifyBooking, type StaffActor } from "@/server/booking/service";
 import { ModifyBookingSchema } from "@/server/booking/validation";
@@ -28,6 +30,10 @@ export async function GET(request: Request, context: Params) {
   });
   if (auth instanceof NextResponse) return auth;
   const { id } = await context.params;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_RESERVATIONS, () =>
+    hotelOfBooking(id),
+  );
+  if (tenant instanceof NextResponse) return tenant;
 
   try {
     return NextResponse.json(await getBookingDetail(id, { kind: "staff" }));
@@ -44,11 +50,15 @@ export async function PATCH(request: Request, context: Params) {
   });
   if (auth instanceof NextResponse) return auth;
   const { id } = await context.params;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_RESERVATIONS, () =>
+    hotelOfBooking(id),
+  );
+  if (tenant instanceof NextResponse) return tenant;
 
   const parsed = ModifyBookingSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
-  const actor: StaffActor = { kind: "staff", userId: auth.userId!, email: auth.email ?? null };
+  const actor: StaffActor = staffActor(auth, tenant.member);
   try {
     const booking = await modifyBooking({ bookingId: id, ...parsed.data }, actor);
     return NextResponse.json({ booking });

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { searchGuests } from "@/server/console/guests";
+import { getConsoleContext } from "@/server/console/context";
 import { GuestSearchSchema } from "@/server/console/validation";
 
 /** Guest records (P7): searchable customer list for the front desk. */
@@ -16,7 +17,8 @@ export default async function AdminGuestsPage({
   });
   const query = parsed.success ? parsed.data : GuestSearchSchema.parse({});
 
-  const result = await searchGuests(query);
+  const { hotel } = await getConsoleContext();
+  const result = await searchGuests(hotel.id, query);
   const pages = Math.max(1, Math.ceil(result.total / query.pageSize));
 
   return (

@@ -25,6 +25,7 @@ type QuoteData = {
 };
 
 type StayData = {
+  hotelId: string;
   checkIn: string;
   checkOut: string;
   adults: number;
@@ -84,6 +85,7 @@ export function CheckoutForm({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          hotelId: stay.hotelId,
           checkIn: stay.checkIn,
           checkOut: stay.checkOut,
           adults: stay.adults,

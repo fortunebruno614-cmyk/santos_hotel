@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { searchAudit } from "@/server/console/audit";
+import { getConsoleContext } from "@/server/console/context";
 import { AuditSearchSchema } from "@/server/console/validation";
 
 /** Audit trail (P7, admin only): who changed what, old → new values. */
@@ -30,7 +31,8 @@ export default async function AdminAuditPage({
   });
   const query = parsed.success ? parsed.data : AuditSearchSchema.parse({});
 
-  const result = await searchAudit(query);
+  const { hotel } = await getConsoleContext();
+  const result = await searchAudit(hotel.id, query);
   const pages = Math.max(1, Math.ceil(result.total / query.pageSize));
 
   const pageHref = (page: number) => {

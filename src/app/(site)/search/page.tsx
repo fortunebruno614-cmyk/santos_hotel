@@ -2,6 +2,7 @@ import { Listing } from "@/components/hotel/listing";
 import { loadHotelProfile, loadPublicRoomTypes } from "@/server/public/catalog";
 import { loadAvailabilityListing, parsePublicStay } from "@/server/public/search";
 import { getContent } from "@/server/console/settings";
+import { getDefaultHotel } from "@/server/public/hotels";
 import type { HotelLocation } from "@/lib/hotel";
 
 export const metadata = {
@@ -29,12 +30,15 @@ export default async function SearchPage({
 }) {
   const sp = await searchParams;
   const parsed = parsePublicStay(sp);
+  const defaultHotel = await getDefaultHotel();
+  if (!defaultHotel) return null;
+  const hotelId = defaultHotel.id;
 
   if (!parsed.stay) {
     const [hotel, rooms, intro] = await Promise.all([
-      loadHotelProfile(),
-      loadPublicRoomTypes(),
-      getContent("rooms.intro"),
+      loadHotelProfile(hotelId),
+      loadPublicRoomTypes(hotelId),
+      getContent("rooms.intro", hotelId),
     ]);
     return (
       <Listing
@@ -50,8 +54,8 @@ export default async function SearchPage({
   }
 
   const [{ rooms, currency, error }, hotel] = await Promise.all([
-    loadAvailabilityListing(parsed.stay),
-    loadHotelProfile(),
+    loadAvailabilityListing(parsed.stay, hotelId),
+    loadHotelProfile(hotelId),
   ]);
 
   return (

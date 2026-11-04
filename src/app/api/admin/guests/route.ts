@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { searchGuests } from "@/server/console/guests";
 import { GuestSearchSchema } from "@/server/console/validation";
@@ -17,6 +17,8 @@ export async function GET(request: Request) {
     permission: Permissions.VIEW_GUESTS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.VIEW_GUESTS);
+  if (tenant instanceof NextResponse) return tenant;
 
   const params = new URL(request.url).searchParams;
   const parsed = GuestSearchSchema.safeParse({
@@ -28,5 +30,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
-  return NextResponse.json(await searchGuests(parsed.data));
+  return NextResponse.json(await searchGuests(tenant.hotelId, parsed.data));
 }

@@ -98,6 +98,28 @@ export async function deleteTestPaymentStaffUser(suffix: string = PAYMENT_TEST_S
   await prisma.user.deleteMany({ where: { email: { endsWith: suffix } } });
 }
 
+/** The seeded Santo hotel (explicit tenant context for service calls). */
+export async function testHotelId(): Promise<string> {
+  const hotel = await prisma.hotel.findFirst({ orderBy: { createdAt: "asc" } });
+  if (!hotel) throw new Error("Seed data missing. Run `npm run db:seed` before the tests.");
+  return hotel.id;
+}
+
+/** The first organization (Santo) for staff-actor tests. */
+export async function testOrganizationId(): Promise<string> {
+  const organization = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
+  if (!organization) throw new Error("Seed data missing. Run `npm run db:seed` before the tests.");
+  return organization.id;
+}
+
+/** Adds the tenant fields a StaffActor now requires. */
+export function withStaffTenant<T extends { kind: "staff"; userId: string }>(
+  actor: T,
+  organizationId: string,
+): T & { organizationId: string; organizationWide: true } {
+  return { ...actor, organizationId, organizationWide: true };
+}
+
 /** Loads seeded inventory, failing fast when the dev DB has not been seeded. */
 export async function loadInventory() {
   const roomTypes = await prisma.roomType.findMany({

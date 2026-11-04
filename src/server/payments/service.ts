@@ -9,7 +9,6 @@ import {
   WebhookEventSchema,
   type PaymentProvider,
 } from "@/server/payments/provider";
-import { loadHotelContext } from "@/server/pricing/context";
 import {
   moneyEquals,
   moneyString,
@@ -186,16 +185,26 @@ export async function initiatePayment(
   bookingId: string,
   actor: { userId?: string | null; guestId?: string | null } = {},
 ): Promise<InitiatePaymentResult> {
-  const hotel = await loadHotelContext();
   const provider = getPaymentProvider();
 
   const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT "id" FROM "bookings" WHERE "id" = ${bookingId} FOR UPDATE`;
     const booking = await tx.booking.findUnique({
       where: { id: bookingId },
-      select: { id: true, bookingReference: true, bookingStatus: true, total: true },
+      select: {
+        id: true,
+        bookingReference: true,
+        bookingStatus: true,
+        total: true,
+        hotelId: true,
+        organizationId: true,
+        currency: true,
+        hotel: { select: { currency: true, organizationId: true } },
+      },
     });
-    if (!booking) throw new PaymentError("booking_not_found", "reservation not found");
+    if (!booking?.hotelId) throw new PaymentError("booking_not_found", "reservation not found");
+    const currency = booking.currency ?? booking.hotel?.currency ?? "NGN";
+    const organizationId = booking.organizationId ?? booking.hotel?.organizationId ?? null;
     if (!PAYABLE_BOOKING_STATUSES.includes(booking.bookingStatus)) {
       throw new PaymentError(
         "booking_not_payable",
@@ -229,16 +238,18 @@ export async function initiatePayment(
 
     const intent = await provider.createIntent({
       amount: booking.total,
-      currency: hotel.currency,
+      currency,
       bookingReference: booking.bookingReference,
     });
     const created = await tx.payment.create({
       data: {
         bookingId,
+        hotelId: booking.hotelId,
+        organizationId,
         provider: provider.id,
         providerReference: intent.providerReference,
         amount: booking.total,
-        currency: hotel.currency,
+        currency,
         status: PaymentStatus.PENDING,
       },
     });
@@ -248,6 +259,8 @@ export async function initiatePayment(
   if (result.created) {
     await writeAuditLog({
       userId: actor.userId ?? null,
+      organizationId: result.payment.organizationId ?? null,
+      hotelId: result.payment.hotelId ?? null,
       action: "payment.initiate",
       entityType: "payment",
       entityId: result.payment.id,
@@ -412,6 +425,8 @@ export async function handleWebhook(
 
   await writeAuditLog({
     userId: null,
+    organizationId: payment.organizationId ?? null,
+    hotelId: payment.hotelId ?? null,
     action: event.type === "payment.succeeded" ? "payment.succeeded" : "payment.failed",
     entityType: "payment",
     entityId: applied.paymentId,
@@ -510,6 +525,8 @@ export async function refundPayment(
 
   await writeAuditLog({
     userId: actor.userId,
+    organizationId: payment.organizationId ?? null,
+    hotelId: payment.hotelId ?? null,
     action: "payment.refund",
     entityType: "payment",
     entityId: result.paymentId,
@@ -548,6 +565,8 @@ export async function refundCapturedPayments(
       if (error instanceof PaymentError && error.code === "not_refundable") continue;
       await writeAuditLog({
         userId: actor.userId,
+        organizationId: payment.organizationId ?? null,
+        hotelId: payment.hotelId ?? null,
         action: "payment.refund_failed",
         entityType: "payment",
         entityId: payment.id,
@@ -590,15 +609,22 @@ export async function recordDeskPayment(
   bookingId: string,
   actor: { userId: string | null },
 ): Promise<PaymentSummary> {
-  const hotel = await loadHotelContext();
-
   const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT "id" FROM "bookings" WHERE "id" = ${bookingId} FOR UPDATE`;
     const booking = await tx.booking.findUnique({
       where: { id: bookingId },
-      select: { id: true, bookingStatus: true, total: true },
+      select: {
+        id: true,
+        bookingStatus: true,
+        total: true,
+        hotelId: true,
+        organizationId: true,
+        currency: true,
+        hotel: { select: { currency: true, organizationId: true } },
+      },
     });
-    if (!booking) throw new PaymentError("booking_not_found", "reservation not found");
+    if (!booking?.hotelId) throw new PaymentError("booking_not_found", "reservation not found");
+    const currency = booking.currency ?? booking.hotel?.currency ?? "NGN";
     if (!PAYABLE_BOOKING_STATUSES.includes(booking.bookingStatus)) {
       throw new PaymentError(
         "booking_not_payable",
@@ -613,10 +639,12 @@ export async function recordDeskPayment(
     const created = await tx.payment.create({
       data: {
         bookingId,
+        hotelId: booking.hotelId,
+        organizationId: booking.organizationId ?? booking.hotel?.organizationId ?? null,
         provider: "desk",
         providerReference: `desk_${randomBytes(10).toString("hex")}`,
         amount: booking.total,
-        currency: hotel.currency,
+        currency,
         status: PaymentStatus.PAID,
         paidAt: new Date(),
       },
@@ -635,6 +663,8 @@ export async function recordDeskPayment(
 
   await writeAuditLog({
     userId: actor.userId,
+    organizationId: result.organizationId ?? null,
+    hotelId: result.hotelId ?? null,
     action: "payment.desk_capture",
     entityType: "payment",
     entityId: result.id,

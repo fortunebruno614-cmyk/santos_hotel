@@ -2,7 +2,7 @@ import { StaySearchSchema } from "@/server/availability/validation";
 import { parseDateOnly } from "@/server/availability/overlap";
 import { findAvailability, StayValidationError } from "@/server/availability/service";
 import { computeTypePrices } from "@/server/pricing/service";
-import { loadHotelContext } from "@/server/pricing/context";
+import { requireHotelContext } from "@/server/pricing/context";
 import type { ListingRoom, StayQuery } from "@/lib/hotel";
 import { loadPublicRoomTypes } from "@/server/public/catalog";
 
@@ -60,7 +60,10 @@ export function parsePublicStay(
   };
 }
 
-export async function loadAvailabilityListing(stay: StayQuery): Promise<{
+export async function loadAvailabilityListing(
+  stay: StayQuery,
+  hotelId: string,
+): Promise<{
   rooms: ListingRoom[];
   currency: string;
   error: string | null;
@@ -69,12 +72,17 @@ export async function loadAvailabilityListing(stay: StayQuery): Promise<{
     const checkIn = parseDateOnly(stay.checkIn);
     const checkOut = parseDateOnly(stay.checkOut);
     if (!checkIn || !checkOut) {
-      return { rooms: [], currency: (await loadHotelContext()).currency, error: ERROR_MESSAGES.invalid_query };
+      return {
+        rooms: [],
+        currency: (await requireHotelContext(hotelId)).currency,
+        error: ERROR_MESSAGES.invalid_query,
+      };
     }
 
     const [catalog, availability] = await Promise.all([
-      loadPublicRoomTypes(),
+      loadPublicRoomTypes(hotelId),
       findAvailability({
+        hotelId,
         checkIn,
         checkOut,
         adults: stay.adults,
@@ -83,11 +91,12 @@ export async function loadAvailabilityListing(stay: StayQuery): Promise<{
     ]);
 
     const prices = await computeTypePrices(
+      hotelId,
       availability.roomTypes.map((type) => type.id),
       checkIn,
       checkOut,
     );
-    const hotel = await loadHotelContext();
+    const hotel = await requireHotelContext(hotelId);
 
     const rooms = catalog
       .map((room) => {
@@ -107,7 +116,7 @@ export async function loadAvailabilityListing(stay: StayQuery): Promise<{
     if (error instanceof StayValidationError) {
       return {
         rooms: [],
-        currency: (await loadHotelContext()).currency,
+        currency: (await requireHotelContext(hotelId)).currency,
         error: ERROR_MESSAGES[error.code] ?? ERROR_MESSAGES.invalid_query,
       };
     }

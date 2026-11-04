@@ -45,7 +45,22 @@ export type AuditAction =
   | "payment.refund"
   | "payment.refund_failed"
   | "payment.desk_capture"
-  | "payment.orphaned";
+  | "payment.orphaned"
+  | "listing.submit"
+  | "listing.review"
+  | "listing.publish"
+  | "listing.pause"
+  | "listing.suspend"
+  | "listing.archive"
+  | "listing.verify_location"
+  | "organization.create"
+  | "organization.update"
+  | "organization.suspend"
+  | "organization.close"
+  | "membership.invite"
+  | "membership.update"
+  | "membership.revoke"
+  | "platform.support_access";
 
 export type AuditActor = {
   /** Staff/admin user id. Guest principals have no users row, so this stays null. */
@@ -53,11 +68,28 @@ export type AuditActor = {
   guestId?: string | null;
 };
 
+/**
+ * Audit completeness is observable: every failed write increments this counter
+ * (exported for health checks/tests) instead of only reaching stdout (M3).
+ */
+let auditWriteFailures = 0;
+
+export function auditFailureCount(): number {
+  return auditWriteFailures;
+}
+
 export async function writeAuditLog(opts: {
   userId?: string | null;
   action: AuditAction;
   entityType: string;
   entityId: string;
+  organizationId?: string | null;
+  hotelId?: string | null;
+  actorType?: "staff" | "guest" | "system" | "provider" | null;
+  actorGuestId?: string | null;
+  ipAddress?: string | null;
+  purpose?: string | null;
+  outcome?: "success" | "denied" | "failure" | null;
   oldValues?: Record<string, unknown> | null;
   newValues?: Record<string, unknown> | null;
 }) {
@@ -65,6 +97,15 @@ export async function writeAuditLog(opts: {
     await prisma.auditLog.create({
       data: {
         userId: opts.userId ?? null,
+        organizationId: opts.organizationId ?? null,
+        hotelId: opts.hotelId ?? null,
+        actorType:
+          opts.actorType ??
+          (opts.userId ? "staff" : opts.actorGuestId || opts.action.startsWith("auth.") ? "guest" : "system"),
+        actorGuestId: opts.actorGuestId ?? null,
+        ipAddress: opts.ipAddress ?? null,
+        purpose: opts.purpose ?? null,
+        outcome: opts.outcome ?? "success",
         action: opts.action,
         entityType: opts.entityType,
         entityId: opts.entityId,
@@ -73,7 +114,9 @@ export async function writeAuditLog(opts: {
       },
     });
   } catch (err) {
-    // Audit failures must never block the request they describe.
+    auditWriteFailures += 1;
+    // Audit failures must never block the request they describe, but they are
+    // counted so a silently degrading trail can be alerted on (NFR-019).
     console.error("audit log write failed", err);
   }
 }

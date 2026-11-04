@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { createRoom, listRooms, type ConsoleActor } from "@/server/console/catalog";
 import { RoomUpsertSchema } from "@/server/console/validation";
@@ -22,8 +22,10 @@ export async function GET() {
     permission: Permissions.MANAGE_ROOMS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_ROOMS);
+  if (tenant instanceof NextResponse) return tenant;
 
-  const rows = await listRooms();
+  const rows = await listRooms(tenant.hotelId);
   return NextResponse.json(
     rows.map((room) => ({
       id: room.id,
@@ -44,13 +46,15 @@ export async function POST(request: Request) {
     permission: Permissions.MANAGE_ROOMS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_ROOMS);
+  if (tenant instanceof NextResponse) return tenant;
 
   const parsed = RoomUpsertSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
   const actor: ConsoleActor = { userId: auth.userId! };
   try {
-    const created = await createRoom(parsed.data, actor);
+    const created = await createRoom(tenant.hotelId, parsed.data, actor);
     return NextResponse.json({ id: created.id }, { status: 201 });
   } catch (error) {
     return consoleErrorResponse(error);

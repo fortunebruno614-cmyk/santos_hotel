@@ -23,7 +23,7 @@ import {
   QuoteError,
   type QuoteRequest,
 } from "@/server/pricing/service";
-import { hotelToday, loadHotelContext, type HotelContext } from "@/server/pricing/context";
+import { hotelToday, requireHotelContext, type HotelContext } from "@/server/pricing/context";
 import {
   moneyEquals,
   moneyString,
@@ -93,7 +93,16 @@ export class BookingError extends Error {
   }
 }
 
-export type StaffActor = { kind: "staff"; userId: string; email?: string | null };
+export type StaffActor = {
+  kind: "staff";
+  userId: string;
+  email?: string | null;
+  /** Tenant organization the actor is acting under (never from the request body). */
+  organizationId: string;
+  /** Explicit property scope; omitted/empty + orgWide covers every hotel. */
+  hotelIds?: string[];
+  organizationWide?: boolean;
+};
 export type GuestActor = { kind: "guest"; guestId: string };
 export type BookingActor = StaffActor | GuestActor | { kind: "anonymous" };
 
@@ -103,6 +112,27 @@ function actorLabel(actor: BookingActor): string {
   if (actor.kind === "staff") return actor.email ?? actor.userId;
   if (actor.kind === "guest") return "guest";
   return "online";
+}
+
+/**
+ * Service-level tenant check: a staff actor may only act on hotels in their own
+ * organization and property scope. Routes also assert this, but the service
+ * refuses to trust that the caller did.
+ */
+async function requireStaffHotel(
+  actor: StaffActor,
+  hotelId: string,
+): Promise<HotelContext> {
+  const hotel = await requireHotelContext(hotelId);
+  const inScope =
+    actor.organizationId === hotel.organizationId &&
+    (actor.organizationWide === true ||
+      !actor.hotelIds ||
+      actor.hotelIds.includes(hotelId));
+  if (!inScope) {
+    throw new BookingError("booking_not_found", "reservation not found");
+  }
+  return hotel;
 }
 
 /** Appends a timestamped, attributed line (operational notes are never lost). */
@@ -189,6 +219,7 @@ async function loadBookingRow(client: Db, id: string): Promise<BookingRow | null
 export type BookingSummary = {
   id: string;
   bookingReference: string;
+  hotelId: string;
   guestId: string;
   guestName: string;
   checkIn: string;
@@ -218,6 +249,7 @@ function toSummary(row: BookingRow, currency: string): BookingSummary {
   return {
     id: row.id,
     bookingReference: row.bookingReference,
+    hotelId: row.hotelId ?? "",
     guestId: row.guestId,
     guestName: `${row.guest.firstName} ${row.guest.lastName}`,
     checkIn: row.checkIn.toISOString().slice(0, 10),
@@ -227,7 +259,7 @@ function toSummary(row: BookingRow, currency: string): BookingSummary {
     children: row.children,
     bookingStatus: row.bookingStatus,
     paymentStatus: row.paymentStatus,
-    currency,
+    currency: row.currency ?? currency,
     breakdown: {
       subtotal: moneyString(row.subtotal),
       taxes: moneyString(row.taxes),
@@ -305,7 +337,8 @@ export async function getBookingDetail(
     throw new BookingError("booking_not_found", "reservation not found");
   }
 
-  const hotel = await loadHotelContext();
+  if (!row.hotelId) throw new BookingError("booking_not_found", "reservation not found");
+  const hotel = await requireHotelContext(row.hotelId);
   const activity = await prisma.auditLog.findMany({
     where: { entityType: "booking", entityId: row.id },
     orderBy: { createdAt: "desc" },
@@ -361,6 +394,7 @@ export async function getBookingDetailByReference(
 // ---------------------------------------------------------------------------
 
 export type CreateBookingInput = {
+  hotelId: string;
   checkIn: string;
   checkOut: string;
   adults: number;
@@ -385,13 +419,20 @@ export async function createBooking(
     throw new StayValidationError("invalid_date_range", "checkIn/checkOut must be YYYY-MM-DD");
   }
   const stay = normalizeRequest({
+    hotelId: input.hotelId,
     checkIn,
     checkOut,
     adults: input.adults,
     children: input.children,
   });
 
-  const hotel = await loadHotelContext();
+  const hotel = await requireHotelContext(input.hotelId);
+  if (actor.kind === "staff") {
+    await requireStaffHotel(actor, input.hotelId);
+  } else if (hotel.publicationStatus !== "PUBLISHED") {
+    // A draft/paused/suspended listing is not bookable by the public.
+    throw new BookingError("booking_not_found", "reservation not found");
+  }
   const today = hotelToday(new Date(), hotel.timezone);
   if (stay.checkIn.getTime() < today.getTime()) {
     throw new BookingError("check_in_past", "this stay would start in the past");
@@ -408,6 +449,7 @@ export async function createBooking(
   const promotionCode = input.promotionCode?.trim() || null;
   const request: QuoteRequest = {
     ...stay,
+    hotelId: input.hotelId,
     roomIds: input.roomIds,
     promotionCode,
     lockPromotion: false,
@@ -441,6 +483,18 @@ export async function createBooking(
     const bookingReference = await nextBookingReference(prisma);
     try {
       result = await createPendingBooking({
+        hotelId: input.hotelId,
+        organizationId: hotel.organizationId,
+        currency: hotel.currency,
+        termsSnapshot: {
+          currency: hotel.currency,
+          checkInTime: hotel.checkInTime,
+          checkOutTime: hotel.checkOutTime,
+          taxRatePercent: hotel.taxRatePercent,
+          serviceFee: hotel.serviceFee,
+          cancellationWindowHours: hotel.cancellationWindowHours,
+          guestCancellationEnabled: hotel.guestCancellationEnabled,
+        },
         guestId,
         bookingReference,
         checkIn: stay.checkIn,
@@ -479,6 +533,8 @@ export async function createBooking(
 
   await writeAuditLog({
     userId: actor.kind === "staff" ? actor.userId : null,
+    organizationId: hotel.organizationId,
+    hotelId: hotel.id,
     action: "booking.create",
     entityType: "booking",
     entityId: result.booking.id,
@@ -505,14 +561,25 @@ async function doCancel(
   actor: BookingActor,
   note?: string | null,
 ): Promise<BookingSummary> {
-  const hotel = await loadHotelContext();
   const now = new Date();
 
   const existing = await prisma.booking.findUnique({
     where: { id: bookingId },
-    select: { id: true, bookingStatus: true, checkIn: true, guestId: true },
+    select: {
+      id: true,
+      bookingStatus: true,
+      checkIn: true,
+      guestId: true,
+      hotelId: true,
+    },
   });
-  if (!existing) throw new BookingError("booking_not_found", "reservation not found");
+  if (!existing || !existing.hotelId) {
+    throw new BookingError("booking_not_found", "reservation not found");
+  }
+  const hotel =
+    actor.kind === "staff"
+      ? await requireStaffHotel(actor, existing.hotelId)
+      : await requireHotelContext(existing.hotelId);
   if (actor.kind === "guest" && existing.guestId !== actor.guestId) {
     // Same answer as "does not exist": a guest id must never confirm another
     // guest's reservation.
@@ -563,6 +630,8 @@ async function doCancel(
 
   await writeAuditLog({
     userId: actor.kind === "staff" ? actor.userId : null,
+    organizationId: hotel.organizationId,
+    hotelId: hotel.id,
     action: "booking.cancel",
     entityType: "booking",
     entityId: bookingId,
@@ -629,14 +698,15 @@ export async function transitionBooking(
   input: { bookingId: string; to: BookingStatus; note?: string | null },
   actor: StaffActor,
 ): Promise<BookingSummary> {
-  const hotel = await loadHotelContext();
-  const today = hotelToday(new Date(), hotel.timezone);
-
   const existing = await prisma.booking.findUnique({
     where: { id: input.bookingId },
-    select: { id: true, bookingStatus: true, checkIn: true },
+    select: { id: true, bookingStatus: true, checkIn: true, hotelId: true },
   });
-  if (!existing) throw new BookingError("booking_not_found", "reservation not found");
+  if (!existing?.hotelId) {
+    throw new BookingError("booking_not_found", "reservation not found");
+  }
+  const hotel = await requireStaffHotel(actor, existing.hotelId);
+  const today = hotelToday(new Date(), hotel.timezone);
 
   assertBookingTransition(existing.bookingStatus, input.to);
   assertTransitionTiming(existing.bookingStatus, existing, input.to, today);
@@ -715,6 +785,8 @@ export async function transitionBooking(
 
   await writeAuditLog({
     userId: actor.userId,
+    organizationId: hotel.organizationId,
+    hotelId: hotel.id,
     action: input.to === BookingStatus.CANCELLED ? "booking.cancel" : "booking.transition",
     entityType: "booking",
     entityId: input.bookingId,
@@ -776,13 +848,15 @@ export async function modifyBooking(
     throw new StayValidationError("invalid_date_range", "checkIn/checkOut must be YYYY-MM-DD");
   }
   const stay = normalizeRequest({
+    hotelId: existing.hotelId ?? "",
     checkIn,
     checkOut,
     adults: input.adults ?? existing.adults,
     children: input.children ?? existing.children,
   });
 
-  const hotel = await loadHotelContext();
+  if (!existing.hotelId) throw new BookingError("booking_not_found", "reservation not found");
+  const hotel = await requireStaffHotel(actor, existing.hotelId);
   const today = hotelToday(new Date(), hotel.timezone);
   if (stay.checkIn.getTime() < today.getTime()) {
     throw new BookingError("check_in_past", "this stay would start in the past");
@@ -825,6 +899,8 @@ export async function modifyBooking(
     }
     await writeAuditLog({
       userId: actor.userId,
+      organizationId: hotel.organizationId,
+      hotelId: hotel.id,
       action: "booking.modify",
       entityType: "booking",
       entityId: existing.id,
@@ -866,10 +942,15 @@ export async function modifyBooking(
     await tx.bookingRoom.deleteMany({ where: { bookingId: existing.id } });
 
     await releaseExpiredHolds(tx, { checkIn: stay.checkIn, checkOut: stay.checkOut });
-    await assertRoomsAvailable(tx, stay, roomIds, { excludeBookingId: existing.id });
+    await assertRoomsAvailable(
+      tx,
+      { ...stay, hotelId: hotel.id },
+      roomIds,
+      { excludeBookingId: existing.id },
+    );
 
     const computed = await computeQuote(
-      { ...stay, roomIds, promotionCode, lockPromotion: true },
+      { ...stay, hotelId: hotel.id, roomIds, promotionCode, lockPromotion: true },
       tx,
     );
 
@@ -887,7 +968,13 @@ export async function modifyBooking(
     try {
       await tx.roomNight.createMany({
         data: expandNights(stay.checkIn, stay.checkOut, ALLOW_SAME_DAY_TURNOVER).flatMap(
-          (night) => roomIds.map((roomId) => ({ night, roomId, bookingId: existing.id })),
+          (night) =>
+            roomIds.map((roomId) => ({
+              night,
+              roomId,
+              bookingId: existing.id,
+              hotelId: hotel.id,
+            })),
         ),
       });
     } catch (error) {
@@ -927,6 +1014,8 @@ export async function modifyBooking(
 
   await writeAuditLog({
     userId: actor.userId,
+    organizationId: hotel.organizationId,
+    hotelId: hotel.id,
     action: "booking.modify",
     entityType: "booking",
     entityId: existing.id,
@@ -957,15 +1046,20 @@ export async function addBookingNote(
 ): Promise<{ notes: string }> {
   const existing = await prisma.booking.findUnique({
     where: { id: input.bookingId },
-    select: { id: true, notes: true },
+    select: { id: true, notes: true, hotelId: true },
   });
-  if (!existing) throw new BookingError("booking_not_found", "reservation not found");
+  if (!existing?.hotelId) {
+    throw new BookingError("booking_not_found", "reservation not found");
+  }
+  const hotel = await requireStaffHotel(actor, existing.hotelId);
 
   const notes = appendNote(existing.notes, input.note, actorLabel(actor));
   await prisma.booking.update({ where: { id: existing.id }, data: { notes } });
 
   await writeAuditLog({
     userId: actor.userId,
+    organizationId: hotel.organizationId,
+    hotelId: hotel.id,
     action: "booking.note",
     entityType: "booking",
     entityId: existing.id,
@@ -982,6 +1076,16 @@ export async function updateRoomStatus(
   input: { roomId: string; status: RoomStatus; note?: string | null },
   actor: StaffActor,
 ): Promise<{ roomId: string; roomNumber: string; previous: RoomStatus; status: RoomStatus }> {
+  const preRead = await prisma.room.findUnique({
+    where: { id: input.roomId },
+    select: { hotelId: true, roomType: { select: { hotelId: true } } },
+  });
+  if (!preRead) throw new BookingError("room_not_found", "room not found");
+  const hotel = await requireStaffHotel(
+    actor,
+    preRead.hotelId ?? preRead.roomType.hotelId,
+  );
+
   const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT "id" FROM "rooms" WHERE "id" = ${input.roomId} FOR UPDATE`;
     const room = await tx.room.findUnique({ where: { id: input.roomId } });
@@ -995,6 +1099,8 @@ export async function updateRoomStatus(
 
   await writeAuditLog({
     userId: actor.userId,
+    organizationId: hotel.organizationId,
+    hotelId: hotel.id,
     action: "room.status",
     entityType: "room",
     entityId: result.roomId,

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
+import { staffActor } from "@/server/auth/actor";
+import { hotelOfBooking } from "@/server/auth/tenancy";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { transitionBooking, type StaffActor } from "@/server/booking/service";
 import { TransitionSchema } from "@/server/booking/validation";
@@ -27,11 +29,15 @@ export async function POST(
   });
   if (auth instanceof NextResponse) return auth;
   const { id } = await context.params;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_RESERVATIONS, () =>
+    hotelOfBooking(id),
+  );
+  if (tenant instanceof NextResponse) return tenant;
 
   const parsed = TransitionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
-  const actor: StaffActor = { kind: "staff", userId: auth.userId!, email: auth.email ?? null };
+  const actor: StaffActor = staffActor(auth, tenant.member);
   try {
     const booking = await transitionBooking(
       { bookingId: id, to: parsed.data.to, note: parsed.data.note ?? null },

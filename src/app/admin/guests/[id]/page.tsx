@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { bookingStatusLabel } from "@/components/labels";
 import { getGuestDetail } from "@/server/console/guests";
+import { getConsoleContext } from "@/server/console/context";
 import { ConsoleError } from "@/server/console/errors";
 import { GuestEditForm } from "./guest-edit-form";
 
@@ -12,9 +13,10 @@ export default async function AdminGuestPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { hotel } = await getConsoleContext();
   let guest;
   try {
-    guest = await getGuestDetail(id);
+    guest = await getGuestDetail(hotel.id, id);
   } catch (error) {
     if (error instanceof ConsoleError) notFound();
     throw error;

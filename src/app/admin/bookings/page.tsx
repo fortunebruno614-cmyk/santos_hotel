@@ -3,7 +3,7 @@ import { BookingStatus, PaymentStatus } from "@/generated/prisma/enums";
 import { bookingStatusLabel } from "@/components/labels";
 import { searchBookings } from "@/server/console/bookings";
 import { BookingSearchSchema } from "@/server/console/validation";
-import { loadHotelContext } from "@/server/pricing/context";
+import { getConsoleContext } from "@/server/console/context";
 
 /**
  * Staff reservation list (P7): search by reference / guest / room number and
@@ -16,7 +16,7 @@ export default async function AdminBookingsPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
-  const hotel = await loadHotelContext();
+  const { hotel } = await getConsoleContext();
 
   const parsed = BookingSearchSchema.safeParse({
     q: sp.q ?? undefined,
@@ -31,7 +31,7 @@ export default async function AdminBookingsPage({
     ? parsed.data
     : BookingSearchSchema.parse({});
 
-  const result = await searchBookings(query);
+  const result = await searchBookings(hotel.id, query);
   const pages = Math.max(1, Math.ceil(result.total / query.pageSize));
 
   const statuses = Object.values(BookingStatus);

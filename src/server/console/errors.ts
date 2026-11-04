@@ -17,6 +17,7 @@ export type ConsoleErrorCode =
   | "conflict"
   | "in_use"
   | "last_admin"
+  | "last_owner"
   | "cannot_delete_self";
 
 const CONSOLE_ERROR_STATUS: Record<ConsoleErrorCode, number> = {
@@ -26,6 +27,7 @@ const CONSOLE_ERROR_STATUS: Record<ConsoleErrorCode, number> = {
   conflict: 409,
   in_use: 409,
   last_admin: 409,
+  last_owner: 409,
   cannot_delete_self: 409,
 };
 

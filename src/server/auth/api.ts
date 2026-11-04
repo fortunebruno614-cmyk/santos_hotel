@@ -1,7 +1,20 @@
 ﻿import { NextResponse } from "next/server";
 import { getCurrentSession, isSessionValid, type CurrentSession } from "@/server/auth/dal";
-import { AppRole, hasPermission, type Permission } from "@/server/auth/roles";
+import {
+  AppRole,
+  hasOrgPermission,
+  hasPermission,
+  type Permission,
+  type PlatformPermission,
+} from "@/server/auth/roles";
 import { auditAccessDenied } from "@/server/audit/write";
+import {
+  loadTenantMember,
+  requirePlatform,
+  tenantHotelFor,
+  TenancyError,
+  type TenantMember,
+} from "@/server/auth/tenancy";
 
 export function apiUnauthenticated(error = "unauthenticated") {
   return NextResponse.json({ error }, { status: 401 });
@@ -77,8 +90,20 @@ export async function guardApi(options: GuardOptions): Promise<CurrentSession | 
     }
   }
 
-  if (permission && !hasPermission(session.role, permission)) {
-    return deny(403, "permission_denied", route, session);
+  if (permission) {
+    if (session.kind === "staff") {
+      // Tenant permissions come from the active organization membership, not
+      // the legacy User.role column (REQ-019/REQ-047).
+      const member = session.userId
+        ? await loadTenantMember(session.userId, session.orgId)
+        : null;
+      if (!member) return deny(403, "tenant_membership_required", route, session);
+      if (!hasOrgPermission(member.role, permission)) {
+        return deny(403, "permission_denied", route, session);
+      }
+    } else if (!hasPermission(session.role, permission)) {
+      return deny(403, "permission_denied", route, session);
+    }
   }
 
   if (!(await isSessionValid(session))) {
@@ -94,4 +119,63 @@ export async function guardApi(options: GuardOptions): Promise<CurrentSession | 
  */
 export async function guardGuestApi(route: string): Promise<CurrentSession | NextResponse> {
   return guardApi({ route, roles: [AppRole.GUEST] });
+}
+
+/**
+ * Platform-operator API guard. Deliberately separate from `guardApi`: tenant
+ * roles never grant platform access, and vice versa (REQ-026).
+ */
+export async function guardPlatformApi(
+  route: string,
+  permission?: PlatformPermission,
+): Promise<{ session: CurrentSession; platformRole: string } | NextResponse> {
+  const session = await getCurrentSession();
+  if (!session) return apiUnauthenticated();
+  if (session.kind !== "staff") return apiForbidden("role_not_allowed");
+  if (!(await isSessionValid(session))) return apiUnauthenticated("session_invalid");
+  try {
+    const platformRole = await requirePlatform(session, permission);
+    return { session, platformRole };
+  } catch (error) {
+    if (error instanceof TenancyError) {
+      return error.code === "unauthenticated" ? apiUnauthenticated() : apiForbidden(error.message);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Resolve the concrete tenant hotel for an already-guarded staff session.
+ * Resource routes pass a resolver so the hotel comes from the resource, never
+ * from a request parameter.
+ */
+export async function guardTenantHotel(
+  session: CurrentSession,
+  permission?: Permission,
+  resolveHotelId?: () => Promise<string>,
+): Promise<{ member: TenantMember; hotelId: string } | NextResponse> {
+  try {
+    return await tenantHotelFor(session, permission, resolveHotelId);
+  } catch (error) {
+    if (error instanceof TenancyError) {
+      if (error.code === "not_found") {
+        return NextResponse.json({ error: "not_found" }, { status: 404 });
+      }
+      if (error.code === "unauthenticated") return apiUnauthenticated();
+      return apiForbidden(error.message);
+    }
+    throw error;
+  }
+}
+
+/** Maps tenancy errors from services/routes to HTTP responses. */
+export function tenancyErrorResponse(error: unknown): NextResponse {
+  if (error instanceof TenancyError) {
+    if (error.code === "not_found") {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    if (error.code === "unauthenticated") return apiUnauthenticated();
+    return apiForbidden(error.message);
+  }
+  throw error;
 }

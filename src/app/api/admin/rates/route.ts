@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
+import { hotelOfRoomType } from "@/server/auth/tenancy";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { createRate, listRates } from "@/server/console/catalog";
 import { RateUpsertSchema } from "@/server/console/validation";
@@ -19,9 +20,11 @@ export async function GET(request: Request) {
     permission: Permissions.MANAGE_RATES,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_RATES);
+  if (tenant instanceof NextResponse) return tenant;
 
   const roomTypeId = new URL(request.url).searchParams.get("roomTypeId") ?? undefined;
-  const rows = await listRates(roomTypeId);
+  const rows = await listRates(tenant.hotelId, roomTypeId);
   return NextResponse.json(
     rows.map((row) => ({
       id: row.id,
@@ -44,12 +47,18 @@ export async function POST(request: Request) {
     permission: Permissions.MANAGE_RATES,
   });
   if (auth instanceof NextResponse) return auth;
-
   const parsed = RateUpsertSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_RATES, () =>
+    hotelOfRoomType(parsed.data.roomTypeId),
+  );
+  if (tenant instanceof NextResponse) return tenant;
+
   try {
-    const created = await createRate(parsed.data, { userId: auth.userId! });
+    const created = await createRate(tenant.hotelId, parsed.data, {
+      userId: auth.userId!,
+    });
     return NextResponse.json({ id: created.id }, { status: 201 });
   } catch (error) {
     return consoleErrorResponse(error);

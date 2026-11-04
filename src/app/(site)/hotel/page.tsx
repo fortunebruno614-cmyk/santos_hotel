@@ -1,5 +1,6 @@
 import { HotelInfo } from "@/components/hotel/hotel-info";
 import { loadHotelProfile } from "@/server/public/catalog";
+import { getDefaultHotel } from "@/server/public/hotels";
 
 export const metadata = {
   title: "The Santo way",
@@ -8,7 +9,9 @@ export const metadata = {
 };
 
 export default async function HotelPage() {
-  const hotel = await loadHotelProfile();
+  const defaultHotel = await getDefaultHotel();
+  if (!defaultHotel) return null;
+  const hotel = await loadHotelProfile(defaultHotel.id);
   const address =
     [hotel.addressLine1, hotel.addressLine2, hotel.city, hotel.postcode, hotel.country]
       .filter(Boolean)

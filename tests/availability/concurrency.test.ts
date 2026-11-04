@@ -1,13 +1,18 @@
 import "../../scripts/load-env";
 import { describe, it, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { AvailabilityConflictError, createPendingBooking } from "../../src/server/availability/service";
+import {
+  AvailabilityConflictError,
+  createPendingBooking as rawCreatePendingBooking,
+} from "../../src/server/availability/service";
 import {
   dateOnly,
   deleteTestBookings,
   ensureTestGuest,
   loadInventory,
   prisma,
+  testHotelId,
+  testOrganizationId,
   uniqRef,
 } from "../helpers";
 
@@ -16,11 +21,28 @@ const CHECK_IN = "2027-04-01";
 const CHECK_OUT = "2027-04-04";
 
 let guestId = "";
+let hotelId = "";
+let organizationId = "";
 let familyRoomId = "";
+
+const createPendingBooking = (
+  input: Omit<
+    Parameters<typeof rawCreatePendingBooking>[0],
+    "hotelId" | "organizationId" | "currency"
+  >,
+) =>
+  rawCreatePendingBooking({
+    ...input,
+    hotelId,
+    organizationId,
+    currency: "NGN",
+  });
 
 describe("double-booking is impossible under concurrency (P4 gate)", () => {
   before(async () => {
     guestId = await ensureTestGuest();
+    hotelId = await testHotelId();
+    organizationId = await testOrganizationId();
     const inventory = await loadInventory();
     const family = inventory.bySlug.get("family-room");
     assert.ok(family && family.rooms.length >= 1, "seed must provide a family room");

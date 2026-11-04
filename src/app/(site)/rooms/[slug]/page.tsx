@@ -5,7 +5,8 @@ import { loadHotelProfile } from "@/server/public/catalog";
 import { parsePublicStay } from "@/server/public/search";
 import { findAvailability } from "@/server/availability/service";
 import { computeTypePrices } from "@/server/pricing/service";
-import { loadHotelContext } from "@/server/pricing/context";
+import { requireHotelContext } from "@/server/pricing/context";
+import { getDefaultHotel } from "@/server/public/hotels";
 import { parseDateOnly } from "@/server/availability/overlap";
 import {
   bedForRoomType,
@@ -26,8 +27,11 @@ export default async function RoomDetailPage({
   const { slug } = await params;
   const sp = await searchParams;
 
-  const roomType = await prisma.roomType.findUnique({
-    where: { slug },
+  const defaultHotel = await getDefaultHotel();
+  if (!defaultHotel) notFound();
+
+  const roomType = await prisma.roomType.findFirst({
+    where: { slug, hotelId: defaultHotel.id },
     include: {
       images: { orderBy: { sortOrder: "asc" } },
       amenities: { include: { amenity: true } },
@@ -37,8 +41,8 @@ export default async function RoomDetailPage({
   if (!roomType || roomType.status !== RecordStatus.ACTIVE) notFound();
 
   const [hotel, context, parsed] = await Promise.all([
-    loadHotelProfile(),
-    loadHotelContext(),
+    loadHotelProfile(defaultHotel.id),
+    requireHotelContext(defaultHotel.id),
     Promise.resolve(parsePublicStay(sp)),
   ]);
 
@@ -86,6 +90,7 @@ export default async function RoomDetailPage({
     if (checkIn && checkOut) {
       try {
         const availability = await findAvailability({
+          hotelId: defaultHotel.id,
           checkIn,
           checkOut,
           adults: parsed.stay.adults,
@@ -98,7 +103,12 @@ export default async function RoomDetailPage({
           floor: physical.floor,
         }));
 
-        const prices = await computeTypePrices([roomType.id], checkIn, checkOut);
+        const prices = await computeTypePrices(
+          defaultHotel.id,
+          [roomType.id],
+          checkIn,
+          checkOut,
+        );
         const price = prices.get(roomType.id);
         if (price) {
           nightlyRate = price.nightlyRate;

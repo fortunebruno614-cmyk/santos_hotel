@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { createPromotion, listPromotions } from "@/server/console/catalog";
 import { PromotionUpsertSchema } from "@/server/console/validation";
@@ -19,8 +19,10 @@ export async function GET() {
     permission: Permissions.MANAGE_PROMOTIONS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_PROMOTIONS);
+  if (tenant instanceof NextResponse) return tenant;
 
-  const rows = await listPromotions();
+  const rows = await listPromotions(tenant.hotelId);
   return NextResponse.json(
     rows.map((row) => ({
       id: row.id,
@@ -43,12 +45,16 @@ export async function POST(request: Request) {
     permission: Permissions.MANAGE_PROMOTIONS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_PROMOTIONS);
+  if (tenant instanceof NextResponse) return tenant;
 
   const parsed = PromotionUpsertSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
   try {
-    const created = await createPromotion(parsed.data, { userId: auth.userId! });
+    const created = await createPromotion(tenant.hotelId, parsed.data, {
+      userId: auth.userId!,
+    });
     return NextResponse.json({ id: created.id }, { status: 201 });
   } catch (error) {
     return consoleErrorResponse(error);

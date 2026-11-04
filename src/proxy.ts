@@ -23,7 +23,14 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get("session")?.value;
   const session = token ? await verifySession(token) : null;
 
-  const decision = evaluateAccess(matchAccess(path), session);
+  const access = matchAccess(path);
+  if (access.kind === "deny") {
+    // An unregistered /api/admin or /api/platform endpoint does not exist.
+    return isApi
+      ? NextResponse.json({ error: "not_found" }, { status: 404 })
+      : new NextResponse("Not Found", { status: 404 });
+  }
+  const decision = evaluateAccess(access, session);
   if (decision === "allow") return NextResponse.next();
 
   // Denials for a *signed-in* principal are security events. Anonymous probes

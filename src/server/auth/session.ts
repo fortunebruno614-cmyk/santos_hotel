@@ -1,6 +1,9 @@
 ﻿import { SignJWT, jwtVerify } from "jose";
 import { z } from "zod";
 import { AppRole } from "@/server/auth/roles";
+import type { PlatformRole } from "@/generated/prisma/enums";
+
+const PLATFORM_ROLES = ["SUPPORT", "OPERATIONS", "ADMIN"] as const;
 
 const DEV_FALLBACK_SECRET = "dev-secret-change-in-production";
 let cachedKey: Uint8Array | null = null;
@@ -36,6 +39,10 @@ export type SessionPayload = {
   userId?: string;
   guestId?: string;
   email?: string;
+  /** Active organization context for staff sessions (never trusted from input). */
+  orgId?: string;
+  /** Platform operator role, orthogonal to tenant membership (REQ-026). */
+  platformRole?: PlatformRole;
   iat?: number;
   exp?: number;
 };
@@ -52,6 +59,8 @@ const PayloadSchema = z
     userId: z.string().min(1).optional(),
     guestId: z.string().min(1).optional(),
     email: z.string().optional(),
+    orgId: z.string().uuid().optional(),
+    platformRole: z.enum(PLATFORM_ROLES).optional(),
     iat: z.number().optional(),
     exp: z.number().optional(),
   })

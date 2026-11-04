@@ -6,6 +6,8 @@ import {
   RecordStatus,
   RoomStatus,
   UserRole,
+  OrganizationRole,
+  MemberStatus,
 } from "@/generated/prisma/enums";
 import { DateOnlySchema } from "@/server/availability/validation";
 import { MoneyStringSchema, optionalText } from "@/server/booking/validation";
@@ -152,6 +154,23 @@ export const UserCreateSchema = z.object({
   password: z.string().min(8).max(200),
   role: z.enum([UserRole.ADMIN, UserRole.STAFF]),
 });
+
+export const MemberCreateSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  email: z.string().trim().toLowerCase().email().max(200),
+  password: z.string().min(8).max(200),
+  role: z.nativeEnum(OrganizationRole),
+  hotelIds: z.array(uuid).max(100).optional(),
+});
+
+export const MemberUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(80).optional(),
+    role: z.nativeEnum(OrganizationRole).optional(),
+    status: z.nativeEnum(MemberStatus).optional(),
+    hotelIds: z.array(uuid).max(100).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: "no changes supplied" });
 
 export const UserUpdateSchema = z
   .object({

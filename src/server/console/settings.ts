@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/server/audit/write";
 import { ConsoleError } from "@/server/console/errors";
 import type { ContentUpsertSchema, SettingsPatchInput } from "@/server/console/validation";
-import { loadHotelContext } from "@/server/pricing/context";
+import { requireHotelContext } from "@/server/pricing/context";
 import type { z } from "zod";
 
 /**
@@ -69,9 +69,9 @@ function auditValue(value: unknown): unknown {
     : value;
 }
 
-export async function getSettings() {
-  const hotel = await prisma.hotel.findFirst({ orderBy: { createdAt: "asc" } });
-  if (!hotel) throw new ConsoleError("not_found", "no hotel row — run the database seed");
+export async function getSettings(hotelId: string) {
+  const hotel = await prisma.hotel.findUnique({ where: { id: hotelId } });
+  if (!hotel) throw new ConsoleError("not_found", "hotel not found");
   return serializeSettings(hotel);
 }
 
@@ -79,9 +79,13 @@ export async function getSettings() {
  * Partial update of the hotel settings. Only the supplied keys change, and only
  * the changed keys land in the audit log (`settings.update`, old → new).
  */
-export async function updateSettings(input: SettingsPatchInput, actor: { userId: string }) {
-  const hotel = await prisma.hotel.findFirst({ orderBy: { createdAt: "asc" } });
-  if (!hotel) throw new ConsoleError("not_found", "no hotel row — run the database seed");
+export async function updateSettings(
+  hotelId: string,
+  input: SettingsPatchInput,
+  actor: { userId: string },
+) {
+  const hotel = await prisma.hotel.findUnique({ where: { id: hotelId } });
+  if (!hotel) throw new ConsoleError("not_found", "hotel not found");
 
   const data: Record<string, unknown> = {};
   const oldValues: Record<string, unknown> = {};
@@ -103,12 +107,14 @@ export async function updateSettings(input: SettingsPatchInput, actor: { userId:
 
   if (Object.keys(data).length === 0) {
     // Nothing actually changed — return the current row without an audit entry.
-    return getSettings();
+    return getSettings(hotelId);
   }
 
   const updated = await prisma.hotel.update({ where: { id: hotel.id }, data });
   await writeAuditLog({
     userId: actor.userId,
+    organizationId: hotel.organizationId,
+    hotelId: hotel.id,
     action: "settings.update",
     entityType: "hotel",
     entityId: hotel.id,
@@ -120,8 +126,8 @@ export async function updateSettings(input: SettingsPatchInput, actor: { userId:
 }
 
 /** Effective settings (DB row merged with env fallbacks) — what the app runs on. */
-export async function getEffectiveSettings() {
-  return loadHotelContext();
+export async function getEffectiveSettings(hotelId: string) {
+  return requireHotelContext(hotelId);
 }
 
 // ---------------------------------------------------------------------------
@@ -151,9 +157,26 @@ export type ContentRecord = {
   updatedAt: string | null;
 };
 
-export async function listContent(): Promise<ContentRecord[]> {
-  const rows = await prisma.siteContent.findMany({ orderBy: { key: "asc" } });
-  const byKey = new Map(rows.map((row) => [row.key, row]));
+function tenantContentKey(hotelId: string, key: string) {
+  return `hotel:${hotelId}:${key}`;
+}
+
+function logicalContentKey(key: string, hotelId: string) {
+  const prefix = `hotel:${hotelId}:`;
+  return key.startsWith(prefix) ? key.slice(prefix.length) : key;
+}
+
+export async function listContent(hotelId: string): Promise<ContentRecord[]> {
+  const rows = await prisma.siteContent.findMany({
+    where: {
+      OR: [
+        { key: { not: { startsWith: "hotel:" } } },
+        { key: { startsWith: `hotel:${hotelId}:` } },
+      ],
+    },
+    orderBy: { key: "asc" },
+  });
+  const byKey = new Map(rows.map((row) => [logicalContentKey(row.key, hotelId), row]));
   const keys = [...new Set([...Object.keys(CONTENT_DEFAULTS), ...byKey.keys()])].sort();
   return keys.map((key) => {
     const row = byKey.get(key);
@@ -167,8 +190,16 @@ export async function listContent(): Promise<ContentRecord[]> {
   });
 }
 
-export async function getContent(key: string): Promise<ContentRecord | null> {
-  const row = await prisma.siteContent.findUnique({ where: { key } });
+export async function getContent(
+  key: string,
+  hotelId?: string,
+): Promise<ContentRecord | null> {
+  // Tenant keys shadow platform keys; platform content stays marketplace-wide.
+  const row = hotelId
+    ? (await prisma.siteContent.findUnique({
+        where: { key: tenantContentKey(hotelId, key) },
+      })) ?? (await prisma.siteContent.findUnique({ where: { key } }))
+    : await prisma.siteContent.findUnique({ where: { key } });
   const fallback = CONTENT_DEFAULTS[key];
   if (!row && !fallback) return null;
   return {
@@ -179,19 +210,30 @@ export async function getContent(key: string): Promise<ContentRecord | null> {
   };
 }
 
-export async function upsertContent(input: ContentUpsert, actor: { userId: string }) {
-  const existing = await prisma.siteContent.findUnique({ where: { key: input.key } });
+export async function upsertContent(
+  hotelId: string,
+  input: ContentUpsert,
+  actor: { userId: string },
+) {
+  const hotel = await requireHotelContext(hotelId);
+  const key = tenantContentKey(hotelId, input.key);
+  const existing = await prisma.siteContent.findUnique({ where: { key } });
   const data = {
+    scope: "TENANT" as const,
+    organizationId: hotel.organizationId,
+    hotelId,
     title: input.title ?? null,
     body: input.body,
     updatedById: actor.userId,
   };
   const row = existing
-    ? await prisma.siteContent.update({ where: { key: input.key }, data })
-    : await prisma.siteContent.create({ data: { key: input.key, ...data } });
+    ? await prisma.siteContent.update({ where: { key }, data })
+    : await prisma.siteContent.create({ data: { key, ...data } });
 
   await writeAuditLog({
     userId: actor.userId,
+    organizationId: hotel.organizationId,
+    hotelId,
     action: existing ? "content.update" : "content.create",
     entityType: "site_content",
     entityId: input.key,
@@ -202,12 +244,15 @@ export async function upsertContent(input: ContentUpsert, actor: { userId: strin
   return { ...row, updatedAt: row.updatedAt.toISOString() };
 }
 
-export async function deleteContent(key: string, actor: { userId: string }) {
-  const existing = await prisma.siteContent.findUnique({ where: { key } });
-  if (!existing) throw new ConsoleError("not_found", `no content slot "${key}"`);
-  await prisma.siteContent.delete({ where: { key } });
+export async function deleteContent(hotelId: string, key: string, actor: { userId: string }) {
+  const scopedKey = tenantContentKey(hotelId, key);
+  const existing = await prisma.siteContent.findUnique({ where: { key: scopedKey } });
+  if (!existing) throw new ConsoleError("not_found", `no tenant content slot "${key}"`);
+  await prisma.siteContent.delete({ where: { key: scopedKey } });
   await writeAuditLog({
     userId: actor.userId,
+    organizationId: existing.organizationId,
+    hotelId,
     action: "content.delete",
     entityType: "site_content",
     entityId: key,

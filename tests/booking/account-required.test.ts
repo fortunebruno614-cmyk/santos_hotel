@@ -14,12 +14,17 @@ describe("P5 checkout with GUEST_BOOKING_REQUIRES_ACCOUNT=true", () => {
   it("refuses anonymous checkout but still books for a signed-in guest", async () => {
     const { createBooking, BookingError } = await import("../../src/server/booking/service");
     const { GUEST_BOOKING_REQUIRES_ACCOUNT } = await import("../../src/config/auth");
-    const { BOOKING_TEST_SUFFIX, deleteTestBookingGuests, loadInventory, prisma } = await import(
-      "../helpers"
-    );
+    const {
+      BOOKING_TEST_SUFFIX,
+      deleteTestBookingGuests,
+      loadInventory,
+      prisma,
+      testHotelId,
+    } = await import("../helpers");
 
     assert.equal(GUEST_BOOKING_REQUIRES_ACCOUNT, true, "flag must be on before config loads");
 
+    const hotelId = await testHotelId();
     const inventory = await loadInventory();
     const room = inventory.bySlug.get("deluxe-king")!.rooms[0];
     const email = `requires-account${BOOKING_TEST_SUFFIX}`;
@@ -31,6 +36,7 @@ describe("P5 checkout with GUEST_BOOKING_REQUIRES_ACCOUNT=true", () => {
     await assert.rejects(
       createBooking(
         {
+          hotelId,
           checkIn: "2027-08-01",
           checkOut: "2027-08-03",
           adults: 2,
@@ -45,6 +51,7 @@ describe("P5 checkout with GUEST_BOOKING_REQUIRES_ACCOUNT=true", () => {
 
     const booking = await createBooking(
       {
+        hotelId,
         checkIn: "2027-08-01",
         checkOut: "2027-08-03",
         adults: 2,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
+import { hotelOfRoomType } from "@/server/auth/tenancy";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import {
   deleteRoomType,
@@ -20,13 +21,17 @@ export async function PATCH(request: Request, { params }: Params) {
   });
   if (auth instanceof NextResponse) return auth;
   const { id } = await params;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_ROOMS, () =>
+    hotelOfRoomType(id),
+  );
+  if (tenant instanceof NextResponse) return tenant;
 
   const parsed = RoomTypeUpsertSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
   const actor: ConsoleActor = { userId: auth.userId! };
   try {
-    const updated = await updateRoomType(id, parsed.data, actor);
+    const updated = await updateRoomType(tenant.hotelId, id, parsed.data, actor);
     return NextResponse.json({ id: updated.id });
   } catch (error) {
     return consoleErrorResponse(error);
@@ -41,9 +46,15 @@ export async function DELETE(_request: Request, { params }: Params) {
   });
   if (auth instanceof NextResponse) return auth;
   const { id } = await params;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_ROOMS, () =>
+    hotelOfRoomType(id),
+  );
+  if (tenant instanceof NextResponse) return tenant;
 
   try {
-    return NextResponse.json(await deleteRoomType(id, { userId: auth.userId! }));
+    return NextResponse.json(
+      await deleteRoomType(tenant.hotelId, id, { userId: auth.userId! }),
+    );
   } catch (error) {
     return consoleErrorResponse(error);
   }

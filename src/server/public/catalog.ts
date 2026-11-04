@@ -9,9 +9,9 @@ import {
 } from "@/lib/hotel";
 
 /** Public room catalogue, shaped for the hotel UI. */
-export async function loadPublicRoomTypes(): Promise<PublicRoomType[]> {
+export async function loadPublicRoomTypes(hotelId: string): Promise<PublicRoomType[]> {
   const types = await prisma.roomType.findMany({
-    where: { status: RecordStatus.ACTIVE },
+    where: { hotelId, status: RecordStatus.ACTIVE },
     orderBy: { name: "asc" },
     include: {
       images: { orderBy: { sortOrder: "asc" } },
@@ -42,9 +42,9 @@ export async function loadPublicRoomTypes(): Promise<PublicRoomType[]> {
 }
 
 /** Every physical room of every active room type, for the public room list. */
-export async function loadRoomsInventory(): Promise<InventoryRoom[]> {
+export async function loadRoomsInventory(hotelId: string): Promise<InventoryRoom[]> {
   const rooms = await prisma.room.findMany({
-    where: { roomType: { status: RecordStatus.ACTIVE } },
+    where: { roomType: { hotelId, status: RecordStatus.ACTIVE } },
     orderBy: { roomNumber: "asc" },
     include: { roomType: { select: { slug: true, name: true, basePrice: true } } },
   });
@@ -60,24 +60,27 @@ export async function loadRoomsInventory(): Promise<InventoryRoom[]> {
   }));
 }
 
-export async function loadHotelProfile() {
-  const hotel = await prisma.hotel.findFirst({ orderBy: { createdAt: "asc" } });
+export async function loadHotelProfile(hotelId: string) {
+  const hotel = await prisma.hotel.findUnique({ where: { id: hotelId } });
+  if (!hotel) throw new Error(`hotel ${hotelId} not found`);
   return {
-    name: hotel?.name ?? "Santo Hotel",
-    description: hotel?.description ?? null,
-    phone: hotel?.phone ?? null,
-    email: hotel?.email ?? null,
-    addressLine1: hotel?.addressLine1 ?? null,
-    addressLine2: hotel?.addressLine2 ?? null,
-    city: hotel?.city ?? null,
-    postcode: hotel?.postcode ?? null,
-    country: hotel?.country ?? null,
+    id: hotel.id,
+    slug: hotel.slug,
+    name: hotel.name,
+    description: hotel.description ?? null,
+    phone: hotel.phone ?? null,
+    email: hotel.email ?? null,
+    addressLine1: hotel.addressLine1 ?? null,
+    addressLine2: hotel.addressLine2 ?? null,
+    city: hotel.city ?? null,
+    postcode: hotel.postcode ?? null,
+    country: hotel.country ?? null,
     // Verified coordinates (MR-07) — null until an operator records them.
-    latitude: hotel?.latitude != null ? Number(hotel.latitude) : null,
-    longitude: hotel?.longitude != null ? Number(hotel.longitude) : null,
-    currency: hotel?.currency ?? "NGN",
-    checkInTime: hotel?.checkInTime ?? "15:00",
-    checkOutTime: hotel?.checkOutTime ?? "11:00",
-    cancellationWindowHours: hotel?.cancellationWindowHours ?? 48,
+    latitude: hotel.latitude != null ? Number(hotel.latitude) : null,
+    longitude: hotel.longitude != null ? Number(hotel.longitude) : null,
+    currency: hotel.currency,
+    checkInTime: hotel.checkInTime,
+    checkOutTime: hotel.checkOutTime,
+    cancellationWindowHours: hotel.cancellationWindowHours,
   };
 }

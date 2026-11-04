@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
+import { staffActor } from "@/server/auth/actor";
+import { hotelOfBooking } from "@/server/auth/tenancy";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { addBookingNote, type StaffActor } from "@/server/booking/service";
 import { BookingNoteSchema } from "@/server/booking/validation";
@@ -24,11 +26,15 @@ export async function POST(
   });
   if (auth instanceof NextResponse) return auth;
   const { id } = await context.params;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_RESERVATIONS, () =>
+    hotelOfBooking(id),
+  );
+  if (tenant instanceof NextResponse) return tenant;
 
   const parsed = BookingNoteSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
-  const actor: StaffActor = { kind: "staff", userId: auth.userId!, email: auth.email ?? null };
+  const actor: StaffActor = staffActor(auth, tenant.member);
   try {
     const result = await addBookingNote({ bookingId: id, note: parsed.data.note }, actor);
     return NextResponse.json(result);

@@ -11,6 +11,7 @@ import { StaySearchSchema } from "@/server/availability/validation";
 import { parseDateOnly } from "@/server/availability/overlap";
 import { buildQuote, QuoteError, type QuoteResult } from "@/server/pricing/service";
 import { AvailabilityConflictError } from "@/server/availability/service";
+import { getDefaultHotel, getPublishedHotelBySlug } from "@/server/public/hotels";
 import { displayCurrency } from "@/server/currency/display";
 import { fallbackImageForSlug, formatMoney } from "@/lib/hotel";
 
@@ -52,6 +53,10 @@ export default async function BookingPage({
 }) {
   const sp = await searchParams;
   const display = await displayCurrency();
+  const hotel = sp.hotel
+    ? await getPublishedHotelBySlug(sp.hotel)
+    : await getDefaultHotel();
+  if (!hotel) redirect("/search");
   const parsed = StaySearchSchema.safeParse({
     checkIn: sp.checkIn ?? undefined,
     checkOut: sp.checkOut ?? undefined,
@@ -85,6 +90,7 @@ export default async function BookingPage({
   let failure: string | null = null;
   try {
     quote = await buildQuote({
+      hotelId: hotel.id,
       checkIn,
       checkOut,
       adults,
@@ -103,8 +109,8 @@ export default async function BookingPage({
 
   let summaryImage = fallbackImageForSlug(quote?.lines[0]?.roomTypeSlug ?? "");
   if (quote?.lines[0]) {
-    const type = await prisma.roomType.findUnique({
-      where: { slug: quote.lines[0].roomTypeSlug },
+    const type = await prisma.roomType.findFirst({
+      where: { slug: quote.lines[0].roomTypeSlug, hotelId: hotel.id },
       include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
     });
     if (type?.images[0]) summaryImage = type.images[0].url;
@@ -153,6 +159,7 @@ export default async function BookingPage({
         <div className="checkout-layout">
           <CheckoutForm
             stay={{
+              hotelId: hotel.id,
               checkIn: quote.checkIn,
               checkOut: quote.checkOut,
               adults: quote.adults,

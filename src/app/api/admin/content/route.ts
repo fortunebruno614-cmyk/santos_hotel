@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { listContent, upsertContent } from "@/server/console/settings";
 import { ContentUpsertSchema } from "@/server/console/validation";
@@ -20,8 +20,10 @@ export async function GET() {
     permission: Permissions.MANAGE_CONTENT,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_CONTENT);
+  if (tenant instanceof NextResponse) return tenant;
 
-  return NextResponse.json(await listContent());
+  return NextResponse.json(await listContent(tenant.hotelId));
 }
 
 export async function POST(request: Request) {
@@ -31,12 +33,16 @@ export async function POST(request: Request) {
     permission: Permissions.MANAGE_CONTENT,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_CONTENT);
+  if (tenant instanceof NextResponse) return tenant;
 
   const parsed = ContentUpsertSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
   try {
-    return NextResponse.json(await upsertContent(parsed.data, { userId: auth.userId! }));
+    return NextResponse.json(
+      await upsertContent(tenant.hotelId, parsed.data, { userId: auth.userId! }),
+    );
   } catch (error) {
     return consoleErrorResponse(error);
   }

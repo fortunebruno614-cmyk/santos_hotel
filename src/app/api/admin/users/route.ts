@@ -1,5 +1,5 @@
 ﻿import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { createUser, listUsers } from "@/server/console/users";
 import { UserCreateSchema } from "@/server/console/validation";
@@ -22,8 +22,10 @@ export async function GET() {
     permission: Permissions.MANAGE_USERS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_USERS);
+  if (tenant instanceof NextResponse) return tenant;
 
-  const users = await listUsers();
+  const users = await listUsers(tenant.member.organizationId);
   return NextResponse.json(
     users.map((user) => ({
       ...user,
@@ -40,12 +42,16 @@ export async function POST(request: Request) {
     permission: Permissions.MANAGE_USERS,
   });
   if (auth instanceof NextResponse) return auth;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_USERS);
+  if (tenant instanceof NextResponse) return tenant;
 
   const parsed = UserCreateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);
 
   try {
-    const created = await createUser(parsed.data, { userId: auth.userId! });
+    const created = await createUser(tenant.member.organizationId, parsed.data, {
+      userId: auth.userId!,
+    });
     return NextResponse.json({ id: created.id }, { status: 201 });
   } catch (error) {
     return consoleErrorResponse(error);

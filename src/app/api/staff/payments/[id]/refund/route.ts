@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { guardApi } from "@/server/auth/api";
+import { guardApi, guardTenantHotel } from "@/server/auth/api";
+import { hotelOfPayment } from "@/server/auth/tenancy";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { RefundSchema } from "@/server/booking/validation";
 import { refundPayment } from "@/server/payments/service";
@@ -25,6 +26,10 @@ export async function POST(request: Request, context: Params) {
   });
   if (auth instanceof NextResponse) return auth;
   const { id } = await context.params;
+  const tenant = await guardTenantHotel(auth, Permissions.MANAGE_PAYMENTS, () =>
+    hotelOfPayment(id),
+  );
+  if (tenant instanceof NextResponse) return tenant;
 
   const parsed = RefundSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return invalidBody(parsed.error.flatten().fieldErrors);

@@ -4,36 +4,45 @@ import assert from "node:assert/strict";
 import { BookingStatus, PaymentStatus, PromotionType, RecordStatus, RoomStatus, UserRole } from "../../src/generated/prisma/enums";
 import { ConsoleError } from "../../src/server/console/errors";
 import {
-  createAmenity,
-  createPromotion,
-  createRate,
-  createRoom,
-  createRoomType,
-  deleteAmenity,
-  deletePromotion,
-  deleteRate,
-  deleteRoom,
-  deleteRoomType,
-  updateAmenity,
-  updatePromotion,
-  updateRate,
-  updateRoom,
-  updateRoomType,
+  createAmenity as rawCreateAmenity,
+  createPromotion as rawCreatePromotion,
+  createRate as rawCreateRate,
+  createRoom as rawCreateRoom,
+  createRoomType as rawCreateRoomType,
+  deleteAmenity as rawDeleteAmenity,
+  deletePromotion as rawDeletePromotion,
+  deleteRate as rawDeleteRate,
+  deleteRoom as rawDeleteRoom,
+  deleteRoomType as rawDeleteRoomType,
+  updateAmenity as rawUpdateAmenity,
+  updatePromotion as rawUpdatePromotion,
+  updateRate as rawUpdateRate,
+  updateRoom as rawUpdateRoom,
+  updateRoomType as rawUpdateRoomType,
 } from "../../src/server/console/catalog";
-import { searchBookings } from "../../src/server/console/bookings";
-import { getDashboard } from "../../src/server/console/dashboard";
-import { getGuestDetail, searchGuests, updateGuest } from "../../src/server/console/guests";
-import { searchPayments } from "../../src/server/console/payments";
-import { searchAudit } from "../../src/server/console/audit";
+import { searchBookings as rawSearchBookings } from "../../src/server/console/bookings";
+import { getDashboard as rawGetDashboard } from "../../src/server/console/dashboard";
+import {
+  getGuestDetail as rawGetGuestDetail,
+  searchGuests as rawSearchGuests,
+  updateGuest as rawUpdateGuest,
+} from "../../src/server/console/guests";
+import { searchPayments as rawSearchPayments } from "../../src/server/console/payments";
+import { searchAudit as rawSearchAudit } from "../../src/server/console/audit";
 import {
   CONTENT_DEFAULTS,
-  deleteContent,
-  getContent,
-  getSettings,
-  updateSettings,
-  upsertContent,
+  deleteContent as rawDeleteContent,
+  getContent as rawGetContent,
+  getSettings as rawGetSettings,
+  updateSettings as rawUpdateSettings,
+  upsertContent as rawUpsertContent,
 } from "../../src/server/console/settings";
-import { createUser, deleteUser, listUsers, updateUser } from "../../src/server/console/users";
+import {
+  createUser as rawCreateUser,
+  deleteUser as rawDeleteUser,
+  listUsers as rawListUsers,
+  updateUser as rawUpdateUser,
+} from "../../src/server/console/users";
 import {
   AmenityUpsertSchema,
   PromotionUpsertSchema,
@@ -42,13 +51,23 @@ import {
   RoomUpsertSchema,
   SettingsPatchSchema,
 } from "../../src/server/console/validation";
-import { createBooking, transitionBooking } from "../../src/server/booking/service";
+import {
+  createBooking as rawCreateBooking,
+  transitionBooking as rawTransitionBooking,
+  type StaffActor,
+} from "../../src/server/booking/service";
 import { TransitionError } from "../../src/server/booking/policy";
-import { computeQuote } from "../../src/server/pricing/service";
+import { computeQuote as rawComputeQuote } from "../../src/server/pricing/service";
 import { moneyString } from "../../src/server/pricing/model";
-import { hotelToday, loadHotelContext } from "../../src/server/pricing/context";
+import { hotelToday, requireHotelContext } from "../../src/server/pricing/context";
 import { recordDeskPayment, refundPayment } from "../../src/server/payments/service";
-import { dateOnly, loadInventory, prisma } from "../helpers";
+import {
+  dateOnly,
+  loadInventory,
+  prisma,
+  testHotelId,
+  testOrganizationId,
+} from "../helpers";
 
 /** P7 admin console gate: catalog CRUD, settings/content, users, guests,
  *  reservation & payment search, the dashboard and the audit trail — plus a
@@ -60,15 +79,132 @@ const SUFFIX = "@p7.test";
 let inventory: Awaited<ReturnType<typeof loadInventory>>;
 let adminId = "";
 let staffId = "";
+let hotelId = "";
+let organizationId = "";
 const auditEntityIds = new Set<string>();
+
+// --- tenant-context wrappers (the services now require explicit context) ---
+const createAmenity = (input: Parameters<typeof rawCreateAmenity>[1], actor: Parameters<typeof rawCreateAmenity>[2]) =>
+  rawCreateAmenity(hotelId, input, actor);
+const updateAmenity = (id: string, input: Parameters<typeof rawUpdateAmenity>[2], actor: Parameters<typeof rawUpdateAmenity>[3]) =>
+  rawUpdateAmenity(hotelId, id, input, actor);
+const deleteAmenity = (id: string, actor: Parameters<typeof rawDeleteAmenity>[2]) =>
+  rawDeleteAmenity(hotelId, id, actor);
+const createPromotion = (input: Parameters<typeof rawCreatePromotion>[1], actor: Parameters<typeof rawCreatePromotion>[2]) =>
+  rawCreatePromotion(hotelId, input, actor);
+const updatePromotion = (id: string, input: Parameters<typeof rawUpdatePromotion>[2], actor: Parameters<typeof rawUpdatePromotion>[3]) =>
+  rawUpdatePromotion(hotelId, id, input, actor);
+const deletePromotion = (id: string, actor: Parameters<typeof rawDeletePromotion>[2]) =>
+  rawDeletePromotion(hotelId, id, actor);
+const createRate = (input: Parameters<typeof rawCreateRate>[1], actor: Parameters<typeof rawCreateRate>[2]) =>
+  rawCreateRate(hotelId, input, actor);
+const updateRate = (id: string, input: Parameters<typeof rawUpdateRate>[2], actor: Parameters<typeof rawUpdateRate>[3]) =>
+  rawUpdateRate(hotelId, id, input, actor);
+const deleteRate = (id: string, actor: Parameters<typeof rawDeleteRate>[2]) =>
+  rawDeleteRate(hotelId, id, actor);
+const createRoom = (input: Parameters<typeof rawCreateRoom>[1], actor: Parameters<typeof rawCreateRoom>[2]) =>
+  rawCreateRoom(hotelId, input, actor);
+const updateRoom = (id: string, input: Parameters<typeof rawUpdateRoom>[2], actor: Parameters<typeof rawUpdateRoom>[3]) =>
+  rawUpdateRoom(hotelId, id, input, actor);
+const deleteRoom = (id: string, actor: Parameters<typeof rawDeleteRoom>[2]) =>
+  rawDeleteRoom(hotelId, id, actor);
+const createRoomType = (input: Parameters<typeof rawCreateRoomType>[1], actor: Parameters<typeof rawCreateRoomType>[2]) =>
+  rawCreateRoomType(hotelId, input, actor);
+const updateRoomType = (id: string, input: Parameters<typeof rawUpdateRoomType>[2], actor: Parameters<typeof rawUpdateRoomType>[3]) =>
+  rawUpdateRoomType(hotelId, id, input, actor);
+const deleteRoomType = (id: string, actor: Parameters<typeof rawDeleteRoomType>[2]) =>
+  rawDeleteRoomType(hotelId, id, actor);
+
+const searchBookings = (input: Parameters<typeof rawSearchBookings>[1]) =>
+  rawSearchBookings(hotelId, input);
+const getDashboard = (now?: Date) => rawGetDashboard(hotelId, now);
+const searchGuests = (input: Parameters<typeof rawSearchGuests>[1]) =>
+  rawSearchGuests(hotelId, input);
+const getGuestDetail = (id: string) => rawGetGuestDetail(hotelId, id);
+const updateGuest = (
+  id: string,
+  input: Parameters<typeof rawUpdateGuest>[2],
+  actor: Parameters<typeof rawUpdateGuest>[3],
+) => rawUpdateGuest(hotelId, id, input, actor);
+const searchPayments = (input: Parameters<typeof rawSearchPayments>[1]) =>
+  rawSearchPayments(hotelId, input);
+const searchAudit = (input: Parameters<typeof rawSearchAudit>[1]) =>
+  rawSearchAudit(hotelId, input);
+const getSettings = () => rawGetSettings(hotelId);
+const updateSettings = (
+  input: Parameters<typeof rawUpdateSettings>[1],
+  actor: Parameters<typeof rawUpdateSettings>[2],
+) => rawUpdateSettings(hotelId, input, actor);
+const getContent = (key: string) => rawGetContent(key, hotelId);
+const upsertContent = (
+  input: Parameters<typeof rawUpsertContent>[1],
+  actor: Parameters<typeof rawUpsertContent>[2],
+) => rawUpsertContent(hotelId, input, actor);
+const deleteContent = (key: string, actor: Parameters<typeof rawDeleteContent>[2]) =>
+  rawDeleteContent(hotelId, key, actor);
+
+async function resolveMemberId(id: string) {
+  const byMember = await prisma.organizationMember.findFirst({
+    where: { id, organizationId },
+    select: { id: true },
+  });
+  if (byMember) return byMember.id;
+  const byUser = await prisma.organizationMember.findFirst({
+    where: { userId: id, organizationId },
+    select: { id: true },
+  });
+  return byUser?.id ?? id;
+}
+const listUsers = () => rawListUsers(organizationId);
+const createUser = (
+  input: Parameters<typeof rawCreateUser>[1],
+  actor: Parameters<typeof rawCreateUser>[2],
+) => rawCreateUser(organizationId, input, actor);
+const updateUser = async (
+  id: string,
+  input: Parameters<typeof rawUpdateUser>[2],
+  actor: Parameters<typeof rawUpdateUser>[3],
+) => rawUpdateUser(organizationId, await resolveMemberId(id), input, actor);
+const deleteUser = async (id: string, actor: Parameters<typeof rawDeleteUser>[2]) =>
+  rawDeleteUser(organizationId, await resolveMemberId(id), actor);
+
+const createBooking = (
+  input: Omit<Parameters<typeof rawCreateBooking>[0], "hotelId">,
+  actor: Parameters<typeof rawCreateBooking>[1],
+) => rawCreateBooking({ ...input, hotelId }, actor);
+const computeQuote = (request: Omit<Parameters<typeof rawComputeQuote>[0], "hotelId">) =>
+  rawComputeQuote({ ...request, hotelId });
+const tenantStaff = (actor: StaffActor): StaffActor => ({
+  ...actor,
+  organizationId,
+  organizationWide: true,
+});
+const transitionBooking = (
+  input: Parameters<typeof rawTransitionBooking>[0],
+  actor: Parameters<typeof rawTransitionBooking>[1],
+) => rawTransitionBooking(input, tenantStaff(actor));
 
 async function ensureUser(name: string, email: string, role: "ADMIN" | "STAFF"): Promise<string> {
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) return existing.id;
-  const created = await prisma.user.create({
-    data: { name, email, passwordHash: "test-hash", role },
+  const user =
+    existing ??
+    (await prisma.user.create({
+      data: { name, email, passwordHash: "test-hash", role },
+    }));
+  await prisma.organizationMember.upsert({
+    where: { organizationId_userId: { organizationId, userId: user.id } },
+    update: {
+      role: role === "ADMIN" ? "OWNER" : "STAFF",
+      status: "ACTIVE",
+    },
+    create: {
+      organizationId,
+      userId: user.id,
+      role: role === "ADMIN" ? "OWNER" : "STAFF",
+      status: "ACTIVE",
+    },
   });
-  return created.id;
+  return user.id;
 }
 
 async function auditOf(action: string, entityId: string) {
@@ -86,7 +222,7 @@ async function auditCount(where: Record<string, unknown>) {
  */
 async function createOwnBooking(tag: string) {
   const actor = { userId: adminId };
-  const hotel = await loadHotelContext();
+  const hotel = await requireHotelContext(hotelId);
   const today = hotelToday(new Date(), hotel.timezone);
   const checkIn = today.toISOString().slice(0, 10);
   const checkoutDay = new Date(today);
@@ -104,7 +240,7 @@ async function createOwnBooking(tag: string) {
   );
   auditEntityIds.add(room.id);
 
-  const email = `p7-${tag}${SUFFIX}`;
+  const email = `p7-${tag}-${Date.now()}${SUFFIX}`;
   const guest = await prisma.guest.create({
     data: { firstName: "P7", lastName: tag, email },
   });
@@ -135,6 +271,8 @@ async function createOwnBooking(tag: string) {
 }
 
 before(async () => {
+  hotelId = await testHotelId();
+  organizationId = await testOrganizationId();
   inventory = await loadInventory();
   adminId = await ensureUser("P7 Admin", `p7-admin${SUFFIX}`, "ADMIN");
   staffId = await ensureUser("P7 Staff", `p7-staff${SUFFIX}`, "STAFF");
@@ -150,7 +288,7 @@ after(async () => {
   await prisma.promotion.deleteMany({ where: { code: { startsWith: "P7" } } });
   await prisma.amenity.deleteMany({ where: { name: { startsWith: "P7" } } });
   await prisma.roomType.deleteMany({ where: { slug: { startsWith: "p7" } } });
-  await prisma.siteContent.deleteMany({ where: { key: { startsWith: "p7." } } });
+  await prisma.siteContent.deleteMany({ where: { key: { contains: "p7." } } });
   await prisma.user.deleteMany({ where: { email: { endsWith: SUFFIX } } });
 });
 
@@ -432,7 +570,7 @@ describe("P7 settings & content", () => {
     assert.equal(Number((log!.newValues as Record<string, unknown>).taxRatePercent), 8.5);
 
     // The running app picks the change up on the very next read.
-    const hotel = await loadHotelContext();
+    const hotel = await requireHotelContext(hotelId);
     assert.equal(hotel.checkInTime, "15:00");
 
     // A no-op patch writes nothing and no audit row.
@@ -506,8 +644,14 @@ describe("P7 users & permissions", () => {
     assert.ok(permissionLog, "role changes keep their permission.change action");
 
     await deleteUser(created.id, actor);
-    assert.equal(await prisma.user.findUnique({ where: { id: created.id } }), null);
-    assert.ok(await auditOf("user.delete", created.id));
+    assert.equal(
+      await prisma.organizationMember.findFirst({
+        where: { organizationId, userId: created.id },
+      }),
+      null,
+      "the membership is revoked",
+    );
+    assert.ok(await auditOf("membership.revoke", created.id));
   });
 
   it("refuses duplicate e-mails", async () => {
@@ -552,15 +696,15 @@ describe("P7 users & permissions", () => {
     try {
       await assert.rejects(
         () => updateUser(lone, { role: UserRole.STAFF }, actor),
-        (error: unknown) => error instanceof ConsoleError && error.code === "last_admin",
+        (error: unknown) => error instanceof ConsoleError && error.code === "last_owner",
       );
       await assert.rejects(
         () => updateUser(lone, { isActive: false }, actor),
-        (error: unknown) => error instanceof ConsoleError && error.code === "last_admin",
+        (error: unknown) => error instanceof ConsoleError && error.code === "last_owner",
       );
       await assert.rejects(
         () => deleteUser(lone, actor),
-        (error: unknown) => error instanceof ConsoleError && error.code === "last_admin",
+        (error: unknown) => error instanceof ConsoleError && error.code === "last_owner",
       );
     } finally {
       await prisma.user.updateMany({
@@ -593,16 +737,10 @@ describe("P7 users & permissions", () => {
 
 describe("P7 guests, reservations & payments", () => {
   it("corrects guest contact details and records guest.update", async () => {
-    const email = `p7-guest${SUFFIX}`;
-    const guest = await prisma.guest.create({
-      data: { firstName: "P7", lastName: "Guest", email },
-    });
-    auditEntityIds.add(guest.id);
-
-    const other = await prisma.guest.create({
-      data: { firstName: "P7", lastName: "Other", email: `p7-other${SUFFIX}` },
-    });
-    auditEntityIds.add(other.id);
+    // Tenant guest access is reservation-scoped: both guests must have a stay
+    // at this hotel before the console can see or edit them.
+    const { guest } = await createOwnBooking("guest");
+    const { guest: other } = await createOwnBooking("other");
 
     const updated = await updateGuest(
       guest.id,
@@ -686,8 +824,14 @@ describe("P7 dashboard", () => {
 describe("P7 week of simulated operations", () => {
   it("drives a stay from quote to check-out, refund and audit trail", async () => {
     const actor = { userId: adminId };
-    const staff = { kind: "staff" as const, userId: staffId, email: `p7-staff${SUFFIX}` };
-    const hotel = await loadHotelContext();
+    const staff = {
+      kind: "staff" as const,
+      userId: staffId,
+      email: `p7-staff${SUFFIX}`,
+      organizationId,
+      organizationWide: true,
+    };
+    const hotel = await requireHotelContext(hotelId);
     const today = hotelToday(new Date(), hotel.timezone);
     const checkIn = today.toISOString().slice(0, 10);
     const checkOut = dateOnly(today.toISOString().slice(0, 10));

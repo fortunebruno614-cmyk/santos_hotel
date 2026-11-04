@@ -33,8 +33,12 @@ export type PaymentSearchResult = {
   pageSize: number;
 };
 
-export async function searchPayments(query: PaymentSearchInput): Promise<PaymentSearchResult> {
+export async function searchPayments(
+  hotelId: string,
+  query: PaymentSearchInput,
+): Promise<PaymentSearchResult> {
   const where: Prisma.PaymentWhereInput = {
+    hotelId,
     ...(query.status ? { status: query.status } : {}),
     ...(query.reference
       ? { booking: { bookingReference: { contains: query.reference, mode: "insensitive" } } }

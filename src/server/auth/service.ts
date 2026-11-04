@@ -18,11 +18,19 @@ export async function authenticateStaff(email: string, password: string) {
     data: { lastLoginAt: new Date() },
   });
 
+  const memberships = await prisma.organizationMember.findMany({
+    where: { userId: user.id, status: "ACTIVE", organization: { status: "ACTIVE" } },
+    orderBy: { createdAt: "asc" },
+    select: { organizationId: true },
+  });
+
   const payload: SessionPayload = {
     kind: "staff",
     role: user.role as AppRole,
     userId: user.id,
     email: user.email,
+    ...(memberships[0] ? { orgId: memberships[0].organizationId } : {}),
+    ...(user.platformRole ? { platformRole: user.platformRole } : {}),
   };
   return { payload, user };
 }
