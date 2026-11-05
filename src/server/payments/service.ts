@@ -330,7 +330,7 @@ export async function handleWebhook(
 
   const payment = await prisma.payment.findUnique({
     where: { providerReference: event.providerReference },
-    select: { id: true, bookingId: true },
+    select: { id: true, bookingId: true, organizationId: true, hotelId: true },
   });
   if (!payment) {
     // Reconciliation path: money may have moved with no local intent (e.g. a

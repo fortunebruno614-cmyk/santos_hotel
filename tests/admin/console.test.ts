@@ -629,7 +629,10 @@ describe("P7 users & permissions", () => {
       actor,
     );
     auditEntityIds.add(created.id);
-    assert.ok(await auditOf("user.create", created.id));
+    auditEntityIds.add(created.memberId);
+    // Creating an account in a tenant context is an invitation: the audit row
+    // is written against the membership, not the user row.
+    assert.ok(await auditOf("membership.invite", created.memberId));
 
     const stored = await prisma.user.findUnique({ where: { id: created.id } });
     assert.ok(stored?.passwordHash && stored.passwordHash !== "password123", "password must be hashed");
@@ -651,7 +654,7 @@ describe("P7 users & permissions", () => {
       null,
       "the membership is revoked",
     );
-    assert.ok(await auditOf("membership.revoke", created.id));
+    assert.ok(await auditOf("membership.revoke", created.memberId));
   });
 
   it("refuses duplicate e-mails", async () => {

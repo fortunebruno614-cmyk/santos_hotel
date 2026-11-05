@@ -31,6 +31,7 @@ const BOOKING_ERROR_STATUS: Record<BookingErrorCode, number> = {
   not_modifiable: 409,
   not_cancellable: 409,
   too_late_to_cancel: 409,
+  balance_due: 409,
 };
 
 const PAYMENT_ERROR_STATUS: Record<PaymentErrorCode, number> = {

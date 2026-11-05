@@ -186,6 +186,32 @@ function promotionDiscount(promo: AppliedPromotion, subtotal: Money): Money {
   return money(Prisma.Decimal.min(promo.value, subtotal));
 }
 
+export type PromotionInspection =
+  | { valid: true; code: string; type: PromotionType; value: string }
+  | { valid: false; code: string; reason: QuoteErrorCode; message: string };
+
+/**
+ * Promotion validity for display (AI concierge, quote previews): the exact
+ * rules `computeQuote` applies, but without needing a room allocation — so a
+ * guest can ask "does SAVE10 still work?" and get the real answer (unknown,
+ * disabled, out of window, fully redeemed) instead of a thrown error.
+ */
+export async function inspectPromotion(
+  hotelId: string,
+  rawCode: string,
+  now: Date = new Date(),
+): Promise<PromotionInspection> {
+  try {
+    const promo = await evaluatePromotion(prisma, hotelId, rawCode, now, false);
+    return { valid: true, code: promo.code, type: promo.type, value: moneyString(promo.value) };
+  } catch (error) {
+    if (error instanceof QuoteError) {
+      return { valid: false, code: rawCode.trim(), reason: error.code, message: error.message };
+    }
+    throw error;
+  }
+}
+
 type RateRow = {
   id: string;
   startDate: Date;

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { AiChat } from "@/components/hotel/ai-chat";
 import { CurrencySwitch } from "@/components/hotel/currency-switch";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
 import { defaultStayDates, searchHref } from "@/lib/hotel";
@@ -48,6 +49,7 @@ export function HotelShell({
   address,
   email,
   footerNote,
+  chatEnabled,
 }: {
   children: React.ReactNode;
   signedIn: boolean;
@@ -57,6 +59,8 @@ export function HotelShell({
   address: string;
   email: string | null;
   footerNote: string | null;
+  /** False without a Groq key — the bubble is not rendered at all. */
+  chatEnabled: boolean;
 }) {
   const [menu, setMenu] = useState(false);
   const [policy, setPolicy] = useState("");
@@ -233,6 +237,8 @@ export function HotelShell({
           </DialogDescription>
         </DialogContent>
       </Dialog>
+
+      {chatEnabled && <AiChat signedIn={signedIn} />}
     </div>
   );
 }

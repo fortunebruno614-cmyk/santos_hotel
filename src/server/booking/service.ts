@@ -82,7 +82,8 @@ export type BookingErrorCode =
   | "not_modifiable"
   | "not_cancellable"
   | "guest_cancellation_disabled"
-  | "too_late_to_cancel";
+  | "too_late_to_cancel"
+  | "balance_due";
 
 export class BookingError extends Error {
   readonly code: BookingErrorCode;
@@ -806,6 +807,127 @@ export async function transitionBooking(
     if (!settled) throw new BookingError("booking_not_found", "reservation vanished");
     return toSummary(settled, hotel.currency);
   }
+
+  return summary;
+}
+
+// ---------------------------------------------------------------------------
+// Guest: express self check-out (AI concierge)
+// ---------------------------------------------------------------------------
+
+/**
+ * The guest ends their own stay — the guest-facing mirror of the staff
+ * `CHECKED_OUT` transition, with the identity taken from the session (never
+ * the payload) and stricter entry conditions:
+ *
+ *  - the reservation must belong to this guest and be in house (`CHECKED_IN`),
+ *    which the transition table already enforces (only CHECKED_IN → CHECKED_OUT);
+ *  - the arrival date must have arrived, in the hotel's timezone;
+ *  - an unsettled balance blocks the release of the room: the desk settles it
+ *    first (`balance_due`), so a self check-out can never walk away owing money.
+ *
+ * The room side effects are identical to the staff path — only the rooms this
+ * stay actually occupied move on to housekeeping — and the action lands in the
+ * audit trail attributed to the guest.
+ */
+export async function guestSelfCheckOut(
+  input: { bookingId: string; guestId: string; note?: string | null },
+): Promise<BookingSummary> {
+  const existing = await prisma.booking.findUnique({
+    where: { id: input.bookingId },
+    select: {
+      id: true,
+      guestId: true,
+      bookingStatus: true,
+      checkIn: true,
+      hotelId: true,
+      paymentStatus: true,
+      total: true,
+    },
+  });
+  if (!existing?.hotelId || existing.guestId !== input.guestId) {
+    throw new BookingError("booking_not_found", "reservation not found");
+  }
+  const hotel = await requireHotelContext(existing.hotelId);
+  const today = hotelToday(new Date(), hotel.timezone);
+
+  assertBookingTransition(existing.bookingStatus, BookingStatus.CHECKED_OUT);
+  assertTransitionTiming(existing.bookingStatus, existing, BookingStatus.CHECKED_OUT, today);
+  if (existing.paymentStatus === PaymentStatus.PENDING && existing.total.toNumber() > 0) {
+    throw new BookingError(
+      "balance_due",
+      "there is an outstanding balance — settle it before checking out",
+    );
+  }
+
+  const summary = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "bookings" WHERE "id" = ${input.bookingId} FOR UPDATE`;
+    const fresh = await tx.booking.findUniqueOrThrow({
+      where: { id: input.bookingId },
+      select: {
+        id: true,
+        guestId: true,
+        bookingStatus: true,
+        checkIn: true,
+        paymentStatus: true,
+        total: true,
+      },
+    });
+    if (fresh.guestId !== input.guestId) {
+      throw new BookingError("booking_not_found", "reservation not found");
+    }
+    assertBookingTransition(fresh.bookingStatus, BookingStatus.CHECKED_OUT);
+    assertTransitionTiming(fresh.bookingStatus, fresh, BookingStatus.CHECKED_OUT, today);
+    if (fresh.paymentStatus === PaymentStatus.PENDING && fresh.total.toNumber() > 0) {
+      throw new BookingError(
+        "balance_due",
+        "there is an outstanding balance — settle it before checking out",
+      );
+    }
+
+    const current = await tx.booking.findUniqueOrThrow({ where: { id: input.bookingId } });
+    const notes = input.note
+      ? appendNote(current.notes, input.note, "guest self check-out")
+      : current.notes;
+
+    await tx.booking.update({
+      where: { id: input.bookingId },
+      data: { bookingStatus: BookingStatus.CHECKED_OUT, notes },
+    });
+
+    const allocations = await tx.bookingRoom.findMany({
+      where: { bookingId: input.bookingId },
+      select: { roomId: true },
+    });
+    // Only rooms this stay actually occupied move on to housekeeping.
+    await tx.room.updateMany({
+      where: {
+        id: { in: allocations.map((row) => row.roomId) },
+        status: RoomStatus.OCCUPIED,
+      },
+      data: { status: RoomStatus.CLEANING },
+    });
+
+    const row = await loadBookingRow(tx, input.bookingId);
+    if (!row) throw new BookingError("booking_not_found", "reservation vanished");
+    return toSummary(row, hotel.currency);
+  }, { maxWait: 10_000, timeout: 15_000 });
+
+  await writeAuditLog({
+    userId: null,
+    actorGuestId: input.guestId,
+    organizationId: hotel.organizationId,
+    hotelId: hotel.id,
+    action: "booking.transition",
+    entityType: "booking",
+    entityId: input.bookingId,
+    oldValues: { status: existing.bookingStatus },
+    newValues: {
+      status: BookingStatus.CHECKED_OUT,
+      roomStatus: "CLEANING",
+      by: "guest_self_check_out",
+    },
+  });
 
   return summary;
 }

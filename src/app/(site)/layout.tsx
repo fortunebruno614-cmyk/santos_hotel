@@ -1,5 +1,6 @@
 import { CurrencyProvider } from "@/components/hotel/currency-provider";
 import { HotelShell } from "@/components/hotel/hotel-shell";
+import { AI_CHAT_ENABLED } from "@/config/ai";
 import { getCurrentSession } from "@/server/auth/dal";
 import { displayCurrency } from "@/server/currency/display";
 import { loadHotelProfile } from "@/server/public/catalog";
@@ -30,6 +31,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         address={address}
         email={hotel?.email ?? null}
         footerNote={footer?.body ?? null}
+        chatEnabled={AI_CHAT_ENABLED}
       >
         {children}
       </HotelShell>
