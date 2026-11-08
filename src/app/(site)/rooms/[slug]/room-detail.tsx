@@ -24,6 +24,7 @@ import { SearchMap } from "@/components/hotel/search-map";
 import { isMapEnabled } from "@/config/maps";
 import { BookingSummary, type SummaryRow } from "@/components/hotel/booking-summary";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
+import { useT } from "@/components/hotel/locale-provider";
 import {
   bookingHref,
   defaultStayDates,
@@ -78,6 +79,7 @@ export function RoomDetailContent({
 }) {
   const router = useRouter();
   const display = useDisplayCurrency();
+  const t = useT();
   const [gallery, setGallery] = useState<number | null>(null);
   const [selected, setSelected] = useState<string[]>(() =>
     stay ? availableRooms.slice(0, stay.quantity).map((physical) => physical.id) : [],
@@ -94,15 +96,19 @@ export function RoomDetailContent({
   const summaryRows: SummaryRow[] = estimate
     ? [
         {
-          label: `${formatMoney(nightlyRate, hotel.currency, display)} × ${nights} nights`,
+          label: t("summary.nightRow", {
+            rate: formatMoney(nightlyRate, hotel.currency, display),
+            nights,
+            unit: nights === 1 ? t("room.night") : t("room.nights"),
+          }),
           value: formatMoney(estimate.subtotal, hotel.currency, display),
         },
         {
-          label: `Taxes (${context.taxRatePercent}%)`,
+          label: t("summary.taxesRow", { percent: context.taxRatePercent }),
           value: formatMoney(estimate.taxes, hotel.currency, display),
         },
         {
-          label: "Service fee",
+          label: t("summary.serviceFeeRow"),
           value: formatMoney(estimate.fees, hotel.currency, display),
         },
       ]
@@ -134,7 +140,9 @@ export function RoomDetailContent({
 
       <div className="detail-title">
         <div>
-          <span className="eyebrow">{room.isSuite ? "THE SUITE COLLECTION" : "YOUR PERSONAL RETREAT"}</span>
+          <span className="eyebrow">
+            {room.isSuite ? t("room.categorySuite") : t("room.categoryRetreat")}
+          </span>
           <h1>{room.name}</h1>
           {isMapEnabled() && (
             /* Sits with the name so the location is one click away, instead of
@@ -142,25 +150,26 @@ export function RoomDetailContent({
              * is configured — same rule the List/Map toggle follows. */
             <button type="button" className="room-map-link" onClick={openMap}>
               <MapPin size={15} aria-hidden="true" />
-              Open map
+              {t("detail.openMap")}
             </button>
           )}
           <p>{room.description}</p>
         </div>
-        <span className="subtle-badge">Santo accommodation</span>
+        <span className="subtle-badge">{t("detail.badge")}</span>
       </div>
 
       <div className="mobile-booking-bar">
         <span>
-          <strong>{formatMoney(nightlyRate, hotel.currency, display)}</strong> / night
+          <strong>{formatMoney(nightlyRate, hotel.currency, display)}</strong>{" "}
+          {t("room.perNight")}
         </span>
         {canBook ? (
           <Button onClick={continueToBooking}>
-            Choose this room <ArrowRight />
+            {t("detail.chooseThisRoom")} <ArrowRight />
           </Button>
         ) : (
           <Button asChild>
-            <Link href="/search">Check dates</Link>
+            <Link href="/search">{t("detail.checkDates")}</Link>
           </Button>
         )}
       </div>
@@ -172,12 +181,12 @@ export function RoomDetailContent({
             className={`detail-photo photo-${index}`}
             onClick={() => setGallery(index)}
             key={image}
-            aria-label={`View room photo ${index + 1}`}
+            aria-label={t("detail.viewPhoto", { index: index + 1 })}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={image}
-              alt={`${room.name} photo ${index + 1}`}
+              alt={t("detail.photoAlt", { name: room.name, index: index + 1 })}
               width={1536}
               height={1024}
             />
@@ -191,7 +200,7 @@ export function RoomDetailContent({
           <div className="detail-specs">
             <span>
               <UsersRound />
-              {room.maxAdults} guests
+              {t("room.guests", { count: room.maxAdults })}
             </span>
             <span>
               <BedDouble />
@@ -199,22 +208,16 @@ export function RoomDetailContent({
             </span>
             <span>
               <Maximize />
-              En-suite
+              {t("room.ensuite")}
             </span>
           </div>
-          <h2>Space to settle in.</h2>
-          <p>
-            Natural materials, soft textures, and a beautifully considered layout. The {room.name}{" "}
-            pairs a restful sleeping area with thoughtful spaces for the moments in between.
-          </p>
-          <p>
-            From a quiet morning coffee to the last chapter of a good book, make room for a stay at
-            your own pace.
-          </p>
+          <h2>{t("detail.spaceTitle")}</h2>
+          <p>{t("detail.spaceBody1", { name: room.name })}</p>
+          <p>{t("detail.spaceBody2")}</p>
 
           {room.amenities.length > 0 && (
             <>
-              <h3>Considered comforts</h3>
+              <h3>{t("detail.comforts")}</h3>
               <div className="amenity-grid">
                 {room.amenities.map((amenity) => {
                   const Icon = AMENITY_ICONS[amenity] ?? Check;
@@ -231,18 +234,13 @@ export function RoomDetailContent({
 
           {stay && (
             <section className="room-selection">
-              <h3>Choose your room</h3>
+              <h3>{t("detail.chooseRoom")}</h3>
               {stayError && <p className="form-error">{stayError}</p>}
-              {searchFailed && (
-                <p className="form-error">That stay could not be checked — please try again.</p>
-              )}
+              {searchFailed && <p className="form-error">{t("detail.searchFailed")}</p>}
               {!searchFailed && availableRooms.length === 0 && (
                 <div className="info-notice">
                   <Check />
-                  <p>
-                    No {room.name} rooms are free for these dates. Try different dates or explore
-                    another room type.
-                  </p>
+                  <p>{t("detail.noneFree", { name: room.name })}</p>
                 </div>
               )}
               {availableRooms.length > 0 && (
@@ -259,38 +257,41 @@ export function RoomDetailContent({
                           onChange={() => toggle(physical.id)}
                         />
                         <span>
-                          <strong>Room {physical.roomNumber}</strong>
-                          {physical.floor !== null && <small>Floor {physical.floor}</small>}
+                          <strong>{t("home.inventory.room", { number: physical.roomNumber })}</strong>
+                          {physical.floor !== null && (
+                            <small>{t("home.inventory.floor", { floor: physical.floor })}</small>
+                          )}
                         </span>
                       </label>
                     ))}
                   </div>
                   <Button onClick={continueToBooking} disabled={selected.length === 0}>
-                    Continue to booking <ArrowRight />
+                    {t("detail.continueBooking")} <ArrowRight />
                   </Button>
                 </>
               )}
             </section>
           )}
 
-          {[
+          {(
             [
-              "Check-in & check-out",
-              `Check-in from ${hotel.checkInTime}, check-out by ${hotel.checkOutTime}.`,
-            ],
-            [
-              "Cancellation & payment",
-              `Free cancellation up to ${hotel.cancellationWindowHours} hours before check-in. Payment is completed through the hotel's secure payment page.`,
-            ],
-            [
-              "Accessibility",
-              "Room-specific accessibility information is available from our team. Please contact the hotel before making travel arrangements.",
-            ],
-            [
-              "House rules",
-              "Smoking, pet, visitor and quiet-hour policies are confirmed by the hotel at check-in.",
-            ],
-          ].map(([title, copy]) => (
+              [
+                t("detail.faq.checkInTitle"),
+                t("detail.faq.checkInBody", {
+                  inTime: hotel.checkInTime,
+                  outTime: hotel.checkOutTime,
+                }),
+              ],
+              [
+                t("detail.faq.cancellationTitle"),
+                t("detail.faq.cancellationBody", {
+                  hours: hotel.cancellationWindowHours,
+                }),
+              ],
+              [t("detail.faq.accessibilityTitle"), t("detail.faq.accessibilityBody")],
+              [t("detail.faq.houseRulesTitle"), t("detail.faq.houseRulesBody")],
+            ] as const
+          ).map(([title, copy]) => (
             <details key={title} className="faq">
               <summary>{title}</summary>
               <p>{copy}</p>
@@ -301,12 +302,17 @@ export function RoomDetailContent({
         <BookingSummary
           image={room.images[0]}
           title={room.name}
-          checkIn={stay?.checkIn ?? "Select your dates"}
+          checkIn={stay?.checkIn ?? t("summary.selectDates")}
           checkOut={stay?.checkOut ?? ""}
           guests={
             stay
-              ? `${stay.adults} adults · ${stay.children} children · ${stay.quantity} room${stay.quantity === 1 ? "" : "s"}`
-              : "Your dates, your way"
+              ? t("summary.guestsLine", {
+                  adults: stay.adults,
+                  children: stay.children,
+                  quantity: stay.quantity,
+                  unit: stay.quantity === 1 ? t("summary.room") : t("summary.rooms"),
+                })
+              : t("summary.yourDates")
           }
           rows={summaryRows}
           total={estimate?.total ?? null}
@@ -314,8 +320,8 @@ export function RoomDetailContent({
           displayCurrency={display}
           note={
             estimate
-              ? "Price for one room. Taxes and fees are confirmed at checkout."
-              : stayError ?? "Select your dates to see live availability and the full stay total."
+              ? t("summary.priceNote")
+              : stayError ?? t("summary.selectDatesNote")
           }
           search={
             <div className="summary-search">
@@ -334,7 +340,7 @@ export function RoomDetailContent({
                   availableRooms.slice(0, stay.quantity).map((physical) => physical.id),
                 )}
               >
-                Choose this room <ArrowRight />
+                {t("detail.chooseThisRoom")} <ArrowRight />
               </Link>
             </Button>
           )}
@@ -342,8 +348,12 @@ export function RoomDetailContent({
             <p className="policy-note">
               <Check size={14} />
               {availableRooms.length > 0
-                ? `${availableRooms.length} room${availableRooms.length === 1 ? "" : "s"} available`
-                : "No rooms available for these dates"}
+                ? t("summary.availableCount", {
+                    count: availableRooms.length,
+                    unit:
+                      availableRooms.length === 1 ? t("summary.room") : t("summary.rooms"),
+                  })
+                : t("summary.noneAvailable")}
             </p>
           )}
         </BookingSummary>
@@ -358,9 +368,9 @@ export function RoomDetailContent({
           id="room-map"
           tabIndex={-1}
           className="room-detail-map"
-          aria-label="Hotel location map"
+          aria-label={t("listing.mapAria")}
         >
-          <h2>Where you&rsquo;ll be staying</h2>
+          <h2>{t("detail.mapTitle")}</h2>
           <p className="tiny-note">{location.address ?? location.name}</p>
           <div className="room-detail-map-frame">
             <SearchMap

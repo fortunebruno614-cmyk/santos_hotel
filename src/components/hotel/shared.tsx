@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   ArrowRight,
@@ -11,12 +13,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { useT } from "@/components/hotel/locale-provider";
 import { formatMoney, nightsBetween, type ListingRoom, type StayQuery } from "@/lib/hotel";
 
 export function Breadcrumb({ current }: { current: string }) {
+  const t = useT();
   return (
     <div className="breadcrumb">
-      <Link href="/">Home</Link>
+      <Link href="/">{t("breadcrumb.home")}</Link>
       <ChevronRight size={12} />
       <span>{current}</span>
     </div>
@@ -69,6 +73,7 @@ export function RoomCard({
   selected?: boolean;
   onSelect?: () => void;
 }) {
+  const t = useT();
   const nights = stay ? nightsBetween(stay.checkIn, stay.checkOut) : 0;
   const nightly = priceText(room);
   const stayTotal = room.price?.stayTotal;
@@ -81,7 +86,9 @@ export function RoomCard({
       <Link href={href} className="room-photo">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={room.images[0]} alt={room.name} width={1536} height={1024} loading="lazy" />
-        <span className="photo-tag">{room.isSuite ? "The suite collection" : "A guest favourite"}</span>
+        <span className="photo-tag">
+          {room.isSuite ? t("room.suiteCollection") : t("room.guestFavourite")}
+        </span>
         <span className="photo-arrow">
           <ArrowRight size={18} />
         </span>
@@ -89,21 +96,21 @@ export function RoomCard({
       <div className="room-card-body">
         <div className="room-card-main">
           <span className="room-category">
-            {room.isSuite ? "THE SUITE COLLECTION" : "YOUR PERSONAL RETREAT"}
+            {room.isSuite ? t("room.categorySuite") : t("room.categoryRetreat")}
           </span>
           <h3>
             <Link href={href}>{room.name}</Link>
           </h3>
-          <p>{room.description || "A thoughtfully considered space to unwind and feel at home."}</p>
+          <p>{room.description || t("room.descriptionFallback")}</p>
           <div className="room-specs">
             <span>
-              <UsersRound /> {room.maxAdults} guests
+              <UsersRound /> {t("room.guests", { count: room.maxAdults })}
             </span>
             <span>
               <BedDouble /> {room.bed}
             </span>
             <span>
-              <Maximize /> En-suite
+              <Maximize /> {t("room.ensuite")}
             </span>
           </div>
           {horizontal && (
@@ -116,7 +123,7 @@ export function RoomCard({
                 ))}
                 {room.availableCount !== undefined && (
                   <span>
-                    <Check /> {room.availableCount} available
+                    <Check /> {t("room.availableCount", { count: room.availableCount })}
                   </span>
                 )}
               </div>
@@ -130,13 +137,16 @@ export function RoomCard({
         </div>
         <div className="room-card-bottom">
           <div>
-            <span className="rate-from">From </span>
+            <span className="rate-from">{t("room.from")} </span>
             <strong>{formatMoney(nightly, currency, displayCurrency)}</strong>
-            <span className="rate-unit"> / night</span>
+            <span className="rate-unit"> {t("room.perNight")}</span>
             {horizontal && stay && stayTotal && (
               <small>
-                {formatMoney(stayTotal, currency, displayCurrency)} for {nights}{" "}
-                {nights === 1 ? "night" : "nights"} · before taxes &amp; fees
+                {t("room.stayTotal", {
+                  total: formatMoney(stayTotal, currency, displayCurrency),
+                  nights,
+                  unit: nights === 1 ? t("room.night") : t("room.nights"),
+                })}
               </small>
             )}
           </div>
@@ -148,16 +158,16 @@ export function RoomCard({
                 aria-pressed={selected}
                 onClick={onSelect}
               >
-                {selected ? "Selected ✓" : "Select room"}
+                {selected ? t("room.selected") : t("room.select")}
               </button>
             )}
             <Link href={href} className="text-link">
-              {horizontal ? "View details" : "View room"}
+              {horizontal ? t("room.viewDetails") : t("room.viewRoom")}
               <ArrowRight size={15} />
             </Link>
             {bookHref && (
               <Button asChild className="room-book">
-                <Link href={bookHref}>Book a room</Link>
+                <Link href={bookHref}>{t("room.book")}</Link>
               </Button>
             )}
           </div>
@@ -171,13 +181,14 @@ export function Gallery({
   images,
   open,
   setOpen,
-  title = "A closer look at Santo",
+  title,
 }: {
   images: string[];
   open: number | null;
   setOpen: (value: number | null) => void;
   title?: string;
 }) {
+  const t = useT();
   return (
     <Dialog
       open={open !== null}
@@ -186,25 +197,28 @@ export function Gallery({
       }}
     >
       <DialogContent className="gallery-dialog">
-        <DialogTitle>{title}</DialogTitle>
+        <DialogTitle>{title ?? t("gallery.title")}</DialogTitle>
         <DialogDescription>
-          Hotel photography · {open === null ? 1 : open + 1} of {images.length}
+          {t("gallery.count", {
+            current: open === null ? 1 : open + 1,
+            total: images.length,
+          })}
         </DialogDescription>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={images[open ?? 0]} alt="Santo Hotel gallery" />
+        <img src={images[open ?? 0]} alt={t("gallery.alt")} />
         <div className="flex justify-between">
           <Button
             variant="outline"
             onClick={() => setOpen(((open ?? 0) - 1 + images.length) % images.length)}
           >
             <ChevronLeft />
-            Previous
+            {t("gallery.previous")}
           </Button>
           <Button
             variant="outline"
             onClick={() => setOpen(((open ?? 0) + 1) % images.length)}
           >
-            Next
+            {t("gallery.next")}
             <ChevronRight />
           </Button>
         </div>
@@ -231,10 +245,11 @@ export function GalleryTile({
 }
 
 export function ViewAllPhotos({ onClick }: { onClick: () => void }) {
+  const t = useT();
   return (
     <Button className="all-photos" variant="secondary" onClick={onClick}>
       <Grid2X2 />
-      View all photos
+      {t("gallery.viewAll")}
     </Button>
   );
 }

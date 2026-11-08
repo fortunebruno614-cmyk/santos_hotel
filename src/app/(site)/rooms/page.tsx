@@ -2,18 +2,16 @@ import { Listing } from "@/components/hotel/listing";
 import { loadHotelProfile, loadPublicRoomTypes } from "@/server/public/catalog";
 import { getDefaultHotel } from "@/server/public/hotels";
 import { getContent } from "@/server/console/settings";
+import { getT, pageMetadata } from "@/server/locale/display";
 
-export const metadata = {
-  title: "Rooms & Suites",
-  description:
-    "Find your perfect stay in the Santo Hotel room and suite collection. Explore accommodation, amenities and rates.",
-};
+export const generateMetadata = () => pageMetadata("meta.rooms.title", "meta.rooms.description");
 
 export default async function RoomsPage() {
   const defaultHotel = await getDefaultHotel();
   if (!defaultHotel) return null;
   const hotelId = defaultHotel.id;
-  const [rooms, hotel, intro] = await Promise.all([
+  const [t, rooms, hotel, intro] = await Promise.all([
+    getT(),
     loadPublicRoomTypes(hotelId),
     loadHotelProfile(hotelId),
     getContent("rooms.intro", hotelId),
@@ -32,7 +30,9 @@ export default async function RoomsPage() {
         latitude: hotel.latitude,
         longitude: hotel.longitude,
       }}
-      policyNote={`Free cancellation up to ${hotel.cancellationWindowHours} hours before arrival`}
+      policyNote={t("policy.freeCancellation", {
+        hours: hotel.cancellationWindowHours,
+      })}
       title={intro?.title}
       description={intro?.body}
     />

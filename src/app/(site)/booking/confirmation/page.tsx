@@ -15,6 +15,8 @@ import {
 import { prisma } from "@/lib/prisma";
 import { displayCurrency } from "@/server/currency/display";
 import { fallbackImageForSlug, formatMoney } from "@/lib/hotel";
+import { getT } from "@/server/locale/display";
+import type { Dictionary } from "@/lib/dictionaries";
 
 export default async function ConfirmationPage({
   searchParams,
@@ -23,16 +25,17 @@ export default async function ConfirmationPage({
 }) {
   const sp = await searchParams;
   const display = await displayCurrency();
+  const t = await getT();
   const reference = sp.ref?.trim();
 
   if (!reference) {
     return (
       <div className="container page-content">
         <div className="empty-state">
-          <h2>Booking confirmation</h2>
-          <p>No reservation reference was provided.</p>
+          <h2>{t("confirmation.emptyTitle")}</h2>
+          <p>{t("confirmation.emptyBody")}</p>
           <Button asChild>
-            <Link href="/">Back to the hotel</Link>
+            <Link href="/">{t("confirmation.backHome")}</Link>
           </Button>
         </div>
       </div>
@@ -65,10 +68,10 @@ export default async function ConfirmationPage({
     return (
       <div className="container page-content">
         <div className="empty-state">
-          <h2>We couldn&apos;t find that reservation.</h2>
-          <p>Reservation {reference} is not available for this browser or account.</p>
+          <h2>{t("confirmation.notFoundTitle")}</h2>
+          <p>{t("confirmation.notFoundBody", { ref: reference })}</p>
           <Button asChild>
-            <Link href="/search">Search rooms</Link>
+            <Link href="/search">{t("confirmation.searchRooms")}</Link>
           </Button>
         </div>
       </div>
@@ -86,20 +89,26 @@ export default async function ConfirmationPage({
 
   const rows: SummaryRow[] = [
     ...detail.rooms.map((room) => ({
-      label: `${room.roomTypeName} · Room ${room.roomNumber}`,
+      label: t("booking.lineRow", {
+        type: room.roomTypeName,
+        number: room.roomNumber,
+      }),
       value: formatMoney(room.roomTotal, detail.currency, display),
     })),
     ...(Number(detail.breakdown.discount) > 0
       ? [
           {
-            label: "Discount",
+            label: t("booking.discount"),
             value: `−${formatMoney(detail.breakdown.discount, detail.currency, display)}`,
           },
         ]
       : []),
-    { label: "Taxes", value: formatMoney(detail.breakdown.taxes, detail.currency, display) },
-    { label: "Service fee", value: formatMoney(detail.breakdown.fees, detail.currency, display) },
+    { label: t("booking.taxes"), value: formatMoney(detail.breakdown.taxes, detail.currency, display) },
+    { label: t("booking.serviceFee"), value: formatMoney(detail.breakdown.fees, detail.currency, display) },
   ];
+
+  const statusLabel = t(`status.booking.${detail.bookingStatus}` as keyof Dictionary);
+  const paymentLabel = t(`status.payment.${detail.paymentStatus}` as keyof Dictionary);
 
   return (
     <div className="container page-content confirmation-page">
@@ -108,42 +117,56 @@ export default async function ConfirmationPage({
           <Check />
         </span>
         <span className="eyebrow">
-          {cancelled ? "RESERVATION CANCELLED" : "SOMETHING TO LOOK FORWARD TO"}
+          {cancelled ? t("confirmation.eyebrow.cancelled") : t("confirmation.eyebrow.success")}
         </span>
-        <h1>{cancelled ? "Your reservation was cancelled." : "Your Stay at Santo Hotel"}</h1>
+        <h1>
+          {cancelled ? t("confirmation.title.cancelled") : t("confirmation.title.success")}
+        </h1>
         <p>
-          {cancelled
-            ? "We hope to welcome you another time."
-            : "A little escape, thoughtfully put together."}
+          {cancelled ? t("confirmation.body.cancelled") : t("confirmation.body.success")}
         </p>
         <span className="subtle-badge">
-          Reference {detail.bookingReference} · {detail.bookingStatus}
+          {t("confirmation.referenceBadge", {
+            ref: detail.bookingReference,
+            status: statusLabel,
+          })}
         </span>
       </div>
 
       <div className="checkout-layout">
         <section className="form-section">
-          <span className="eyebrow">RESERVATION DETAILS</span>
+          <span className="eyebrow">{t("confirmation.detailsEyebrow")}</span>
           <h2>{detail.bookingReference}</h2>
           <div className="review-details">
             <span>
-              Guest<strong>{detail.guestName}</strong>
+              {t("confirmation.guest")}<strong>{detail.guestName}</strong>
             </span>
             <span>
-              Stay<strong>{detail.checkIn} → {detail.checkOut}</strong>
+              {t("confirmation.stay")}<strong>{detail.checkIn} → {detail.checkOut}</strong>
             </span>
             <span>
-              Party<strong>{detail.adults} adult{detail.adults === 1 ? "" : "s"}{detail.children > 0 ? ` · ${detail.children} children` : ""}</strong>
+              {t("confirmation.party")}
+              <strong>
+                {detail.adults}{" "}
+                {detail.adults === 1 ? t("search.adult") : t("search.adultsPlural")}
+                {detail.children > 0
+                  ? ` · ${detail.children} ${
+                      detail.children === 1 ? t("search.child") : t("search.childrenPlural")
+                    }`
+                  : ""}
+              </strong>
             </span>
             <span>
-              Payment status<strong>{detail.paymentStatus}</strong>
+              {t("confirmation.paymentStatus")}<strong>{paymentLabel}</strong>
             </span>
             <span>
-              Cancellation
+              {t("confirmation.cancellation")}
               <strong>
                 {detail.cancellation.deadline
-                  ? `Until ${detail.cancellation.deadline.slice(0, 16).replace("T", " ")} UTC`
-                  : "Contact the hotel"}
+                  ? t("confirmation.until", {
+                      when: detail.cancellation.deadline.slice(0, 16).replace("T", " "),
+                    })
+                  : t("account.contactHotel")}
               </strong>
             </span>
           </div>
@@ -152,17 +175,19 @@ export default async function ConfirmationPage({
             <Check />
             <p>
               {cancelled
-                ? "This reservation has been cancelled and no further action is required."
+                ? t("confirmation.cancelledNotice")
                 : detail.paymentStatus === "PAID"
-                  ? "Your reservation is paid in full. We look forward to welcoming you."
-                  : "Your reservation is held. Complete payment to confirm your stay."}
+                  ? t("confirmation.paidNotice")
+                  : t("confirmation.heldNotice")}
             </p>
           </div>
 
           {!cancelled && detail.paymentStatus !== "PAID" && (
             <Button asChild>
               <Link href={`/pay/${encodeURIComponent(detail.bookingReference)}`}>
-                Pay {formatMoney(detail.breakdown.total, detail.currency, display)} now{" "}
+                {t("confirmation.payNow", {
+                  amount: formatMoney(detail.breakdown.total, detail.currency, display),
+                })}{" "}
                 <ArrowRight />
               </Link>
             </Button>
@@ -180,19 +205,19 @@ export default async function ConfirmationPage({
 
           {detail.notes && (
             <>
-              <h3>Your requests</h3>
+              <h3>{t("confirmation.yourRequests")}</h3>
               <p className="tiny-note">{detail.notes}</p>
             </>
           )}
 
           <div className="confirmation-actions">
             <Button asChild variant="outline">
-              <Link href="/account">View my bookings</Link>
+              <Link href="/account">{t("confirmation.viewBookings")}</Link>
             </Button>
             <PrintButton />
           </div>
           <Link href="/" className="text-link">
-            Return to homepage
+            {t("confirmation.returnHome")}
           </Link>
         </section>
 
@@ -201,15 +226,24 @@ export default async function ConfirmationPage({
           title={detail.rooms.map((room) => room.roomTypeName).join(" + ")}
           checkIn={detail.checkIn}
           checkOut={detail.checkOut}
-          guests={`${detail.adults} adult${detail.adults === 1 ? "" : "s"}${detail.children > 0 ? ` · ${detail.children} children` : ""} · ${detail.rooms.length} room${detail.rooms.length === 1 ? "" : "s"}`}
+          guests={t("booking.guestsLine", {
+            adults: detail.adults,
+            adultUnit: detail.adults === 1 ? t("search.adult") : t("search.adultsPlural"),
+            children: detail.children,
+            childUnit: detail.children === 1 ? t("search.child") : t("search.childrenPlural"),
+            rooms: detail.rooms.length,
+            roomUnit: detail.rooms.length === 1 ? t("summary.room") : t("summary.rooms"),
+          })}
           rows={rows}
           total={detail.breakdown.total}
           currency={detail.currency}
           displayCurrency={display}
           note={
             detail.cancellation.deadline
-              ? `Free cancellation until ${detail.cancellation.deadline.slice(0, 16).replace("T", " ")} UTC.`
-              : "Cancellation terms are confirmed by the hotel."
+              ? t("confirmation.freeCancellationUntil", {
+                  when: detail.cancellation.deadline.slice(0, 16).replace("T", " "),
+                })
+              : t("confirmation.cancellationTerms")
           }
         />
       </div>

@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { CalendarDays, UsersRound } from "lucide-react";
+import { useT } from "@/components/hotel/locale-provider";
 import { formatMoney } from "@/lib/hotel";
 
 export type SummaryRow = {
@@ -37,12 +40,13 @@ export function BookingSummary({
   search?: React.ReactNode;
   children?: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <aside className="booking-summary">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="summary-photo" src={image} alt={title} />
       <div className="summary-inner">
-        <span className="eyebrow">YOUR SELECTION</span>
+        <span className="eyebrow">{t("summary.yourSelection")}</span>
         <h3>{title}</h3>
         <p className="summary-meta">
           <CalendarDays size={16} />
@@ -61,14 +65,14 @@ export function BookingSummary({
         ))}
         {total && (
           <div className="price-row total">
-            <span>Total stay</span>
+            <span>{t("summary.totalStay")}</span>
             <strong>{formatMoney(total, currency, displayCurrency)}</strong>
           </div>
         )}
         {note && <p className="tiny-note">{note}</p>}
         {changeHref && (
           <Link href={changeHref} className="text-link">
-            Change room
+            {t("summary.changeRoom")}
           </Link>
         )}
         {children}

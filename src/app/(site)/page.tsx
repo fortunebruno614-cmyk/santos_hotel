@@ -6,12 +6,14 @@ import {
   loadRoomsInventory,
 } from "@/server/public/catalog";
 import { getDefaultHotel } from "@/server/public/hotels";
+import { getT } from "@/server/locale/display";
 
 export default async function Home() {
   const defaultHotel = await getDefaultHotel();
   if (!defaultHotel) return null;
   const hotelId = defaultHotel.id;
-  const [hero, rooms, hotel, inventory] = await Promise.all([
+  const [t, hero, rooms, hotel, inventory] = await Promise.all([
+    getT(),
     getContent("home.hero", hotelId),
     loadPublicRoomTypes(hotelId),
     loadHotelProfile(hotelId),
@@ -21,18 +23,15 @@ export default async function Home() {
   const address =
     [hotel.addressLine1, hotel.addressLine2, hotel.city, hotel.postcode, hotel.country]
       .filter(Boolean)
-      .join(", ") || "Hotel address to be confirmed.";
+      .join(", ") || t("home.addressFallback");
 
   return (
     <HomeContent
       rooms={rooms}
       inventory={inventory}
       currency={hotel.currency}
-      heroTitle={hero?.title || "Your Stay, Thoughtfully Designed."}
-      heroBody={
-        hero?.body ||
-        "Discover comfort, exceptional hospitality, and a stay tailored to you at Santo Hotel."
-      }
+      heroTitle={hero?.title || t("home.heroTitleFallback")}
+      heroBody={hero?.body || t("home.heroBodyFallback")}
       address={address}
       hotelName={hotel.name}
     />

@@ -14,6 +14,8 @@ import { AvailabilityConflictError } from "@/server/availability/service";
 import { getDefaultHotel, getPublishedHotelBySlug } from "@/server/public/hotels";
 import { displayCurrency } from "@/server/currency/display";
 import { fallbackImageForSlug, formatMoney } from "@/lib/hotel";
+import { getT } from "@/server/locale/display";
+import type { Dictionary } from "@/lib/dictionaries";
 
 const RoomIdsSchema = z
   .string()
@@ -32,16 +34,17 @@ const RoomIdsSchema = z
     { message: "invalid room id" },
   );
 
-const QUOTE_ERROR_MESSAGES: Record<string, string> = {
-  promotion_not_found: "That promotion code does not exist.",
-  promotion_inactive: "That promotion is not currently active.",
-  promotion_expired: "That promotion is no longer valid.",
-  promotion_exhausted: "That promotion has been fully redeemed.",
-  too_many_rooms: "That is more rooms than a single reservation may hold.",
-  unavailable: "Those rooms are no longer available for your dates.",
-  room_not_found: "One of the selected rooms no longer exists.",
-  invalid_date_range: "Check-out must be after check-in.",
-  stay_too_long: "That stay is longer than the 60-night limit.",
+/** Quote error codes → dictionary keys, translated at render. */
+const QUOTE_ERROR_KEYS: Record<string, keyof Dictionary> = {
+  promotion_not_found: "checkout.error.promotion_not_found",
+  promotion_inactive: "checkout.error.promotion_inactive",
+  promotion_expired: "checkout.error.promotion_expired",
+  promotion_exhausted: "checkout.error.promotion_exhausted",
+  too_many_rooms: "checkout.error.too_many_rooms",
+  unavailable: "checkout.error.unavailable",
+  room_not_found: "quote.error.room_not_found",
+  invalid_date_range: "quote.error.invalid_date_range",
+  stay_too_long: "quote.error.stay_too_long",
 };
 
 type Prefill = { firstName: string; lastName: string; email: string | null } | null;
@@ -76,6 +79,7 @@ export default async function BookingPage({
   const searchHref = `/search?checkIn=${parsed.data.checkIn}&checkOut=${parsed.data.checkOut}&adults=${adults}&children=${children}&rooms=${selectedRoomIds.length}`;
 
   const session = await getCurrentSession();
+  const t = await getT();
   const prefill: Prefill =
     session?.kind === "guest" && session.guestId
       ? await prisma.guest.findUnique({
@@ -101,7 +105,7 @@ export default async function BookingPage({
   } catch (error) {
     if (error instanceof QuoteError || error instanceof AvailabilityConflictError) {
       const code = error instanceof QuoteError ? error.code : "unavailable";
-      failure = QUOTE_ERROR_MESSAGES[code] ?? "Those rooms cannot be booked for the selected dates.";
+      failure = t(QUOTE_ERROR_KEYS[code] ?? "booking.failureFallback");
     } else {
       throw error;
     }
@@ -119,19 +123,24 @@ export default async function BookingPage({
   const summaryRows: SummaryRow[] = quote
     ? [
         ...quote.lines.map((line) => ({
-          label: `${line.roomTypeName} · Room ${line.roomNumber}`,
+          label: t("booking.lineRow", {
+            type: line.roomTypeName,
+            number: line.roomNumber,
+          }),
           value: formatMoney(line.roomTotal, quote.currency, display),
         })),
         ...(Number(quote.breakdown.discount) > 0
           ? [
               {
-                label: `Discount${quote.promotion ? ` (${quote.promotion.code})` : ""}`,
+                label: quote.promotion
+                  ? t("booking.discountCode", { code: quote.promotion.code })
+                  : t("booking.discount"),
                 value: `−${formatMoney(quote.breakdown.discount, quote.currency, display)}`,
               },
             ]
           : []),
-        { label: "Taxes", value: formatMoney(quote.breakdown.taxes, quote.currency, display) },
-        { label: "Service fee", value: formatMoney(quote.breakdown.fees, quote.currency, display) },
+        { label: t("booking.taxes"), value: formatMoney(quote.breakdown.taxes, quote.currency, display) },
+        { label: t("booking.serviceFee"), value: formatMoney(quote.breakdown.fees, quote.currency, display) },
       ]
     : [];
 
@@ -139,19 +148,19 @@ export default async function BookingPage({
     <div className="container page-content checkout-page">
       <Link href={searchHref} className="text-link">
         <ChevronLeft size={16} />
-        Back to rooms
+        {t("booking.backToRooms")}
       </Link>
       <PageHeading
-        eyebrow="A FEW THOUGHTFUL DETAILS"
-        title="Your stay, coming together."
-        description="Review your selection and complete your guest details. Your reservation is confirmed before payment."
+        eyebrow={t("booking.eyebrow")}
+        title={t("booking.title")}
+        description={t("booking.description")}
       />
 
       {failure && (
         <div className="form-section">
-          <h2>We couldn&apos;t hold those rooms.</h2>
+          <h2>{t("booking.failureTitle")}</h2>
           <p>{failure}</p>
-          <ButtonLink href={searchHref}>Search other rooms</ButtonLink>
+          <ButtonLink href={searchHref}>{t("booking.searchOther")}</ButtonLink>
         </div>
       )}
 
@@ -193,18 +202,28 @@ export default async function BookingPage({
             title={
               quote.lines.length === 1
                 ? quote.lines[0].roomTypeName
-                : `${quote.lines[0].roomTypeName} + ${quote.lines.length - 1} more`
+                : t("booking.moreRooms", {
+                    type: quote.lines[0].roomTypeName,
+                    count: quote.lines.length - 1,
+                  })
             }
             checkIn={quote.checkIn}
             checkOut={quote.checkOut}
-            guests={`${quote.adults} adult${quote.adults === 1 ? "" : "s"}${
-              quote.children > 0 ? ` · ${quote.children} children` : ""
-            } · ${quote.lines.length} room${quote.lines.length === 1 ? "" : "s"}`}
+            guests={t("booking.guestsLine", {
+              adults: quote.adults,
+              adultUnit: quote.adults === 1 ? t("search.adult") : t("search.adultsPlural"),
+              children: quote.children,
+              childUnit: quote.children === 1 ? t("search.child") : t("search.childrenPlural"),
+              rooms: quote.lines.length,
+              roomUnit: quote.lines.length === 1 ? t("summary.room") : t("summary.rooms"),
+            })}
             rows={summaryRows}
             total={quote.breakdown.total}
             currency={quote.currency}
             displayCurrency={display}
-            note={`Free cancellation up to ${quote.policy.cancellationWindowHours} hours before check-in.`}
+            note={t("policy.freeCancellationCheckIn", {
+              hours: quote.policy.cancellationWindowHours,
+            })}
             changeHref={searchHref}
           />
         </div>

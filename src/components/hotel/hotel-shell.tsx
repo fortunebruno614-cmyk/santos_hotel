@@ -6,7 +6,6 @@ import { useState } from "react";
 import {
   ArrowUpRight,
   Camera,
-  Globe2,
   Mail,
   MapPin,
   Menu,
@@ -17,16 +16,21 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { AiChat } from "@/components/hotel/ai-chat";
 import { CurrencySwitch } from "@/components/hotel/currency-switch";
+import { LanguageSwitch } from "@/components/hotel/language-switch";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
+import { useLocale, useT } from "@/components/hotel/locale-provider";
+import { LOCALE_NAMES } from "@/lib/i18n";
+import type { Dictionary } from "@/lib/dictionaries";
 import { defaultStayDates, searchHref } from "@/lib/hotel";
 import { logout } from "@/server/auth/actions";
 
+/** Href is the stable identity; the label is translated at render time. */
 const NAV = [
-  { href: "/", label: "Home" },
-  { href: "/rooms", label: "Rooms & Suites" },
-  { href: "/offers", label: "Offers" },
-  { href: "/hotel", label: "The Hotel" },
-  { href: "/contact", label: "Contact" },
+  { href: "/", key: "nav.home" },
+  { href: "/rooms", key: "nav.rooms" },
+  { href: "/offers", key: "nav.offers" },
+  { href: "/hotel", key: "nav.hotel" },
+  { href: "/contact", key: "nav.contact" },
 ] as const;
 
 export function Brand() {
@@ -63,9 +67,13 @@ export function HotelShell({
   chatEnabled: boolean;
 }) {
   const [menu, setMenu] = useState(false);
-  const [policy, setPolicy] = useState("");
+  // A key, not a label: the dialog's copy must re-translate if the visitor
+  // switches language while it is open.
+  const [policy, setPolicy] = useState<keyof Dictionary | null>(null);
   const pathname = usePathname();
   const display = useDisplayCurrency();
+  const locale = useLocale();
+  const t = useT();
   const bookHref = searchHref({
     ...defaultStayDates(),
     adults: 2,
@@ -84,41 +92,39 @@ export function HotelShell({
                 item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
               return (
                 <Link key={item.href} href={item.href} className={active ? "active" : ""}>
-                  {item.label}
+                  {t(item.key)}
                 </Link>
               );
             })}
           </nav>
           <div className="header-actions">
-            <span className="language">
-              <Globe2 size={14} /> EN
-            </span>
+            <LanguageSwitch />
             <CurrencySwitch />
             {signedIn ? (
               <Link href={staff ? "/admin" : "/account"} className="account-link">
                 <UserRound size={16} />
-                <span>{staff ? "Staff console" : "My Bookings"}</span>
+                <span>{staff ? t("header.staffConsole") : t("header.myBookings")}</span>
               </Link>
             ) : (
               <div className="auth-actions">
                 <Link href="/login" className="auth-link">
-                  Log in
+                  {t("header.logIn")}
                 </Link>
                 <Button asChild size="sm" className="header-signup">
-                  <Link href="/signup">Sign up</Link>
+                  <Link href="/signup">{t("header.signUp")}</Link>
                 </Button>
               </div>
             )}
             <Button asChild className="header-book">
               <Link href={bookHref}>
-                Book your stay <ArrowUpRight />
+                {t("header.book")} <ArrowUpRight />
               </Link>
             </Button>
             <Button
               variant="ghost"
               size="icon"
               className="mobile-toggle"
-              aria-label={menu ? "Close menu" : "Open menu"}
+              aria-label={menu ? t("a11y.closeMenu") : t("a11y.openMenu")}
               onClick={() => setMenu(!menu)}
             >
               {menu ? <X /> : <Menu />}
@@ -129,25 +135,29 @@ export function HotelShell({
           <nav className="mobile-nav">
             {NAV.map((item) => (
               <Link key={item.href} href={item.href} onClick={() => setMenu(false)}>
-                {item.label}
+                {t(item.key)}
               </Link>
             ))}
             <Link href={bookHref} onClick={() => setMenu(false)}>
-              Book your stay
+              {t("header.book")}
             </Link>
             <Link href={staff ? "/admin" : "/account"} onClick={() => setMenu(false)}>
-              {staff ? "Staff console" : "My Bookings"}
+              {staff ? t("header.staffConsole") : t("header.myBookings")}
             </Link>
             {!signedIn && (
               <>
                 <Link href="/login" onClick={() => setMenu(false)}>
-                  Log in
+                  {t("header.logIn")}
                 </Link>
                 <Link href="/signup" onClick={() => setMenu(false)}>
-                  Sign up
+                  {t("header.signUp")}
                 </Link>
               </>
             )}
+            <div className="mobile-nav-tools">
+              <LanguageSwitch />
+              <CurrencySwitch />
+            </div>
           </nav>
         )}
       </header>
@@ -158,46 +168,43 @@ export function HotelShell({
         <div className="container footer-grid">
           <div>
             <Brand />
-            <p>
-              A considered stay.
-              <br />A genuine welcome.
-            </p>
+            <p className="footer-tagline">{t("footer.tagline")}</p>
             <span className="footer-social">
               <Camera size={18} />
               <Mail size={18} />
             </span>
           </div>
           <div>
-            <h3>Explore Santo</h3>
-            <Link href="/rooms">Rooms & Suites</Link>
-            <Link href="/offers">Special Offers</Link>
-            <Link href="/hotel">Our Hotel</Link>
-            <Link href="/hotel">Gallery & Facilities</Link>
+            <h3>{t("footer.explore")}</h3>
+            <Link href="/rooms">{t("footer.rooms")}</Link>
+            <Link href="/offers">{t("footer.offers")}</Link>
+            <Link href="/hotel">{t("footer.ourHotel")}</Link>
+            <Link href="/hotel">{t("footer.gallery")}</Link>
           </div>
           <div>
-            <h3>Your stay</h3>
-            <Link href="/account">My Bookings</Link>
-            <Link href="/contact">Booking Assistance</Link>
-            <Button variant="link" onClick={() => setPolicy("Cancellation policy")}>
-              Cancellation Policy
+            <h3>{t("footer.yourStay")}</h3>
+            <Link href="/account">{t("footer.myBookings")}</Link>
+            <Link href="/contact">{t("footer.assistance")}</Link>
+            <Button variant="link" onClick={() => setPolicy("policy.cancellation")}>
+              {t("footer.cancellation")}
             </Button>
-            <Link href="/hotel">Frequently Asked Questions</Link>
-            {staff && <Link href="/admin">Staff console</Link>}
+            <Link href="/hotel">{t("footer.faq")}</Link>
+            {staff && <Link href="/admin">{t("header.staffConsole")}</Link>}
             {signedIn && (
               <form action={logout}>
                 <Button type="submit" variant="link">
-                  Sign out
+                  {t("footer.signOut")}
                 </Button>
               </form>
             )}
           </div>
           <div>
-            <h3>Let&apos;s connect</h3>
+            <h3>{t("footer.connect")}</h3>
             <p>
               <MapPin size={15} /> {address}
             </p>
             <Link href="/contact">
-              Contact our team <ArrowUpRight size={14} />
+              {t("footer.contactTeam")} <ArrowUpRight size={14} />
             </Link>
             {email && (
               <Link href={`mailto:${email}`}>
@@ -205,35 +212,34 @@ export function HotelShell({
               </Link>
             )}
             <span className="demo-note">
-              {footerNote ?? "Thoughtful stays, considered details. Every reservation is handled by our team."}
+              {footerNote ?? t("footer.note")}
             </span>
           </div>
         </div>
         <div className="container footer-bottom">
-          <span>© 2026 {hotelName}. All rights reserved.</span>
+          <span>{t("footer.copyright", { hotelName })}</span>
           <div>
-            <Button variant="link" onClick={() => setPolicy("Privacy policy")}>
-              Privacy Policy
+            <Button variant="link" onClick={() => setPolicy("policy.privacy")}>
+              {t("footer.privacy")}
             </Button>
-            <Button variant="link" onClick={() => setPolicy("Terms & conditions")}>
-              Terms & Conditions
+            <Button variant="link" onClick={() => setPolicy("policy.terms")}>
+              {t("footer.terms")}
             </Button>
             <span>
-              English ·{" "}
+              {LOCALE_NAMES[locale]} ·{" "}
               {display === currency.toUpperCase()
                 ? currency
-                : `${display} prices · billed in ${currency}`}
+                : t("footer.billedIn", { display, currency })}
             </span>
           </div>
         </div>
       </footer>
 
-      <Dialog open={!!policy} onOpenChange={() => setPolicy("")}>
+      <Dialog open={policy !== null} onOpenChange={() => setPolicy(null)}>
         <DialogContent>
-          <DialogTitle>{policy}</DialogTitle>
+          <DialogTitle>{policy ? t(policy) : ""}</DialogTitle>
           <DialogDescription>
-            Our hotel-approved {policy.toLowerCase()} is available from the front desk. Please
-            contact the hotel if you need a copy before booking.
+            {t("policy.body", { policy: policy ? t(policy).toLowerCase() : "" })}
           </DialogDescription>
         </DialogContent>
       </Dialog>

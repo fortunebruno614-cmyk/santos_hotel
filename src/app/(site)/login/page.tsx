@@ -6,10 +6,13 @@ import { Breadcrumb, PageHeading } from "@/components/hotel/shared";
 import { loginStaff, loginGuest } from "@/server/auth/actions";
 import { getCurrentSession } from "@/server/auth/dal";
 import { sanitizeNextPath, resolvePostLoginPath } from "@/config/access-map";
+import { getT } from "@/server/locale/display";
+import type { Dictionary } from "@/lib/dictionaries";
 
-const ERROR_MESSAGES: Record<string, string> = {
-  invalid: "Invalid credentials",
-  rate_limited: "Too many failed attempts — please wait a few minutes and try again.",
+/** Login error codes → dictionary keys, translated at render. */
+const ERROR_KEYS: Record<string, keyof Dictionary> = {
+  invalid: "login.error.invalid",
+  rate_limited: "login.error.rate_limited",
 };
 
 export default async function LoginPage({
@@ -18,7 +21,8 @@ export default async function LoginPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
-  const error = ERROR_MESSAGES[sp.error ?? ""] ?? null;
+  const t = await getT();
+  const error = ERROR_KEYS[sp.error ?? ""] ? t(ERROR_KEYS[sp.error ?? ""]) : null;
   const expired = sp.expired === "1";
   const next = sanitizeNextPath(sp.next);
 
@@ -29,59 +33,63 @@ export default async function LoginPage({
 
   return (
     <div className="container page-content">
-      <Breadcrumb current="Sign in" />
+      <Breadcrumb current={t("login.breadcrumb")} />
       <div className="account-auth">
         <span className="auth-icon">
           <UserRound />
         </span>
         <PageHeading
-          eyebrow="YOUR OWN LITTLE CORNER OF SANTO"
-          title="Welcome back."
-          description="Your stays, your details, all in one place."
+          eyebrow={t("login.eyebrow")}
+          title={t("login.title")}
+          description={t("login.description")}
         />
-        {expired && (
-          <p className="form-error">Your session has expired or was revoked. Please sign in again.</p>
-        )}
+        {expired && <p className="form-error">{t("login.expired")}</p>}
         {error && <p className="form-error">{error}</p>}
 
         <form action={loginGuest}>
           <input type="hidden" name="next" value={next ?? ""} />
           <label>
-            Email address
-            <input name="email" type="email" required autoComplete="email" placeholder="you@example.com" />
+            {t("login.email")}
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder={t("login.emailPlaceholder")}
+            />
           </label>
           <label>
-            Password
+            {t("login.password")}
             <input name="password" type="password" required autoComplete="current-password" />
           </label>
           <Button className="w-full" type="submit">
-            Sign in
+            {t("login.signIn")}
             <ArrowRight />
           </Button>
         </form>
 
         <p className="tiny-note">
-          New to Santo?{" "}
+          {t("login.newToSanto")}{" "}
           <Link href="/signup" className="underline">
-            Create a guest account
+            {t("login.createAccount")}
           </Link>
           .
         </p>
 
         <details className="faq staff-signin">
-          <summary>Staff & administrator sign in</summary>
+          <summary>{t("login.staffTitle")}</summary>
           <form action={loginStaff}>
             <input type="hidden" name="next" value={next ?? ""} />
             <label>
-              Staff email
+              {t("login.staffEmail")}
               <input name="email" type="email" required autoComplete="email" />
             </label>
             <label>
-              Password
+              {t("login.password")}
               <input name="password" type="password" required autoComplete="current-password" />
             </label>
             <Button className="w-full" type="submit">
-              Sign in to the console
+              {t("login.staffSignIn")}
               <ArrowRight />
             </Button>
           </form>

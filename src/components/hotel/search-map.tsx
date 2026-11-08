@@ -5,6 +5,7 @@ import { ExternalLink, Navigation } from "lucide-react";
 import { hasCoordinates, mapZoomForCoordinates, searchHref, fallbackImageForSlug, formatMoney, nightsBetween, type HotelLocation, type ListingRoom, type StayQuery } from "@/lib/hotel";
 import { googleMapsApiKey, isDemoMapLocation } from "@/config/maps";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
+import { useT } from "@/components/hotel/locale-provider";
 
 /**
  * Search-results map: the fazwaz-style price pin. One marker sits on the
@@ -140,6 +141,7 @@ export function SearchMap({
   const mapsKey = googleMapsApiKey();
   const demoLocation = isDemoMapLocation();
   const display = useDisplayCurrency();
+  const t = useT();
 
   const coordinates = useMemo(
     () =>
@@ -158,7 +160,7 @@ export function SearchMap({
     return lowest;
   };
   const fromPrice = useMemo(() => cheapestOf(rooms), [rooms]);
-  const pinLabel = `From ${formatMoney(fromPrice, currency, display)}`;
+  const pinLabel = `${t("map.from")} ${formatMoney(fromPrice, currency, display)}`;
 
   const [loadState, setLoadState] = useState<LoadState>(() =>
     coordinates && !mapsKey ? "error" : "idle",
@@ -266,28 +268,27 @@ export function SearchMap({
         <>
           {demoLocation && (
             <p className="map-demo-notice" role="note">
-              Demo map location · not the hotel&apos;s verified address
+              {t("map.demoNotice")}
             </p>
           )}
           <div
             ref={containerRef}
             className="map-canvas"
             role="application"
-            aria-label={`Map showing the location of ${location.name}`}
+            aria-label={t("map.canvasAria", { name: location.name })}
           />
           {loadState === "idle" && (
             <div className="map-skeleton" aria-hidden="true" />
           )}
           {loadState === "idle" && (
-            <p className="map-status" role="status">Loading map…</p>
+            <p className="map-status" role="status">
+              {t("map.loading")}
+            </p>
           )}
           {loadState === "error" && (
             <div className="map-error" role="status">
-              <p className="map-state-title">The map could not be loaded.</p>
-              <p>
-                The room list and booking flow are unaffected — every room is
-                still reachable beside this pane.
-              </p>
+              <p className="map-state-title">{t("map.errorTitle")}</p>
+              <p>{t("map.errorBody")}</p>
               {address && <p className="map-address">{address}</p>}
             </div>
           )}
@@ -299,7 +300,7 @@ export function SearchMap({
               aria-expanded={cardOpen}
               onClick={() => setCardOpen((open) => !open)}
             >
-              {cardOpen ? "Hide prices" : `Show prices ${pinLabel}`}
+              {cardOpen ? t("map.hidePrices") : t("map.showPrices", { label: pinLabel })}
             </button>
           )}
 
@@ -308,7 +309,7 @@ export function SearchMap({
               className="map-card"
               role="dialog"
               aria-modal="false"
-              aria-label={`${location.name} prices and availability`}
+              aria-label={t("map.cardAria", { name: location.name })}
             >
               <div className="map-card-head">
                 <strong>{location.name}</strong>
@@ -316,7 +317,7 @@ export function SearchMap({
                   ref={closeRef}
                   type="button"
                   className="map-card-close"
-                  aria-label="Close prices and availability"
+                  aria-label={t("map.closeCard")}
                   onClick={() => setCardOpen(false)}
                 >
                   ×
@@ -331,25 +332,27 @@ export function SearchMap({
                   rel="noopener noreferrer"
                 >
                   <Navigation size={13} aria-hidden="true" />
-                  Get directions
+                  {t("map.directions")}
                 </a>
               )}
               <p className="map-card-from">
-                Nightly rates from{" "}
+                {t("map.nightlyFrom")}{" "}
                 <strong>{formatMoney(fromPrice, currency, display)}</strong>
                 {stay && (
                   <span>
-                    {" "}· {stay.checkIn} → {stay.checkOut} ({nights}{" "}
-                    {nights === 1 ? "night" : "nights"})
+                    {" "}
+                    {t("map.dateRange", {
+                      checkIn: stay.checkIn,
+                      checkOut: stay.checkOut,
+                      nights,
+                      unit: nights === 1 ? t("room.night") : t("room.nights"),
+                    })}
                   </span>
                 )}
               </p>
 
               {results.length === 0 ? (
-                <p className="map-card-empty">
-                  No rooms match your current filters or dates. Widen the
-                  search to see what&apos;s available.
-                </p>
+                <p className="map-card-empty">{t("map.noRooms")}</p>
               ) : (
                 <ul className="map-room-list">
                   {results.map((room) => {
@@ -372,22 +375,30 @@ export function SearchMap({
                           <span className="map-room-info">
                             <span className="map-room-name">{room.name}</span>
                             <span className="map-room-meta">
-                              {room.maxAdults} guests · {room.bed}
+                              {t("room.guests", { count: room.maxAdults })} · {room.bed}
                             </span>
                             {room.availableCount !== undefined && (
                               <span className="map-room-avail">
-                                {room.availableCount}{" "}
-                                {room.availableCount === 1 ? "room" : "rooms"} available
+                                {t("map.available", {
+                                  count: room.availableCount,
+                                  unit:
+                                    room.availableCount === 1
+                                      ? t("summary.room")
+                                      : t("summary.rooms"),
+                                })}
                               </span>
                             )}
                           </span>
                           <span className="map-room-price">
                             <strong>{formatMoney(nightly, currency, display)}</strong>
-                            <span>per night</span>
+                            <span>{t("map.perNight")}</span>
                             {stay && room.price?.stayTotal && (
                               <span className="map-room-total">
-                                {formatMoney(room.price.stayTotal, currency, display)} for {nights}{" "}
-                                {nights === 1 ? "night" : "nights"}
+                                {t("map.stayTotal", {
+                                  total: formatMoney(room.price.stayTotal, currency, display),
+                                  nights,
+                                  unit: nights === 1 ? t("room.night") : t("room.nights"),
+                                })}
                               </span>
                             )}
                           </span>
@@ -409,18 +420,15 @@ export function SearchMap({
               target="_blank"
               rel="noopener noreferrer"
             >
-              Open in Google Maps
+              {t("map.openGmaps")}
               <ExternalLink size={12} aria-hidden="true" />
             </a>
           )}
         </>
       ) : (
         <div className="map-unavailable" role="status">
-          <p className="map-state-title">Map location unavailable</p>
-          <p>
-            The hotel&apos;s verified map position has not been set yet. The
-            room list and booking flow are unaffected.
-          </p>
+          <p className="map-state-title">{t("map.unavailableTitle")}</p>
+          <p>{t("map.unavailableBody")}</p>
           {address && <p className="map-address">{address}</p>}
         </div>
       )}

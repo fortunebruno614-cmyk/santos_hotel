@@ -287,6 +287,103 @@
   align-items: center;
   white-space: nowrap;
 }
+
+/* --- Language switcher (header + mobile nav) ------------------------------ */
+.language-switch {
+  position: relative;
+  flex-shrink: 0;
+}
+.language-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 27px;
+  padding-inline: 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.language-trigger:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.language-trigger:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+.language-trigger:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+.language-caret {
+  transition: transform 0.15s ease;
+}
+.language-trigger[aria-expanded="true"] .language-caret {
+  transform: rotate(180deg);
+}
+.language-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  inset-inline-end: 0;
+  z-index: 60;
+  min-width: 168px;
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  background: var(--background, #fff);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 0.14);
+}
+.language-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+}
+.language-menu button:hover {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.language-menu button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+.language-menu button[aria-checked="true"] {
+  color: var(--primary);
+  font-weight: 650;
+}
+.language-name {
+  /* Each language renders in its own script, so it must not inherit a
+     direction or font that would mangle it. */
+  font-family: var(--font-noto-arabic), var(--font-manrope), system-ui, sans-serif;
+}
+.mobile-nav-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 14px;
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+}
+/* The tagline carries a real newline from the dictionary. */
+.footer-tagline {
+  white-space: pre-line;
+}
 .currency-switch {
   display: inline-flex;
   align-items: center;
@@ -482,7 +579,7 @@
   display: flex;
   flex-direction: column;
   padding: 0 17px;
-  border-right: 1px solid var(--border);
+  border-inline-end: 1px solid var(--border);
   min-width: 0;
   gap: 7px;
 }
@@ -515,7 +612,7 @@
   height: 47px;
   font-size: 11px;
   padding: 0 15px;
-  margin-left: 15px;
+  margin-inline-start: 15px;
   border-radius: 3px;
 }
 .search-reassurance {
@@ -536,7 +633,7 @@
   font-size: 12px;
 }
 .search-reassurance small {
-  margin-left: auto;
+  margin-inline-start: auto;
   font-size: 9px;
 }
 .section {
@@ -606,7 +703,7 @@
 .photo-tag {
   position: absolute;
   top: 14px;
-  left: 14px;
+  inset-inline-start: 14px;
   background: var(--background);
   padding: 3px 9px;
   border-radius: 2px;
@@ -616,7 +713,7 @@
 .photo-arrow {
   position: absolute;
   bottom: 13px;
-  right: 13px;
+  inset-inline-end: 13px;
   background: var(--background);
   width: 29px;
   height: 29px;
@@ -918,7 +1015,7 @@
 .sample-rating {
   font-size: 21px;
   font-weight: 700;
-  margin-left: auto;
+  margin-inline-start: auto;
   color: var(--primary);
 }
 .sample-rating small {
@@ -999,7 +1096,7 @@
 .static-map > small {
   position: absolute;
   bottom: 12px;
-  left: 12px;
+  inset-inline-start: 12px;
   background: var(--background);
   font-size: 8px;
   padding: 3px 6px;
@@ -1017,7 +1114,7 @@
   align-items: start;
 }
 .footer-grid .brand small {
-  padding-left: 19px;
+  padding-inline-start: 19px;
 }
 .footer-grid h3 {
   font-size: 12px;
@@ -1237,7 +1334,7 @@
 .demo-state select {
   border: 1px solid var(--border);
   border-radius: 3px;
-  margin-left: 8px;
+  margin-inline-start: 8px;
   padding: 4px;
 }
 .empty-state {
@@ -1313,7 +1410,7 @@
 .all-photos {
   position: absolute;
   bottom: 17px;
-  right: 17px;
+  inset-inline-end: 17px;
   font-size: 11px;
 }
 .detail-layout {
@@ -1626,7 +1723,7 @@
   color: var(--destructive);
   font-size: 11px;
   grid-column: 1/-1;
-  padding-left: 17px;
+  padding-inline-start: 17px;
 }
 .review-details {
   display: grid;
@@ -1724,7 +1821,7 @@
   font-size: 32px;
 }
 .account-auth form {
-  text-align: left;
+  text-align: start;
 }
 .account-auth form > label {
   margin-bottom: 20px;
@@ -1741,12 +1838,12 @@
   position: relative;
 }
 .password-input input {
-  padding-right: 45px;
+  padding-inline-end: 45px;
 }
 .password-input button {
   position: absolute;
   top: 3px;
-  right: 3px;
+  inset-inline-end: 3px;
 }
 .account-layout {
   display: grid;
@@ -1800,7 +1897,7 @@
 }
 .account-booking button {
   display: flex;
-  padding-left: 0;
+  padding-inline-start: 0;
   margin-top: 10px;
   font-size: 11px;
 }
@@ -1861,7 +1958,7 @@
   font-size: 9px;
 }
 .offer-card button {
-  padding-left: 0;
+  padding-inline-start: 0;
   margin-top: 13px;
 }
 .offer-dialog {
@@ -2055,7 +2152,7 @@
     padding: 20px;
   }
   .search-field:nth-child(3) {
-    border-right: 0;
+    border-inline-end: 0;
   }
   .search-submit {
     margin: 0 0 0 10px;
@@ -2287,10 +2384,10 @@
   }
   .search-field:nth-child(2),
   .search-field:nth-child(4) {
-    border-right: 0;
+    border-inline-end: 0;
   }
   .search-field:nth-child(3) {
-    border-right: 1px solid var(--border);
+    border-inline-end: 1px solid var(--border);
   }
   .search-field > span {
     font-size: 8px;
@@ -2532,7 +2629,7 @@
     display: block;
     position: fixed;
     top: 0;
-    left: 0;
+    inset-inline-start: 0;
     bottom: 0;
     z-index: 50;
     background: var(--background);
@@ -2559,7 +2656,7 @@
     flex-basis: calc(100% - 100px);
   }
   .sort-label {
-    margin-left: auto;
+    margin-inline-start: auto;
   }
   .filter-toggle {
     font-size: 11px;
@@ -2607,7 +2704,7 @@
   }
   .all-photos {
     bottom: 13px;
-    right: 13px;
+    inset-inline-end: 13px;
     height: 31px;
     font-size: 9px;
     padding-inline: 10px;
@@ -2956,7 +3053,7 @@
   padding-inline: 0 10px;
 }
 .booking-summary .summary-search .form-error {
-  padding-left: 0;
+  padding-inline-start: 0;
 }
 .account-nav a {
   justify-content: flex-start;
@@ -3006,7 +3103,7 @@
   cursor: pointer;
 }
 .view-switch button + button {
-  border-left: 1px solid var(--border);
+  border-inline-start: 1px solid var(--border);
 }
 .view-switch button svg {
   width: 14px;
@@ -3153,7 +3250,7 @@
 }
 .map-status {
   position: absolute;
-  left: 15px;
+  inset-inline-start: 15px;
   bottom: 15px;
   font-size: 10px;
   color: var(--muted-foreground);
@@ -3197,7 +3294,7 @@
   position: absolute;
   z-index: 940;
   bottom: 54px;
-  right: 12px;
+  inset-inline-end: 12px;
   max-width: calc(100% - 24px);
   padding: 8px 11px;
   border: 1px solid var(--border);
@@ -3212,7 +3309,7 @@
 /* Keyboard/touch path to the info card (the marker click also opens it). */
 .map-info-trigger {
   position: absolute;
-  left: 15px;
+  inset-inline-start: 15px;
   top: 15px;
   font-size: 10px;
   font-weight: 600;
@@ -3233,7 +3330,7 @@
  * over the tiles, not a panel welded to the pane. */
 .map-card {
   position: absolute;
-  left: 15px;
+  inset-inline-start: 15px;
   top: 55px;
   width: min(340px, calc(100% - 30px));
   max-height: calc(100% - 70px);
@@ -3327,7 +3424,7 @@
 /* Bottom-right chip: hands the verified position to Google Maps itself. */
 .map-open-gmaps {
   position: absolute;
-  right: 12px;
+  inset-inline-end: 12px;
   bottom: 12px;
   z-index: 950;
   display: inline-flex;
@@ -3435,7 +3532,7 @@
   display: grid;
   gap: 1px;
   justify-items: end;
-  text-align: right;
+  text-align: end;
 }
 .map-room-price strong {
   font-size: 13px;
@@ -3512,14 +3609,14 @@
 }
 
 /* ===========================================================================
-   AI concierge (live chat) — floating bubble on every public page.
+   AI concierge (live chat) ï¿½ floating bubble on every public page.
    Same tokens as the rest of the system: primary green shell, gold accent,
    3px-ish radii, compact type.
    =========================================================================== */
 
 .santo-chat-fab {
   position: fixed;
-  right: 22px;
+  inset-inline-end: 22px;
   bottom: 22px;
   z-index: 70;
   display: inline-flex;
@@ -3560,7 +3657,7 @@
 
 .santo-chat-panel {
   position: fixed;
-  right: 22px;
+  inset-inline-end: 22px;
   bottom: 80px;
   z-index: 70;
   width: min(394px, calc(100vw - 28px));
@@ -3617,7 +3714,7 @@
   background: #7ee2a8;
 }
 .santo-chat-close {
-  margin-left: auto;
+  margin-inline-start: auto;
   width: 28px;
   height: 28px;
   display: grid;
@@ -3651,7 +3748,7 @@
 }
 .santo-chat-msg p { margin: 0 0 6px; }
 .santo-chat-msg p:last-child { margin-bottom: 0; }
-.santo-chat-msg ul { margin: 4px 0 6px; padding-left: 17px; }
+.santo-chat-msg ul { margin: 4px 0 6px; padding-inline-start: 17px; }
 .santo-chat-msg li { margin: 2px 0; }
 .santo-chat-msg strong { font-weight: 650; }
 .santo-chat-msg a {
@@ -3848,7 +3945,7 @@
     border-bottom: 0;
   }
   .santo-chat-fab {
-    right: 14px;
+    inset-inline-end: 14px;
     bottom: 14px;
   }
 }

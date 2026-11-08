@@ -1,9 +1,8 @@
 import { OffersContent } from "./offers-content";
+import { pageMetadata } from "@/server/locale/display";
 
-export const metadata = {
-  title: "A little something more",
-  description: "Discover Santo Hotel stay packages and thoughtful ideas for your next escape.",
-};
+export const generateMetadata = () =>
+  pageMetadata("meta.offers.title", "meta.offers.description");
 
 export default function OffersPage() {
   return <OffersContent />;

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BedDouble, CalendarDays, Search, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/hotel/locale-provider";
 import { addDays, searchHref, type StayQuery } from "@/lib/hotel";
 
 export function SearchPanel({
@@ -14,6 +15,7 @@ export function SearchPanel({
   compact?: boolean;
 }) {
   const router = useRouter();
+  const t = useT();
   const [checkIn, setCheckIn] = useState(defaults.checkIn);
   const [checkOut, setCheckOut] = useState(defaults.checkOut);
   const [adults, setAdults] = useState(defaults.adults);
@@ -24,7 +26,7 @@ export function SearchPanel({
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (checkOut <= checkIn) {
-      setError("Check-out must be after check-in.");
+      setError(t("search.errorDates"));
       return;
     }
     setError("");
@@ -35,10 +37,10 @@ export function SearchPanel({
     <form className={`search-panel ${compact ? "compact" : ""}`} onSubmit={submit}>
       <label className="search-field">
         <span>
-          <CalendarDays /> CHECK-IN
+          <CalendarDays /> {t("search.checkIn")}
         </span>
         <input
-          aria-label="Check-in"
+          aria-label={t("search.aria.checkIn")}
           type="date"
           required
           value={checkIn}
@@ -47,10 +49,10 @@ export function SearchPanel({
       </label>
       <label className="search-field">
         <span>
-          <CalendarDays /> CHECK-OUT
+          <CalendarDays /> {t("search.checkOut")}
         </span>
         <input
-          aria-label="Check-out"
+          aria-label={t("search.aria.checkOut")}
           type="date"
           required
           value={checkOut}
@@ -60,53 +62,53 @@ export function SearchPanel({
       </label>
       <label className="search-field small">
         <span>
-          <UsersRound /> ADULTS
+          <UsersRound /> {t("search.adults")}
         </span>
         <select
-          aria-label="Adults"
+          aria-label={t("search.aria.adults")}
           value={adults}
           onChange={(event) => setAdults(Number(event.target.value))}
         >
           {[1, 2, 3, 4, 5, 6].map((value) => (
             <option key={value} value={value}>
-              {value} {value === 1 ? "Adult" : "Adults"}
+              {value} {value === 1 ? t("search.adult") : t("search.adultsPlural")}
             </option>
           ))}
         </select>
       </label>
       <label className="search-field small">
-        <span>CHILDREN</span>
+        <span>{t("search.children")}</span>
         <select
-          aria-label="Children"
+          aria-label={t("search.aria.children")}
           value={children}
           onChange={(event) => setChildren(Number(event.target.value))}
         >
           {[0, 1, 2, 3, 4].map((value) => (
             <option key={value} value={value}>
-              {value} {value === 1 ? "Child" : "Children"}
+              {value} {value === 1 ? t("search.child") : t("search.childrenPlural")}
             </option>
           ))}
         </select>
       </label>
       <label className="search-field small">
         <span>
-          <BedDouble /> ROOMS
+          <BedDouble /> {t("search.roomsLabel")}
         </span>
         <select
-          aria-label="Rooms"
+          aria-label={t("search.aria.rooms")}
           value={quantity}
           onChange={(event) => setQuantity(Number(event.target.value))}
         >
           {[1, 2, 3].map((value) => (
             <option key={value} value={value}>
-              {value} {value === 1 ? "Room" : "Rooms"}
+              {value} {value === 1 ? t("search.room") : t("search.roomsPlural")}
             </option>
           ))}
         </select>
       </label>
       <Button type="submit" size="lg" className="search-submit">
         <Search size={17} />
-        Search availability
+        {t("search.submit")}
       </Button>
       {error && (
         <p role="alert" className="form-error">

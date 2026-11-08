@@ -2,14 +2,21 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/hotel/locale-provider";
+import type { Translator } from "@/lib/dictionaries";
 
-const MESSAGES: Record<string, string> = {
-  too_late_to_cancel: "The free cancellation window has already passed.",
-  not_cancellable: "This reservation can no longer be cancelled.",
-  guest_cancellation_disabled: "Online cancellation is disabled — please contact the hotel.",
-  not_found: "This reservation could not be found.",
-  internal: "Something went wrong. Please try again.",
+/** Server error codes → dictionary keys, translated at render. */
+const ERROR_KEYS: Record<string, keyof import("@/lib/dictionaries").Dictionary> = {
+  too_late_to_cancel: "cancel.error.too_late_to_cancel",
+  not_cancellable: "cancel.error.not_cancellable",
+  guest_cancellation_disabled: "cancel.error.guest_cancellation_disabled",
+  not_found: "cancel.error.not_found",
+  internal: "cancel.error.internal",
 };
+
+function messageFor(t: Translator, code: string): string {
+  return t(ERROR_KEYS[code] ?? "cancel.error.internal");
+}
 
 export function CancelReservationButton({
   bookingId,
@@ -20,11 +27,12 @@ export function CancelReservationButton({
   reference: string;
   mode: "account" | "claim";
 }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const cancel = async () => {
-    if (!window.confirm("Cancel this reservation?")) return;
+    if (!window.confirm(t("cancel.confirm"))) return;
     setBusy(true);
     setError(null);
     try {
@@ -39,12 +47,12 @@ export function CancelReservationButton({
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        setError(MESSAGES[String(body.error ?? "internal")] ?? MESSAGES.internal);
+        setError(messageFor(t, String(body.error ?? "internal")));
         return;
       }
       window.location.reload();
     } catch {
-      setError(MESSAGES.internal);
+      setError(t("cancel.error.internal"));
     } finally {
       setBusy(false);
     }
@@ -59,7 +67,7 @@ export function CancelReservationButton({
         disabled={busy}
         className="text-destructive"
       >
-        {busy ? "Cancelling…" : "Cancel reservation"}
+        {busy ? t("cancel.busy") : t("cancel.action")}
       </Button>
       {error && <p className="form-error">{error}</p>}
     </div>

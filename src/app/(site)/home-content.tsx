@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Gallery, GalleryTile, RoomCard } from "@/components/hotel/shared";
 import { SearchPanel } from "@/components/hotel/search-panel";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
+import { useT } from "@/components/hotel/locale-provider";
+import type { Dictionary } from "@/lib/dictionaries";
 import {
   GALLERY_IMAGES,
   defaultStayDates,
@@ -25,29 +27,19 @@ import {
   type ListingRoom,
 } from "@/lib/hotel";
 
+/** Offer and highlight copy is keyed, not literal — it is translated at render.
+ *  These are *prefixes* (`home.offer.slow` → `.name` / `.eyebrow` / `.desc`),
+ *  so the suffix is appended and asserted at the call site. */
 const OFFERS = [
-  {
-    name: "The Slow Weekend",
-    eyebrow: "MAKE TIME FOR YOURSELF",
-    description: "Trade your everyday rhythm for unhurried mornings and a well-deserved escape.",
-  },
-  {
-    name: "Stay a Little Longer",
-    eyebrow: "MORE TIME, MORE MEMORIES",
-    description: "Settle in, explore at your own pace, and make yourself at home.",
-  },
-  {
-    name: "Together at Santo",
-    eyebrow: "MOMENTS WORTH SHARING",
-    description: "A thoughtful setting for a special occasion or simply time together.",
-  },
-];
+  { key: "home.offer.slow", img: "/images/santo-pool.jpg" },
+  { key: "home.offer.longer", img: "/images/santo-suite.jpg" },
+] as const;
 
 const HIGHLIGHTS = [
-  [Leaf, "Thoughtfully designed", "Spaces that balance beautiful details with everyday comfort."],
-  [HeartHandshake, "A genuine welcome", "A thoughtful approach to making you feel at home."],
-  [Coffee, "Room to slow down", "Unhurried mornings and the simple pleasure of being here."],
-  [Sparkles, "Comfort, considered", "The little touches that make all the difference."],
+  [Leaf, "home.highlight.design"],
+  [HeartHandshake, "home.highlight.welcome"],
+  [Coffee, "home.highlight.slow"],
+  [Sparkles, "home.highlight.comfort"],
 ] as const;
 
 export function HomeContent({
@@ -69,6 +61,7 @@ export function HomeContent({
 }) {
   const [gallery, setGallery] = useState<number | null>(null);
   const display = useDisplayCurrency();
+  const t = useT();
   const dates = defaultStayDates();
   const stay = { ...dates, adults: 2, children: 0, quantity: 1 };
   const bookHref = searchHref(stay);
@@ -83,14 +76,14 @@ export function HomeContent({
         <img
           className="hero-image"
           src="/images/santo-lobby.jpg"
-          alt="A welcoming Santo Hotel lobby with natural materials and garden views"
+          alt={t("home.hero.alt")}
           width={1920}
           height={1024}
         />
         <div className="hero-shade" />
         <div className="container hero-content">
           <span className="hero-eyebrow">
-            <span /> A WARM WELCOME TO {hotelName.toUpperCase()}
+            <span /> {t("home.hero.eyebrow", { hotel: hotelName.toUpperCase() })}
           </span>
           <h1>
             {firstLine},
@@ -105,17 +98,17 @@ export function HomeContent({
           <div className="hero-ctas">
             <Button asChild variant="outline" className="hero-explore">
               <Link href="/rooms">
-                Find your kind of comfort <ArrowUpRight />
+                {t("home.hero.explore")} <ArrowUpRight />
               </Link>
             </Button>
             <Button asChild className="hero-book">
               <Link href={bookHref}>
-                Book your stay <ArrowUpRight />
+                {t("header.book")} <ArrowUpRight />
               </Link>
             </Button>
           </div>
           <div className="hero-bottom">
-            <span>A considered stay. A genuine welcome.</span>
+            <span>{t("home.hero.tagline")}</span>
             <span className="hero-slide">
               <b>01</b>
               <i />
@@ -129,31 +122,29 @@ export function HomeContent({
         <SearchPanel defaults={stay} />
         <div className="search-reassurance">
           <span>
-            <span className="small-check">✓</span> Your stay, your way
+            <span className="small-check">✓</span> {t("home.reassurance.yourWay")}
           </span>
           <span>
-            <span className="small-check">✓</span> Clear prices, no surprises
+            <span className="small-check">✓</span> {t("home.reassurance.clearPrices")}
           </span>
           <span>
-            <span className="small-check">✓</span> A warm welcome awaits
+            <span className="small-check">✓</span> {t("home.reassurance.welcome")}
           </span>
-          <small>Live room availability · Secure booking</small>
+          <small>{t("home.reassurance.live")}</small>
         </div>
       </div>
 
       <section className="container section featured-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">ROOMS & SUITES</span>
-            <h2>A space to call your own.</h2>
+            <span className="eyebrow">{t("home.rooms.eyebrow")}</span>
+            <h2>{t("home.rooms.title")}</h2>
           </div>
           <Link href="/rooms" className="text-link">
-            Explore all rooms <ArrowRight size={17} />
+            {t("home.rooms.explore")} <ArrowRight size={17} />
           </Link>
         </div>
-        <p className="section-intro">
-          Unwind in thoughtfully designed spaces, where every detail feels just right.
-        </p>
+        <p className="section-intro">{t("home.rooms.intro")}</p>
         <div className="room-grid">
           {rooms.slice(0, 3).map((room) => (
             <RoomCard
@@ -171,36 +162,40 @@ export function HomeContent({
       <section className="container section inventory-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">THE ROOM LIST</span>
-            <h2>All {inventory.length} rooms, ready to book.</h2>
+            <span className="eyebrow">{t("home.inventory.eyebrow")}</span>
+            <h2>{t("home.inventory.title", { count: inventory.length })}</h2>
           </div>
           <Link href="/rooms" className="text-link">
-            Browse rooms &amp; suites <ArrowRight size={17} />
+            {t("home.inventory.browse")} <ArrowRight size={17} />
           </Link>
         </div>
-        <p className="section-intro">
-          Every room in the house, listed one by one — pick the exact room you want to stay in.
-        </p>
+        <p className="section-intro">{t("home.inventory.intro")}</p>
         <div className="inventory-grid">
           {inventory.map((room) => (
             <article className="inventory-card" key={room.id}>
               <div className="inventory-meta">
-                <span className="inventory-number">Room {room.roomNumber}</span>
-                <span className="inventory-floor">Floor {room.floor ?? 1}</span>
+                <span className="inventory-number">
+                  {t("home.inventory.room", { number: room.roomNumber })}
+                </span>
+                <span className="inventory-floor">
+                  {t("home.inventory.floor", { floor: room.floor ?? 1 })}
+                </span>
               </div>
               <h3>
                 <Link href={`/rooms/${room.typeSlug}`}>{room.typeName}</Link>
               </h3>
               <span className="inventory-kind">
-                {room.isSuite ? "The suite collection" : "A guest favourite"}
+                {room.isSuite ? t("room.suiteCollection") : t("room.guestFavourite")}
               </span>
               <div className="inventory-bottom">
                 <div>
                   <strong>{formatMoney(room.basePrice, currency, display)}</strong>
-                  <span className="rate-unit"> / night</span>
+                  <span className="rate-unit"> {t("room.perNight")}</span>
                 </div>
                 <Button asChild size="sm" className="room-book">
-                  <Link href={searchHref(stay, `/rooms/${room.typeSlug}`)}>Book a room</Link>
+                  <Link href={searchHref(stay, `/rooms/${room.typeSlug}`)}>
+                    {t("room.book")}
+                  </Link>
                 </Button>
               </div>
             </article>
@@ -211,16 +206,16 @@ export function HomeContent({
       <section className="why-section">
         <div className="container">
           <div className="section-heading centered">
-            <span className="eyebrow">THE SANTO DIFFERENCE</span>
-            <h2>It&apos;s the little things that make a stay.</h2>
-            <p>Considered spaces. Meaningful moments. Hospitality that feels personal.</p>
+            <span className="eyebrow">{t("home.why.eyebrow")}</span>
+            <h2>{t("home.why.title")}</h2>
+            <p>{t("home.why.intro")}</p>
           </div>
           <div className="highlights">
-            {HIGHLIGHTS.map(([Icon, title, copy]) => (
-              <div key={title}>
+            {HIGHLIGHTS.map(([Icon, key]) => (
+              <div key={key}>
                 <Icon />
-                <h3>{title}</h3>
-                <p>{copy}</p>
+                <h3>{t(`${key}.title` as keyof Dictionary)}</h3>
+                <p>{t(`${key}.copy` as keyof Dictionary)}</p>
               </div>
             ))}
           </div>
@@ -230,30 +225,30 @@ export function HomeContent({
       <section className="container section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">A LITTLE SOMETHING MORE</span>
-            <h2>Make the most of your stay.</h2>
+            <span className="eyebrow">{t("home.offers.eyebrow")}</span>
+            <h2>{t("home.offers.title")}</h2>
           </div>
           <Link href="/offers" className="text-link">
-            Discover our offers <ArrowRight size={17} />
+            {t("home.offers.discover")} <ArrowRight size={17} />
           </Link>
         </div>
         <div className="home-offers">
-          {OFFERS.slice(0, 2).map((offer, index) => (
-            <Link href="/offers" key={offer.name} className="offer-preview">
+          {OFFERS.map((offer, index) => (
+            <Link href="/offers" key={offer.key} className="offer-preview">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={index ? "/images/santo-suite.jpg" : "/images/santo-pool.jpg"}
-                alt={offer.name}
+                src={offer.img}
+                alt={t(`${offer.key}.name` as keyof Dictionary)}
                 loading="lazy"
                 width={1536}
                 height={1024}
               />
               <div>
-                <span className="eyebrow">{offer.eyebrow}</span>
-                <h3>{offer.name}</h3>
-                <p>{offer.description}</p>
+                <span className="eyebrow">{t(`${offer.key}.eyebrow` as keyof Dictionary)}</span>
+                <h3>{t(`${offer.key}.name` as keyof Dictionary)}</h3>
+                <p>{t(`${offer.key}.desc` as keyof Dictionary)}</p>
                 <span className="text-link">
-                  Explore offer <ArrowUpRight size={17} />
+                  {t("home.offers.explore")} <ArrowUpRight size={17} />
                 </span>
               </div>
             </Link>
@@ -265,11 +260,11 @@ export function HomeContent({
         <div className="container">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">A GLIMPSE OF SANTO</span>
-              <h2>Picture yourself here.</h2>
+              <span className="eyebrow">{t("home.gallery.eyebrow")}</span>
+              <h2>{t("home.gallery.title")}</h2>
             </div>
             <Button variant="ghost" onClick={() => setGallery(0)}>
-              View gallery <ArrowUpRight />
+              {t("home.gallery.view")} <ArrowUpRight />
             </Button>
           </div>
           <div className="home-gallery">
@@ -277,7 +272,11 @@ export function HomeContent({
               <GalleryTile
                 key={src}
                 image={src}
-                label={["Welcoming spaces", "Quiet moments by the pool", "A peaceful room"][index]}
+                label={t(
+                  (["home.gallery.space1", "home.gallery.space2", "home.gallery.space3"] as const)[
+                    index
+                  ],
+                )}
                 onClick={() => setGallery(index)}
               />
             ))}
@@ -287,11 +286,11 @@ export function HomeContent({
 
       <section className="container section review-section">
         <div>
-          <span className="eyebrow">THE GUEST EXPERIENCE</span>
+          <span className="eyebrow">{t("home.review.eyebrow")}</span>
           <h2>
-            Memories worth
+            {t("home.review.titleLine1")}
             <br />
-            coming back for.
+            {t("home.review.titleLine2")}
           </h2>
         </div>
         <div className="review-quote">
@@ -300,17 +299,14 @@ export function HomeContent({
               <Star key={value} size={15} />
             ))}
           </div>
-          <blockquote>
-            &ldquo;A beautiful space to slow down. Every detail felt thoughtful, and the whole stay
-            was wonderfully effortless.&rdquo;
-          </blockquote>
+          <blockquote>{t("home.review.quote")}</blockquote>
           <div className="review-author">
             <span>JT</span>
             <div>
-              Jamie T.<small>Leisure stay</small>
+              Jamie T.<small>{t("home.review.stayType")}</small>
             </div>
             <span className="sample-rating">
-              9.4<small>Guest rating</small>
+              9.4<small>{t("home.review.rating")}</small>
             </span>
           </div>
         </div>
@@ -319,19 +315,20 @@ export function HomeContent({
       <section className="location-band">
         <div className="container location-grid">
           <div>
-            <span className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span>
+            <span className="eyebrow">{t("home.location.eyebrow")}</span>
             <h2>
-              A place to arrive.
-              <br />A reason to linger.
+              {t("home.location.titleLine1")}
+              <br />
+              {t("home.location.titleLine2")}
             </h2>
-            <p>Find your way to a more considered stay.</p>
+            <p>{t("home.location.intro")}</p>
             <p className="address-placeholder">
               <MapPin size={17} />
               {address}
             </p>
             <Button asChild>
               <Link href="/contact">
-                Get in touch <ArrowRight />
+                {t("home.location.cta")} <ArrowRight />
               </Link>
             </Button>
           </div>
@@ -343,7 +340,7 @@ export function HomeContent({
               <MapPin />
               {hotelName.toUpperCase()}
             </span>
-            <small>Map location confirmed at booking</small>
+            <small>{t("home.location.mapNote")}</small>
           </div>
         </div>
       </section>

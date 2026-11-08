@@ -7,6 +7,7 @@ import { Breadcrumb, PageHeading, RoomCard } from "@/components/hotel/shared";
 import { SearchPanel } from "@/components/hotel/search-panel";
 import { SearchMap } from "@/components/hotel/search-map";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
+import { useT } from "@/components/hotel/locale-provider";
 import { isMapEnabled } from "@/config/maps";
 import {
   bookingHref,
@@ -59,6 +60,7 @@ export function Listing({
 }) {
   const availability = mode === "availability";
   const display = useDisplayCurrency();
+  const t = useT();
   const [type, setType] = useState("All");
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [guests, setGuests] = useState("Any");
@@ -147,26 +149,29 @@ export function Listing({
 
   return (
     <div className="container page-content">
-      <Breadcrumb current={availability ? "Availability" : "Rooms & Suites"} />
+      <Breadcrumb
+        current={availability ? t("listing.breadcrumb.availability") : t("nav.rooms")}
+      />
       <PageHeading
-        eyebrow={eyebrow ?? (availability ? "YOUR SANTO STAY" : "ROOMS & SUITES")}
-        title={title ?? (availability ? "Your stay starts here." : "Find your perfect stay.")}
-        description={
-          description ??
-          "Beautifully considered rooms. All the space you need to feel at home."
+        eyebrow={
+          eyebrow ?? (availability ? t("listing.eyebrow.availability") : t("listing.eyebrow.catalog"))
         }
+        title={
+          title ?? (availability ? t("listing.title.availability") : t("listing.title.catalog"))
+        }
+        description={description ?? t("listing.description")}
       />
       <SearchPanel compact defaults={searchDefaults} />
 
       {mapEnabled && (
-        <div className="view-switch" role="group" aria-label="Choose room view">
+        <div className="view-switch" role="group" aria-label={t("listing.chooseView")}>
           <button
             type="button"
             aria-pressed={view === "list"}
             onClick={() => switchView("list")}
           >
             <List aria-hidden="true" />
-            List
+            {t("listing.viewList")}
           </button>
           <button
             type="button"
@@ -174,13 +179,11 @@ export function Listing({
             onClick={() => switchView("map")}
           >
             <MapIcon aria-hidden="true" />
-            Map
+            {t("listing.viewMap")}
           </button>
           {/* Selection is also exposed as text, not colour alone (WCAG). */}
           <span className="visually-hidden" role="status">
-            {view === "map"
-              ? "Map view. Room list and filters are still available."
-              : "List view."}
+            {view === "map" ? t("listing.statusMap") : t("listing.statusList")}
           </span>
         </div>
       )}
@@ -191,14 +194,22 @@ export function Listing({
       >
         <aside className={`filters ${filtersOpen ? "is-open" : ""}`}>
           <div className="filter-heading">
-            <h3>Refine your stay</h3>
+            <h3>{t("listing.refine")}</h3>
             <Button variant="ghost" size="sm" onClick={reset}>
-              Reset
+              {t("listing.reset")}
             </Button>
           </div>
           <fieldset>
-            <legend>Room type</legend>
-            {["All", "Rooms", "Suites"].map((value) => (
+            <legend>{t("listing.roomType")}</legend>
+            {/* Values stay stable English codes (they drive the filter logic);
+                only the label is translated. */}
+            {(
+              [
+                ["All", t("listing.filterAll")],
+                ["Rooms", t("listing.filterRooms")],
+                ["Suites", t("listing.filterSuites")],
+              ] as const
+            ).map(([value, label]) => (
               <label key={value}>
                 <input
                   type="radio"
@@ -207,14 +218,14 @@ export function Listing({
                   checked={type === value}
                   onChange={() => setType(value)}
                 />
-                {value === "All" ? "All accommodation" : value}
+                {label}
               </label>
             ))}
           </fieldset>
           <fieldset>
-            <legend>Nightly budget</legend>
+            <legend>{t("listing.budget")}</legend>
             <input
-              aria-label="Maximum nightly price"
+              aria-label={t("listing.maxPrice")}
               type="range"
               min={bounds.min}
               max={bounds.max}
@@ -224,25 +235,27 @@ export function Listing({
             />
             <div className="range-labels">
               <span>{formatMoney(bounds.min, currency, display)}</span>
-              <span>Up to {formatMoney(activeMax, currency, display)}</span>
+              <span>{t("listing.upTo", { amount: formatMoney(activeMax, currency, display) })}</span>
             </div>
           </fieldset>
           <fieldset>
-            <legend>Guests</legend>
+            <legend>{t("listing.guestsLegend")}</legend>
             <select
-              aria-label="Minimum room capacity"
+              aria-label={t("listing.minCapacity")}
               value={guests}
               onChange={(event) => setGuests(event.target.value)}
             >
-              <option>Any</option>
-              <option value="2">2 guests</option>
-              <option value="3">3 guests</option>
-              <option value="4">4 guests</option>
+              <option value="Any">{t("listing.any")}</option>
+              {[2, 3, 4].map((value) => (
+                <option key={value} value={String(value)}>
+                  {t("room.guests", { count: value })}
+                </option>
+              ))}
             </select>
           </fieldset>
           {bounds.amenities.length > 0 && (
             <fieldset>
-              <legend>The little extras</legend>
+              <legend>{t("listing.extras")}</legend>
               {bounds.amenities.map((amenity) => (
                 <label key={amenity}>
                   <input
@@ -261,11 +274,9 @@ export function Listing({
               ))}
             </fieldset>
           )}
-          <p className="tiny-note">
-            Rates and availability are confirmed by the hotel when your reservation is processed.
-          </p>
+          <p className="tiny-note">{t("listing.ratesNote")}</p>
           <Button className="filter-done" onClick={() => setFiltersOpen(false)}>
-            Show rooms
+            {t("listing.showRooms")}
           </Button>
         </aside>
 
@@ -274,13 +285,20 @@ export function Listing({
             <div>
               <h3>
                 {errorMessage
-                  ? "We need a little more detail"
-                  : `${results.length} ${results.length === 1 ? "room" : "rooms"} to make your own`}
+                  ? t("listing.needDetail")
+                  : t(results.length === 1 ? "listing.resultsOne" : "listing.resultsMany", {
+                      count: results.length,
+                    })}
               </h3>
               <small>
                 {availability && stay
-                  ? `${stay.checkIn} → ${stay.checkOut} · ${nights} ${nights === 1 ? "night" : "nights"}`
-                  : "Live room catalogue · Rates per night"}
+                  ? t("listing.dateRange", {
+                      checkIn: stay.checkIn,
+                      checkOut: stay.checkOut,
+                      nights,
+                      unit: nights === 1 ? t("room.night") : t("room.nights"),
+                    })
+                  : t("listing.catalogueNote")}
               </small>
             </div>
             <Button
@@ -289,18 +307,18 @@ export function Listing({
               onClick={() => setFiltersOpen(!filtersOpen)}
             >
               <SlidersHorizontal />
-              Filters
+              {t("listing.filters")}
             </Button>
             <label className="sort-label">
-              Sort by{" "}
+              {t("listing.sortBy")}{" "}
               <select
-                aria-label="Sort rooms"
+                aria-label={t("listing.sortBy")}
                 value={sort}
                 onChange={(event) => setSort(event.target.value)}
               >
-                <option value="recommended">Recommended</option>
-                <option value="low">Price: low to high</option>
-                <option value="high">Price: high to low</option>
+                <option value="recommended">{t("listing.sortRecommended")}</option>
+                <option value="low">{t("listing.sortLow")}</option>
+                <option value="high">{t("listing.sortHigh")}</option>
               </select>
             </label>
           </div>
@@ -308,21 +326,21 @@ export function Listing({
           {errorMessage ? (
             <div className="empty-state">
               <AlertCircle />
-              <h2>A momentary pause.</h2>
+              <h2>{t("listing.pauseTitle")}</h2>
               <p>{errorMessage}</p>
               <Button asChild>
                 <a href="/search">
                   <RotateCcw />
-                  Try again
+                  {t("listing.tryAgain")}
                 </a>
               </Button>
             </div>
           ) : results.length === 0 ? (
             <div className="empty-state">
               <SearchX />
-              <h2>Let&apos;s find another fit.</h2>
-              <p>No rooms match these dates or filters. Try widening your search.</p>
-              <Button onClick={reset}>Clear filters</Button>
+              <h2>{t("listing.noFitTitle")}</h2>
+              <p>{t("listing.noFitBody")}</p>
+              <Button onClick={reset}>{t("listing.clearFilters")}</Button>
             </div>
           ) : (
             results.map((room) => {
@@ -355,10 +373,7 @@ export function Listing({
               );
             })
           )}
-          <p className="tiny-note">
-            All prices are confirmed by our reservations team. Taxes and fees are shown at
-            checkout.
-          </p>
+          <p className="tiny-note">{t("listing.confirmNote")}</p>
         </section>
 
         {showMap && (
@@ -367,7 +382,7 @@ export function Listing({
            * loads the Maps API — only when the guest switches to map view.
            * The pin wears the honest hotel minimum; the card beside the pin
            * mirrors exactly what the surrounding grid shows. */
-          <aside className="map-pane" aria-label="Hotel location map">
+          <aside className="map-pane" aria-label={t("listing.mapAria")}>
             {location && (
               <SearchMap
                 location={location}

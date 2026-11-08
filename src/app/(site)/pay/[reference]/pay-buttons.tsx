@@ -4,9 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/hotel/locale-provider";
 
 export function PayButtons({ bookingId, reference }: { bookingId: string; reference: string }) {
   const router = useRouter();
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,9 +24,7 @@ export function PayButtons({ bookingId, reference }: { bookingId: string; refere
       await response.json().catch(() => ({}));
       if (!response.ok) {
         setError(
-          outcome === "succeeded"
-            ? "The payment could not be completed. Please try again."
-            : "The simulated decline was recorded.",
+          outcome === "succeeded" ? t("pay.error.declined") : t("pay.error.recorded"),
         );
         setBusy(false);
         if (outcome === "failed") router.refresh();
@@ -32,7 +32,7 @@ export function PayButtons({ bookingId, reference }: { bookingId: string; refere
       }
       router.push(`/booking/confirmation?ref=${encodeURIComponent(reference)}`);
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(t("pay.error.internal"));
       setBusy(false);
     }
   }
@@ -42,7 +42,7 @@ export function PayButtons({ bookingId, reference }: { bookingId: string; refere
       <div className="confirmation-actions">
         <Button type="button" onClick={() => complete("succeeded")} disabled={busy}>
           <CreditCard />
-          {busy ? "Processing…" : "Pay now"}
+          {busy ? t("pay.processing") : t("pay.now")}
         </Button>
         <Button
           type="button"
@@ -50,7 +50,7 @@ export function PayButtons({ bookingId, reference }: { bookingId: string; refere
           onClick={() => complete("failed")}
           disabled={busy}
         >
-          Simulate declined card
+          {t("pay.simulateDecline")}
         </Button>
       </div>
       {error && <p className="form-error">{error}</p>}

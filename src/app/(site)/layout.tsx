@@ -6,19 +6,21 @@ import { displayCurrency } from "@/server/currency/display";
 import { loadHotelProfile } from "@/server/public/catalog";
 import { getContent } from "@/server/console/settings";
 import { getDefaultHotel } from "@/server/public/hotels";
+import { getT } from "@/server/locale/display";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const defaultHotel = await getDefaultHotel();
-  const [session, hotel, footer, display] = await Promise.all([
+  const [session, hotel, footer, display, t] = await Promise.all([
     getCurrentSession(),
     defaultHotel ? loadHotelProfile(defaultHotel.id) : null,
     getContent("site.footer", defaultHotel?.id),
     displayCurrency(),
+    getT(),
   ]);
   const address = hotel
     ? [hotel.addressLine1, hotel.addressLine2, hotel.city, hotel.postcode, hotel.country]
         .filter(Boolean)
-        .join(", ") || "Hotel address to be confirmed"
+        .join(", ") || t("hotel.addressFallback")
     : "Santo Hotel";
 
   return (

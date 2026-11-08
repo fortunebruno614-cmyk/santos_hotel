@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, ChevronLeft, CreditCard, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/hotel/locale-provider";
+import type { Translator } from "@/lib/dictionaries";
 
 type QuoteLine = {
   roomId: string;
@@ -33,23 +35,23 @@ type StayData = {
   roomIds: string[];
 };
 
-const ERROR_MESSAGES: Record<string, string> = {
-  price_changed:
-    "The price changed while you were booking. The totals above are current — please review and confirm again.",
-  unavailable: "Those rooms are no longer available for your dates. Please search again.",
-  account_required: "An account is required to book online — please sign in first.",
-  check_in_past: "That stay would start in the past — please choose new dates.",
-  promotion_not_found: "That promotion code does not exist.",
-  promotion_inactive: "That promotion is not currently active.",
-  promotion_expired: "That promotion is no longer valid.",
-  promotion_exhausted: "That promotion has been fully redeemed.",
-  too_many_rooms: "That is more rooms than a single reservation may hold.",
-  invalid_body: "Please check the form fields and try again.",
-  internal: "Something went wrong creating the reservation. Please try again.",
+/** Server error codes → dictionary keys, so the copy translates at render. */
+const ERROR_KEYS: Record<string, keyof import("@/lib/dictionaries").Dictionary> = {
+  price_changed: "checkout.error.price_changed",
+  unavailable: "checkout.error.unavailable",
+  account_required: "checkout.error.account_required",
+  check_in_past: "checkout.error.check_in_past",
+  promotion_not_found: "checkout.error.promotion_not_found",
+  promotion_inactive: "checkout.error.promotion_inactive",
+  promotion_expired: "checkout.error.promotion_expired",
+  promotion_exhausted: "checkout.error.promotion_exhausted",
+  too_many_rooms: "checkout.error.too_many_rooms",
+  invalid_body: "checkout.error.invalid_body",
+  internal: "checkout.error.internal",
 };
 
-function messageFor(error: string): string {
-  return ERROR_MESSAGES[error] ?? "The reservation could not be completed.";
+function messageFor(t: Translator, error: string): string {
+  return t(ERROR_KEYS[error] ?? "checkout.error.fallback");
 }
 
 export function CheckoutForm({
@@ -64,6 +66,7 @@ export function CheckoutForm({
   prefill: { firstName: string; lastName: string; email: string | null } | null;
 }) {
   const router = useRouter();
+  const t = useT();
   const [step, setStep] = useState(0);
   const [firstName, setFirstName] = useState(prefill?.firstName ?? "");
   const [lastName, setLastName] = useState(prefill?.lastName ?? "");
@@ -99,13 +102,13 @@ export function CheckoutForm({
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(messageFor(String(body.error ?? "internal")));
+        setError(messageFor(t, String(body.error ?? "internal")));
         return;
       }
       const reference = body.booking?.bookingReference as string;
       router.push(`/booking/confirmation?ref=${encodeURIComponent(reference)}`);
     } catch {
-      setError(ERROR_MESSAGES.internal);
+      setError(t("checkout.error.internal"));
     } finally {
       setSubmitting(false);
     }
@@ -114,12 +117,14 @@ export function CheckoutForm({
   return (
     <div className="checkout-form">
       <ol className="checkout-steps">
-        {["Guest details", "Review booking", "Confirmation"].map((label, index) => (
-          <li key={label} className={index <= step ? "current" : ""}>
-            <span>{index < step ? <Check size={15} /> : index + 1}</span>
-            {label}
-          </li>
-        ))}
+        {[t("checkout.step.guest"), t("checkout.step.review"), t("checkout.step.confirm")].map(
+          (label, index) => (
+            <li key={label} className={index <= step ? "current" : ""}>
+              <span>{index < step ? <Check size={15} /> : index + 1}</span>
+              {label}
+            </li>
+          ),
+        )}
       </ol>
 
       {step === 0 ? (
@@ -131,13 +136,11 @@ export function CheckoutForm({
             window.scrollTo(0, 0);
           }}
         >
-          <h2>Guest details</h2>
-          <p className="tiny-note">
-            Your details are used only to manage this reservation.
-          </p>
+          <h2>{t("checkout.guestTitle")}</h2>
+          <p className="tiny-note">{t("checkout.privacyNote")}</p>
           <div className="form-grid">
             <label>
-              First name *
+              {t("checkout.firstName")}
               <input
                 required
                 value={firstName}
@@ -147,7 +150,7 @@ export function CheckoutForm({
               />
             </label>
             <label>
-              Last name *
+              {t("checkout.lastName")}
               <input
                 required
                 value={lastName}
@@ -157,7 +160,7 @@ export function CheckoutForm({
               />
             </label>
             <label>
-              Email address *
+              {t("checkout.email")}
               <input
                 required
                 type="email"
@@ -168,7 +171,7 @@ export function CheckoutForm({
               />
             </label>
             <label>
-              Phone number
+              {t("checkout.phone")}
               <input
                 value={phone}
                 onChange={(event) => setPhone(event.target.value)}
@@ -177,16 +180,16 @@ export function CheckoutForm({
               />
             </label>
             <label>
-              ID type
+              {t("checkout.idType")}
               <input
                 value={idType}
                 onChange={(event) => setIdType(event.target.value)}
-                placeholder="Passport / national ID"
+                placeholder={t("checkout.idTypePlaceholder")}
                 maxLength={40}
               />
             </label>
             <label>
-              ID number
+              {t("checkout.idNumber")}
               <input
                 value={idNumber}
                 onChange={(event) => setIdNumber(event.target.value)}
@@ -194,75 +197,84 @@ export function CheckoutForm({
               />
             </label>
             <label className="full">
-              Special requests (optional)
+              {t("checkout.requests")}
               <textarea
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
                 rows={4}
                 maxLength={500}
-                placeholder="A little detail that would make your stay more comfortable"
+                placeholder={t("checkout.requestsPlaceholder")}
               />
-              <small>Requests are shared with the hotel team.</small>
+              <small>{t("checkout.requestsNote")}</small>
             </label>
           </div>
           <div className="info-notice">
             <ShieldCheck />
             <div>
-              <strong>Secure reservation</strong>
+              <strong>{t("checkout.secureTitle")}</strong>
               <p>
-                Free cancellation up to {quote.policy.cancellationWindowHours} hours before
-                check-in. Payment is completed after your reservation is reviewed.
+                {t("checkout.secureBody", {
+                  hours: quote.policy.cancellationWindowHours,
+                })}
               </p>
             </div>
           </div>
           <Button type="submit">
-            Review your stay
+            {t("checkout.reviewStay")}
             <ArrowRight />
           </Button>
         </form>
       ) : (
         <div className="form-section">
-          <h2>Review your details</h2>
+          <h2>{t("checkout.reviewTitle")}</h2>
           <div className="review-details">
             <span>
-              Guest name
+              {t("checkout.guestName")}
               <strong>
                 {firstName} {lastName}
               </strong>
             </span>
             <span>
-              Email address<strong>{email}</strong>
+              {t("checkout.email")}
+              <strong>{email}</strong>
             </span>
             {phone && (
               <span>
-                Phone number<strong>{phone}</strong>
+                {t("checkout.phone")}
+                <strong>{phone}</strong>
               </span>
             )}
             {idType && idNumber && (
               <span>
-                Identification<strong>{idType} · {idNumber}</strong>
+                {t("checkout.identification")}
+                <strong>
+                  {idType} · {idNumber}
+                </strong>
               </span>
             )}
             <span>
-              Stay<strong>{quote.nights} {quote.nights === 1 ? "night" : "nights"} · {quote.lines.length} room{quote.lines.length === 1 ? "" : "s"}</strong>
+              {t("checkout.stayRow")}
+              <strong>
+                {quote.nights} {quote.nights === 1 ? t("room.night") : t("room.nights")} ·{" "}
+                {quote.lines.length}{" "}
+                {quote.lines.length === 1 ? t("summary.room") : t("summary.rooms")}
+              </strong>
             </span>
             {notes && (
               <span>
-                Special requests<strong>{notes}</strong>
+                {t("checkout.requests")}
+                <strong>{notes}</strong>
               </span>
             )}
           </div>
           <Button variant="link" onClick={() => setStep(0)}>
-            Edit guest details
+            {t("checkout.editGuest")}
           </Button>
 
           <div className="payment-placeholder">
             <CreditCard />
-            <h3>Payment after confirmation</h3>
-            <p>
-              Your reservation is created first. You can then complete payment securely from the
-              confirmation page.
-            </p>
+            <h3>{t("checkout.paymentTitle")}</h3>
+            <p>{t("checkout.paymentBody")}</p>
           </div>
 
           <label className="checkbox-label">
@@ -271,7 +283,7 @@ export function CheckoutForm({
               checked={accepted}
               onChange={(event) => setAccepted(event.target.checked)}
             />
-            I confirm these details are correct and I accept the hotel&apos;s cancellation terms.
+            {t("checkout.acceptTerms")}
           </label>
 
           {error && <p className="form-error">{error}</p>}
@@ -279,10 +291,10 @@ export function CheckoutForm({
           <div className="form-actions">
             <Button type="button" variant="outline" onClick={() => setStep(0)}>
               <ChevronLeft />
-              Back
+              {t("checkout.back")}
             </Button>
             <Button onClick={submit} disabled={!accepted || submitting}>
-              {submitting ? "Reserving…" : "Complete reservation"}
+              {submitting ? t("checkout.reserving") : t("checkout.complete")}
               <ArrowRight />
             </Button>
           </div>

@@ -12,6 +12,8 @@ import { getDefaultHotel } from "@/server/public/hotels";
 import { displayCurrency } from "@/server/currency/display";
 import { BookingStatus } from "@/generated/prisma/enums";
 import { fallbackImageForSlug, formatMoney as publicMoney } from "@/lib/hotel";
+import { getT } from "@/server/locale/display";
+import type { Dictionary } from "@/lib/dictionaries";
 
 export default async function AccountPage({
   searchParams,
@@ -27,9 +29,10 @@ export default async function AccountPage({
   const hotel = await requireHotelContext(defaultHotel.id);
   const display = await displayCurrency();
   const today = hotelToday(new Date(), hotel.timezone);
+  const t = await getT();
 
   const guest = user && "firstName" in user ? user : null;
-  const name = guest ? `${guest.firstName} ${guest.lastName}` : "Guest";
+  const name = guest ? `${guest.firstName} ${guest.lastName}` : t("account.guestName");
 
   const bookings = session.guestId
     ? await prisma.booking.findMany({
@@ -69,32 +72,39 @@ export default async function AccountPage({
     const context =
       (booking.hotelId ? hotelContexts.get(booking.hotelId) : null) ?? hotel;
     const cancellation = cancellationInfoFor(booking, context);
-    const roomName = booking.rooms[0]?.room.roomType.name ?? "Santo stay";
+    const roomName = booking.rooms[0]?.room.roomType.name ?? t("account.santoStay");
     const image = imageByName.get(roomName) ?? fallbackImageForSlug("");
     const total = publicMoney(booking.total.toString(), context.currency, display);
+    const statusLabel = t(`status.booking.${booking.bookingStatus}` as keyof Dictionary);
+    const paymentLabel = t(`status.payment.${booking.paymentStatus}` as keyof Dictionary);
     return (
       <article className="account-booking" key={booking.id}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={image} alt={roomName} />
         <div>
           <span className="subtle-badge">
-            {booking.bookingStatus.replaceAll("_", " ")} · {booking.paymentStatus}
+            {statusLabel} · {paymentLabel}
           </span>
           <h3>{roomName}</h3>
           <p>
             {booking.checkIn.toISOString().slice(0, 10)} — {booking.checkOut.toISOString().slice(0, 10)}
           </p>
           <p>
-            {booking.adults} adult{booking.adults === 1 ? "" : "s"}
-            {booking.children > 0 ? ` · ${booking.children} children` : ""} ·{" "}
-            {booking.rooms.length} room{booking.rooms.length === 1 ? "" : "s"}
+            {t("booking.guestsLine", {
+              adults: booking.adults,
+              adultUnit: booking.adults === 1 ? t("search.adult") : t("search.adultsPlural"),
+              children: booking.children,
+              childUnit: booking.children === 1 ? t("search.child") : t("search.childrenPlural"),
+              rooms: booking.rooms.length,
+              roomUnit: booking.rooms.length === 1 ? t("summary.room") : t("summary.rooms"),
+            })}
           </p>
-          <p>Total: {total}</p>
-          <small>Reference: {booking.bookingReference}</small>
+          <p>{t("account.total", { total })}</p>
+          <small>{t("account.reference", { ref: booking.bookingReference })}</small>
           <div className="confirmation-actions">
             <Button asChild variant="link">
               <Link href={`/booking/confirmation?ref=${encodeURIComponent(booking.bookingReference)}`}>
-                View reservation <ArrowRight />
+                {t("account.viewReservation")} <ArrowRight />
               </Link>
             </Button>
             {booking.bookingStatus !== BookingStatus.CANCELLED &&
@@ -105,7 +115,7 @@ export default async function AccountPage({
                   mode="account"
                 />
               ) : (
-                <p className="tiny-note">Online cancellation is no longer available.</p>
+                <p className="tiny-note">{t("account.cancelUnavailable")}</p>
               ))}
           </div>
         </div>
@@ -115,11 +125,11 @@ export default async function AccountPage({
 
   return (
     <div className="container page-content">
-      <Breadcrumb current="My Santo" />
+      <Breadcrumb current={t("account.breadcrumb")} />
       <PageHeading
-        eyebrow="MY SANTO"
-        title={`Welcome back, ${guest?.firstName ?? "guest"}.`}
-        description="Your stays, your details, all in one place."
+        eyebrow={t("account.eyebrow")}
+        title={t("account.welcome", { name: guest?.firstName ?? t("account.guestName") })}
+        description={t("account.description")}
       />
 
       <div className="account-layout">
@@ -127,25 +137,25 @@ export default async function AccountPage({
           <Button asChild variant={tab === "overview" ? "secondary" : "ghost"}>
             <Link href="/account">
               <CalendarDays />
-              Overview
+              {t("account.nav.overview")}
             </Link>
           </Button>
           <Button asChild variant={tab === "bookings" ? "secondary" : "ghost"}>
             <Link href="/account?tab=bookings">
               <CalendarDays />
-              My bookings
+              {t("account.nav.bookings")}
             </Link>
           </Button>
           <Button asChild variant={tab === "profile" ? "secondary" : "ghost"}>
             <Link href="/account?tab=profile">
               <UserRound />
-              Profile details
+              {t("account.nav.profile")}
             </Link>
           </Button>
           <form action={logout}>
             <Button type="submit" variant="ghost">
               <LogOut />
-              Sign out
+              {t("account.nav.signOut")}
             </Button>
           </form>
         </nav>
@@ -153,33 +163,35 @@ export default async function AccountPage({
         <section>
           {tab === "profile" ? (
             <div className="form-section">
-              <h2>Your details</h2>
-              <p className="tiny-note">Contact the hotel to update your profile details.</p>
+              <h2>{t("account.profileTitle")}</h2>
+              <p className="tiny-note">{t("account.profileNote")}</p>
               <div className="review-details">
                 <span>
-                  Name<strong>{name}</strong>
+                  {t("account.name")}<strong>{name}</strong>
                 </span>
                 <span>
-                  Email address<strong>{guest?.email ?? "-"}</strong>
+                  {t("account.email")}<strong>{guest?.email ?? "-"}</strong>
                 </span>
               </div>
               <Button asChild className="mt-6">
-                <Link href="/contact">Contact the hotel</Link>
+                <Link href="/contact">{t("account.contactHotel")}</Link>
               </Button>
             </div>
           ) : (
             <>
               <section>
                 <div className="section-heading">
-                  <h2>{tab === "overview" ? "Your next stay" : "My bookings"}</h2>
-                  <span className="subtle-badge">Live reservations</span>
+                  <h2>
+                    {tab === "overview" ? t("account.nextStay") : t("account.nav.bookings")}
+                  </h2>
+                  <span className="subtle-badge">{t("account.liveReservations")}</span>
                 </div>
                 {upcoming.length === 0 ? (
                   <div className="empty-state">
-                    <h2>No upcoming stays yet.</h2>
-                    <p>Your next Santo moment is waiting to be planned.</p>
+                    <h2>{t("account.noUpcoming")}</h2>
+                    <p>{t("account.noUpcomingBody")}</p>
                     <Button asChild>
-                      <Link href="/rooms">Explore rooms</Link>
+                      <Link href="/rooms">{t("account.exploreRooms")}</Link>
                     </Button>
                   </div>
                 ) : (
@@ -190,10 +202,10 @@ export default async function AccountPage({
               {tab === "bookings" && (
                 <section className="mt-10">
                   <div className="section-heading">
-                    <h2>Past stays</h2>
+                    <h2>{t("account.pastStays")}</h2>
                   </div>
                   {past.length === 0 ? (
-                    <p className="tiny-note">No past stays yet.</p>
+                    <p className="tiny-note">{t("account.noPast")}</p>
                   ) : (
                     <div className="space-y-5">{past.map(renderBooking)}</div>
                   )}

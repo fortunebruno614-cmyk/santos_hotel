@@ -7,10 +7,13 @@ import { signupGuest } from "@/server/auth/actions";
 import { getCurrentSession } from "@/server/auth/dal";
 import { sanitizeNextPath, resolvePostLoginPath } from "@/config/access-map";
 import { GUEST_ACCOUNTS_ENABLED } from "@/config/auth";
+import { getT } from "@/server/locale/display";
+import type { Dictionary } from "@/lib/dictionaries";
 
-const ERROR_MESSAGES: Record<string, string> = {
-  exists: "Email already registered",
-  invalid: "Invalid details — check your name, email and password requirements.",
+/** Signup error codes → dictionary keys, translated at render. */
+const ERROR_KEYS: Record<string, keyof Dictionary> = {
+  exists: "signup.error.exists",
+  invalid: "signup.error.invalid",
 };
 
 export default async function SignupPage({
@@ -19,7 +22,8 @@ export default async function SignupPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
-  const error = ERROR_MESSAGES[sp.error ?? ""] ?? null;
+  const t = await getT();
+  const error = ERROR_KEYS[sp.error ?? ""] ? t(ERROR_KEYS[sp.error ?? ""]) : null;
   const next = sanitizeNextPath(sp.next);
 
   const session = await getCurrentSession();
@@ -29,10 +33,10 @@ export default async function SignupPage({
     return (
       <div className="container page-content">
         <div className="empty-state">
-          <h2>Guest accounts are currently unavailable.</h2>
-          <p>Please contact the hotel to complete a booking.</p>
+          <h2>{t("signup.disabledTitle")}</h2>
+          <p>{t("signup.disabledBody")}</p>
           <Button asChild>
-            <Link href="/contact">Contact the hotel</Link>
+            <Link href="/contact">{t("account.contactHotel")}</Link>
           </Button>
         </div>
       </div>
@@ -41,34 +45,34 @@ export default async function SignupPage({
 
   return (
     <div className="container page-content">
-      <Breadcrumb current="Create an account" />
+      <Breadcrumb current={t("signup.breadcrumb")} />
       <div className="account-auth">
         <span className="auth-icon">
           <UserRound />
         </span>
         <PageHeading
-          eyebrow="YOUR OWN LITTLE CORNER OF SANTO"
-          title="Make yourself at home."
-          description="Keep your stays and details together."
+          eyebrow={t("signup.eyebrow")}
+          title={t("signup.title")}
+          description={t("signup.description")}
         />
         {error && <p className="form-error">{error}</p>}
 
         <form action={signupGuest}>
           <input type="hidden" name="next" value={next ?? ""} />
           <label>
-            First name
+            {t("signup.firstName")}
             <input name="firstName" required autoComplete="given-name" />
           </label>
           <label>
-            Last name
+            {t("signup.lastName")}
             <input name="lastName" required autoComplete="family-name" />
           </label>
           <label>
-            Email address
+            {t("signup.email")}
             <input name="email" type="email" required autoComplete="email" />
           </label>
           <label>
-            Password (8+ characters, with a number)
+            {t("signup.password")}
             <input
               name="password"
               type="password"
@@ -78,15 +82,15 @@ export default async function SignupPage({
             />
           </label>
           <Button className="w-full" type="submit">
-            Create account
+            {t("signup.create")}
             <ArrowRight />
           </Button>
         </form>
 
         <p className="tiny-note">
-          Already have an account?{" "}
+          {t("signup.haveAccount")}{" "}
           <Link href="/login" className="underline">
-            Sign in
+            {t("signup.signIn")}
           </Link>
           .
         </p>

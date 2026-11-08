@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import { DM_Sans, Manrope, Playfair_Display } from "next/font/google";
+import { DM_Sans, Manrope, Noto_Sans_Arabic, Playfair_Display } from "next/font/google";
+import { LocaleProvider } from "@/components/hotel/locale-provider";
+import { LOCALE_DIRS } from "@/lib/i18n";
+import { displayLocale } from "@/server/locale/display";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -18,6 +21,14 @@ const playfair = Playfair_Display({
   variable: "--font-playfair",
 });
 
+// Arabic has no coverage in the three Latin faces above; without a dedicated
+// face the browser falls back to whatever system Arabic font it happens to
+// have, which varies wildly between Windows, macOS and Android.
+const notoArabic = Noto_Sans_Arabic({
+  subsets: ["arabic"],
+  variable: "--font-noto-arabic",
+});
+
 export const metadata: Metadata = {
   title: {
     default: "Santo Hotel",
@@ -26,13 +37,23 @@ export const metadata: Metadata = {
   description: "A considered stay. A genuine welcome. Discover Santo Hotel.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+/**
+ * `lang` and `dir` follow the `santo_locale` cookie so assistive tech and
+ * the browser's own hyphenation/line-breaking switch with the visitor's
+ * language — Arabic flips the whole document to right-to-left.
+ */
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await displayLocale();
+
   return (
     <html
-      lang="en"
-      className={`${dmSans.variable} ${manrope.variable} ${playfair.variable} h-full antialiased`}
+      lang={locale}
+      dir={LOCALE_DIRS[locale]}
+      className={`${dmSans.variable} ${manrope.variable} ${playfair.variable} ${notoArabic.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <LocaleProvider value={locale}>{children}</LocaleProvider>
+      </body>
     </html>
   );
 }

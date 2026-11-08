@@ -15,10 +15,12 @@ import {
 import { prisma } from "@/lib/prisma";
 import { displayCurrency } from "@/server/currency/display";
 import { fallbackImageForSlug, formatMoney } from "@/lib/hotel";
+import { getT } from "@/server/locale/display";
 
 export default async function PayPage({ params }: { params: Promise<{ reference: string }> }) {
   const { reference } = await params;
   const display = await displayCurrency();
+  const t = await getT();
 
   const cookieStore = await cookies();
   const claim = await verifyBookingClaim(cookieStore.get(BOOKING_CLAIM_COOKIE)?.value);
@@ -54,33 +56,51 @@ export default async function PayPage({ params }: { params: Promise<{ reference:
 
   const rows: SummaryRow[] = [
     ...detail.rooms.map((room) => ({
-      label: `${room.roomTypeName} · Room ${room.roomNumber}`,
+      label: t("booking.lineRow", {
+        type: room.roomTypeName,
+        number: room.roomNumber,
+      }),
       value: formatMoney(room.roomTotal, detail.currency, display),
     })),
-    { label: "Taxes", value: formatMoney(detail.breakdown.taxes, detail.currency, display) },
-    { label: "Service fee", value: formatMoney(detail.breakdown.fees, detail.currency, display) },
+    { label: t("booking.taxes"), value: formatMoney(detail.breakdown.taxes, detail.currency, display) },
+    { label: t("booking.serviceFee"), value: formatMoney(detail.breakdown.fees, detail.currency, display) },
   ];
 
   return (
     <div className="container page-content checkout-page">
       <Link href={`/booking/confirmation?ref=${encodeURIComponent(reference)}`} className="text-link">
         <ChevronLeft size={16} />
-        Back to confirmation
+        {t("pay.backToConfirmation")}
       </Link>
       <PageHeading
-        eyebrow="SECURE PAYMENT"
-        title={paid ? "This reservation is paid." : cancelled ? "This reservation was cancelled." : "Complete your payment."}
-        description={`Reservation ${detail.bookingReference} · ${detail.checkIn} → ${detail.checkOut}`}
+        eyebrow={t("pay.eyebrow")}
+        title={
+          paid
+            ? t("pay.title.paid")
+            : cancelled
+              ? t("pay.title.cancelled")
+              : t("pay.title.due")
+        }
+        description={t("pay.description", {
+          ref: detail.bookingReference,
+          checkIn: detail.checkIn,
+          checkOut: detail.checkOut,
+        })}
       />
 
       <div className="checkout-layout">
         <section className="form-section">
-          <span className="eyebrow">AMOUNT DUE</span>
+          <span className="eyebrow">{t("pay.amountDue")}</span>
           <h2>{formatMoney(detail.breakdown.total, detail.currency, display)}</h2>
           <p>
-            {detail.nights} {detail.nights === 1 ? "night" : "nights"} · {detail.adults} adult
-            {detail.adults === 1 ? "" : "s"}
-            {detail.children > 0 ? `, ${detail.children} children` : ""}
+            {detail.nights} {detail.nights === 1 ? t("room.night") : t("room.nights")} ·{" "}
+            {detail.adults}{" "}
+            {detail.adults === 1 ? t("search.adult") : t("search.adultsPlural")}
+            {detail.children > 0
+              ? `, ${detail.children} ${
+                  detail.children === 1 ? t("search.child") : t("search.childrenPlural")
+                }`
+              : ""}
           </p>
 
           {payable ? (
@@ -88,11 +108,8 @@ export default async function PayPage({ params }: { params: Promise<{ reference:
               <div className="info-notice">
                 <ShieldCheck />
                 <div>
-                  <strong>Secure payment</strong>
-                  <p>
-                    Complete your payment to confirm the reservation. Your rooms are held while
-                    payment is processed.
-                  </p>
+                  <strong>{t("pay.secureTitle")}</strong>
+                  <p>{t("pay.secureBody")}</p>
                 </div>
               </div>
               <PayButtons bookingId={detail.id} reference={detail.bookingReference} />
@@ -100,11 +117,7 @@ export default async function PayPage({ params }: { params: Promise<{ reference:
           ) : (
             <div className="info-notice">
               <ShieldCheck />
-              <p>
-                {paid
-                  ? "No further payment is due. We look forward to welcoming you."
-                  : "This reservation has been cancelled and cannot be paid online."}
-              </p>
+              <p>{paid ? t("pay.paidNotice") : t("pay.cancelledNotice")}</p>
             </div>
           )}
         </section>
@@ -114,12 +127,19 @@ export default async function PayPage({ params }: { params: Promise<{ reference:
           title={detail.rooms.map((room) => room.roomTypeName).join(" + ")}
           checkIn={detail.checkIn}
           checkOut={detail.checkOut}
-          guests={`${detail.adults} adult${detail.adults === 1 ? "" : "s"}${detail.children > 0 ? ` · ${detail.children} children` : ""} · ${detail.rooms.length} room${detail.rooms.length === 1 ? "" : "s"}`}
+          guests={t("booking.guestsLine", {
+            adults: detail.adults,
+            adultUnit: detail.adults === 1 ? t("search.adult") : t("search.adultsPlural"),
+            children: detail.children,
+            childUnit: detail.children === 1 ? t("search.child") : t("search.childrenPlural"),
+            rooms: detail.rooms.length,
+            roomUnit: detail.rooms.length === 1 ? t("summary.room") : t("summary.rooms"),
+          })}
           rows={rows}
           total={detail.breakdown.total}
           currency={detail.currency}
           displayCurrency={display}
-          note="Payment is processed through the hotel's secure payment page."
+          note={t("pay.note")}
         />
       </div>
     </div>
