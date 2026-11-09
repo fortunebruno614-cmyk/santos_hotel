@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, LogOut, UserRound } from "lucide-react";
+import { ArrowRight, CalendarDays, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, PageHeading } from "@/components/hotel/shared";
 import { CancelReservationButton } from "@/components/hotel/cancel-button";
-import { logout } from "@/server/auth/actions";
+import { SignOutButton } from "@/components/auth/sign-out-button";
+import { UserAvatar } from "@/components/auth/user-avatar";
 import { requireGuest, getCurrentUser } from "@/server/auth/dal";
 import { prisma } from "@/lib/prisma";
 import { cancellationInfoFor } from "@/server/booking/service";
@@ -32,7 +33,9 @@ export default async function AccountPage({
   const t = await getT();
 
   const guest = user && "firstName" in user ? user : null;
-  const name = guest ? `${guest.firstName} ${guest.lastName}` : t("account.guestName");
+  const name = guest
+    ? [guest.firstName, guest.lastName].filter(Boolean).join(" ")
+    : t("account.guestName");
 
   const bookings = session.guestId
     ? await prisma.booking.findMany({
@@ -152,12 +155,11 @@ export default async function AccountPage({
               {t("account.nav.profile")}
             </Link>
           </Button>
-          <form action={logout}>
-            <Button type="submit" variant="ghost">
-              <LogOut />
-              {t("account.nav.signOut")}
-            </Button>
-          </form>
+          <SignOutButton
+            label={t("account.nav.signOut")}
+            variant="ghost"
+            icon
+          />
         </nav>
 
         <section>
@@ -165,13 +167,15 @@ export default async function AccountPage({
             <div className="form-section">
               <h2>{t("account.profileTitle")}</h2>
               <p className="tiny-note">{t("account.profileNote")}</p>
-              <div className="review-details">
-                <span>
-                  {t("account.name")}<strong>{name}</strong>
-                </span>
-                <span>
-                  {t("account.email")}<strong>{guest?.email ?? "-"}</strong>
-                </span>
+              <div className="profile-identity">
+                <UserAvatar name={name} src={guest?.avatarUrl} className="profile-avatar" />
+                <div>
+                  <strong>{name}</strong>
+                  <span>{guest?.email ?? "-"}</span>
+                  {guest?.authProvider === "google" && (
+                    <span className="provider-badge">{t("account.googleConnected")}</span>
+                  )}
+                </div>
               </div>
               <Button asChild className="mt-6">
                 <Link href="/contact">{t("account.contactHotel")}</Link>

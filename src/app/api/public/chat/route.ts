@@ -7,6 +7,8 @@ import { getCurrentSession, isSessionValid } from "@/server/auth/dal";
 import { getDefaultHotel } from "@/server/public/hotels";
 import { requireHotelContext } from "@/server/pricing/context";
 import { displayCurrency } from "@/server/currency/display";
+import { displayLocale } from "@/server/locale/display";
+import { makeTranslator } from "@/lib/dictionaries";
 import { BOOKING_CLAIM_COOKIE, verifyBookingClaim } from "@/server/booking/claim";
 import { runConcierge } from "@/server/ai/concierge";
 import { hitChat } from "@/server/ai/throttle";
@@ -108,6 +110,7 @@ export async function POST(request: Request) {
     principal,
     claim,
     displayCurrency: await displayCurrency(),
+    locale: await displayLocale(),
   };
   const messages: ChatMessage[] = parsed.data.messages.map((message) => ({
     role: message.role,
@@ -136,7 +139,7 @@ export async function POST(request: Request) {
         send("error", {
           type: "error",
           code: "internal",
-          message: "The chat hit an unexpected problem — please try again.",
+          message: makeTranslator(context.locale)("chat.error.stream"),
         });
       } finally {
         closed = true;

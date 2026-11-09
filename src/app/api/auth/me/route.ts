@@ -1,5 +1,5 @@
 ﻿import { NextResponse } from "next/server";
-import { getCurrentSession, isSessionValid } from "@/server/auth/dal";
+import { getCurrentSession, getCurrentUser, isSessionValid } from "@/server/auth/dal";
 
 export async function GET() {
   const session = await getCurrentSession();
@@ -11,5 +11,28 @@ export async function GET() {
     return NextResponse.json({ error: "session_invalid" }, { status: 401 });
   }
 
-  return NextResponse.json(session);
+  const user = await getCurrentUser();
+  const profile = user
+    ? "firstName" in user
+      ? {
+          id: user.id,
+          name: [user.firstName, user.lastName].filter(Boolean).join(" "),
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          avatarUrl: user.avatarUrl,
+          authProvider: user.authProvider,
+          role: "GUEST",
+        }
+      : {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatarUrl: null,
+          authProvider: null,
+          role: user.role,
+        }
+    : null;
+
+  return NextResponse.json({ ...session, user: profile });
 }

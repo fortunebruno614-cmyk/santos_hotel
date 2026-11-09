@@ -143,7 +143,15 @@ export async function getCurrentUser() {
   if (s.kind === "guest" && s.guestId) {
     return prisma.guest.findUnique({
       where: { id: s.guestId },
-      select: { id: true, firstName: true, lastName: true, email: true, isActive: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        avatarUrl: true,
+        authProvider: true,
+        isActive: true,
+      },
     });
   }
   return null;

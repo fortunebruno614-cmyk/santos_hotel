@@ -52,6 +52,7 @@ export const ACCESS_RULES: AccessRule[] = [
   open("/rooms"),
   open("/search"),
   open("/offers"),
+  open("/flights"),
   open("/hotel"),
   open("/contact"),
   open("/booking"),

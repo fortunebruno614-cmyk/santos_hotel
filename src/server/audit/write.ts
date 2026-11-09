@@ -133,10 +133,22 @@ export async function auditLogin(actor: AuditActor, role: AppRole, email?: strin
   });
 }
 
+export type LoginFailureReason =
+  | "invalid_credentials"
+  | "rate_limited"
+  | "invalid_token"
+  | "email_missing"
+  | "email_unverified"
+  | "provider_not_allowed"
+  | "account_disabled"
+  | "signup_disabled"
+  | "staff_account"
+  | "identity_conflict";
+
 export async function auditLoginFailed(
   kind: "staff" | "guest",
   email: string,
-  reason: "invalid_credentials" | "rate_limited",
+  reason: LoginFailureReason,
   ip?: string | null,
 ) {
   await writeAuditLog({

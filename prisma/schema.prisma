@@ -352,6 +352,12 @@ model Guest {
   idType       String?   @map("id_type")
   idNumber     String?   @map("id_number")
   passwordHash String?   @map("password_hash")
+  /// Firebase Auth uid for social sign-in (Google today). Null for password-only guests.
+  firebaseUid  String?   @unique @map("firebase_uid")
+  /// Profile photo URL supplied by the identity provider.
+  avatarUrl    String?   @map("avatar_url")
+  /// "google" when the account was created/linked through Firebase.
+  authProvider String?   @map("auth_provider")
   isActive     Boolean   @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz()
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()

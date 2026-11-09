@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, PageHeading } from "@/components/hotel/shared";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { loginGuest } from "@/server/auth/actions";
 import { getCurrentSession } from "@/server/auth/dal";
 import { sanitizeNextPath, resolvePostLoginPath } from "@/config/access-map";
@@ -45,6 +46,11 @@ export default async function LoginPage({
         />
         {expired && <p className="form-error">{t("login.expired")}</p>}
         {error && <p className="form-error">{error}</p>}
+
+        <GoogleSignInButton next={next} mode="login" />
+        <div className="auth-divider" role="separator">
+          <span>{t("auth.google.or")}</span>
+        </div>
 
         <form action={loginGuest}>
           <input type="hidden" name="next" value={next ?? ""} />

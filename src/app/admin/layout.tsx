@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { logout } from "@/server/auth/actions";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Permissions, hasOrgPermission } from "@/server/auth/roles";
 import {
   accessibleHotels,
@@ -100,9 +100,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               Platform ({session.platformRole})
             </Link>
           )}
-          <form action={logout}>
-            <button className="border px-3 py-1 rounded-md">Sign out</button>
-          </form>
+          <SignOutButton label="Sign out" variant="outline" size="sm" />
         </div>
       </header>
       <div className="border-b bg-zinc-50 px-6 py-1 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">

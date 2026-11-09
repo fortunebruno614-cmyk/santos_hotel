@@ -31,6 +31,13 @@ import { hotelToday, type HotelContext } from "@/server/pricing/context";
 import { loadPublicRoomTypes } from "@/server/public/catalog";
 import type { PublicRoomType } from "@/lib/hotel";
 import type { ToolDefinition } from "@/server/ai/groq";
+import { makeTranslator, type Translator } from "@/lib/dictionaries";
+import type { Locale } from "@/lib/i18n";
+
+/** Activity-row copy follows the visitor's display language. */
+function tr(ctx: ConciergeContext): Translator {
+  return makeTranslator(ctx.locale);
+}
 
 /**
  * The concierge's hands: every capability the chat exposes to the model is a
@@ -66,6 +73,8 @@ export type ConciergeContext = {
   claim: { reference: string; guestId: string } | null;
   /** Guest's chosen display currency (from the cookie); amounts stay in hotel currency. */
   displayCurrency: string;
+  /** Display language (from the `santo_locale` cookie) — replies and activity rows follow it. */
+  locale: Locale;
 };
 
 export type ToolOutcome = {
@@ -350,7 +359,7 @@ async function handleSuggestRooms(
         suggestions: [],
         note: "No room type matches those filters — suggest loosening the budget or the amenities.",
       },
-      detail: "No rooms match those filters",
+      detail: tr(ctx)("chat.detail.noMatchFilters"),
     };
   }
 
@@ -419,8 +428,11 @@ async function handleSuggestRooms(
       },
       detail:
         suggestions.length > 0
-          ? `${suggestions.length} room type${suggestions.length === 1 ? "" : "s"} free`
-          : "No rooms free for those dates",
+          ? tr(ctx)(
+              suggestions.length === 1 ? "chat.detail.typesFreeOne" : "chat.detail.typesFreeMany",
+              { count: suggestions.length },
+            )
+          : tr(ctx)("chat.detail.noRoomsFreeDates"),
     };
   }
 
@@ -443,7 +455,10 @@ async function handleSuggestRooms(
       suggestions,
       note: "No dates given — these are standard nightly rates from the rate card.",
     },
-    detail: `${suggestions.length} room type${suggestions.length === 1 ? "" : "s"} on offer`,
+    detail: tr(ctx)(
+      suggestions.length === 1 ? "chat.detail.typesOnOfferOne" : "chat.detail.typesOnOfferMany",
+      { count: suggestions.length },
+    ),
   };
 }
 
@@ -500,8 +515,13 @@ async function handleCheckAvailability(
       roomTypes: types,
     },
     detail: availability.hasAvailability
-      ? `${availability.availableRoomCount} room${availability.availableRoomCount === 1 ? "" : "s"} free`
-      : "No rooms free",
+      ? tr(ctx)(
+          availability.availableRoomCount === 1
+            ? "chat.detail.roomsFreeOne"
+            : "chat.detail.roomsFreeMany",
+          { count: availability.availableRoomCount },
+        )
+      : tr(ctx)("chat.detail.noRoomsFree"),
   };
 }
 
@@ -554,7 +574,12 @@ async function handleCheckDiscount(
           ? "Codes apply to the room subtotal before taxes and fees."
           : "No discounts are running right now.",
       },
-      detail: discounts.length ? `${discounts.length} discount${discounts.length === 1 ? "" : "s"} running` : "No discounts running",
+      detail: discounts.length
+        ? tr(ctx)(
+            discounts.length === 1 ? "chat.detail.discountsOne" : "chat.detail.discountsMany",
+            { count: discounts.length },
+          )
+        : tr(ctx)("chat.detail.noDiscounts"),
     };
   }
 
@@ -568,7 +593,7 @@ async function handleCheckDiscount(
         reason: inspection.reason,
         message: inspection.message,
       },
-      detail: `Code ${code} not valid`,
+      detail: tr(ctx)("chat.detail.codeInvalid", { code }),
     };
   }
 
@@ -632,7 +657,15 @@ async function handleCheckDiscount(
 
   return {
     data: { ok: true, currency: ctx.hotel.currency, discount, estimate },
-    detail: `Code ${inspection.code} valid — ${discount.type === "percentage" ? `${inspection.value}% off` : `${money(inspection.value, ctx.hotel.currency)} off`}`,
+    detail: tr(ctx)("chat.detail.codeValid", {
+      code: inspection.code,
+      saving:
+        discount.type === "percentage"
+          ? tr(ctx)("chat.detail.savingPercent", { value: inspection.value })
+          : tr(ctx)("chat.detail.savingFixed", {
+              amount: money(inspection.value, ctx.hotel.currency),
+            }),
+    }),
   };
 }
 
@@ -665,7 +698,7 @@ async function handleBestSelling(
         ranking: [],
         note: "No completed reservations yet — nothing to rank.",
       },
-      detail: "No booking history yet",
+      detail: tr(ctx)("chat.detail.noHistory"),
     };
   }
 
@@ -714,7 +747,7 @@ async function handleBestSelling(
       ranking,
       note: "Ranked by nights sold across confirmed, in-house and completed stays.",
     },
-    detail: `Top: ${ranking[0]?.roomType ?? "—"}`,
+    detail: tr(ctx)("chat.detail.top", { name: ranking[0]?.roomType ?? "—" }),
   };
 }
 
@@ -758,7 +791,7 @@ async function handleCreateReservation(
         reason: "no_availability",
         message: `Nothing is free from ${checkIn} to ${checkOut} for ${adults} guest${adults === 1 ? "" : "s"}. Offer other dates.`,
       },
-      detail: "Nothing free for those dates",
+      detail: tr(ctx)("chat.detail.nothingFree"),
     };
   }
 
@@ -782,7 +815,7 @@ async function handleCreateReservation(
         reason: "not_enough_rooms",
         message: `Only ${chosen?.availableCount ?? 0} room(s) of ${chosen?.name ?? "that type"} are free — reduce the number of rooms or offer another type.`,
       },
-      detail: "Not enough rooms of that type",
+      detail: tr(ctx)("chat.detail.notEnough"),
     };
   }
 
@@ -845,7 +878,7 @@ async function handleCreateReservation(
       paymentUrl: `/pay/${booking.bookingReference}`,
       confirmationUrl: `/booking/confirmation?reference=${booking.bookingReference}`,
     },
-    detail: `Reserved · ${booking.bookingReference}`,
+    detail: tr(ctx)("chat.detail.reserved", { ref: booking.bookingReference }),
   };
 }
 
@@ -860,13 +893,13 @@ async function handleSignup(
         reason: "already_signed_in",
         message: "They already have a session — no sign-up needed.",
       },
-      detail: "Already signed in",
+      detail: tr(ctx)("chat.detail.alreadySignedIn"),
     };
   }
   if (!GUEST_ACCOUNTS_ENABLED) {
     return {
       data: { ok: false, reason: "disabled", message: "Guest accounts are turned off for this hotel." },
-      detail: "Sign-up disabled",
+      detail: tr(ctx)("chat.detail.signUpDisabled"),
     };
   }
 
@@ -881,7 +914,7 @@ async function handleSignup(
     const first = Object.values(issues).flat()[0];
     return {
       data: { ok: false, reason: "invalid", message: first ?? "Those details are not valid." },
-      detail: "Details not accepted",
+      detail: tr(ctx)("chat.detail.detailsRejected"),
     };
   }
 
@@ -893,7 +926,7 @@ async function handleSignup(
         reason: "email_taken",
         message: "An account already exists for that email — offer the login page instead.",
       },
-      detail: "Email already registered",
+      detail: tr(ctx)("chat.detail.emailTaken"),
     };
   }
 
@@ -912,7 +945,7 @@ async function handleSignup(
       firstName: result.guest.firstName,
       message: "Account created and signed in.",
     },
-    detail: `Signed up · ${result.guest.email}`,
+    detail: tr(ctx)("chat.detail.signedUp", { email: result.guest.email ?? "—" }),
     effects: [{ type: "set_session", token }],
   };
 }
@@ -954,7 +987,7 @@ async function handleLookupBooking(
         reason: "reference_required",
         message: "Ask for the reservation reference (SH-YYYY-NNNNNN) — or have them sign in.",
       },
-      detail: "Reference needed",
+      detail: tr(ctx)("chat.detail.referenceNeeded"),
     };
   }
 
@@ -967,7 +1000,7 @@ async function handleLookupBooking(
         message:
           "That reservation can only be shown to the signed-in guest who owns it (or to staff). Offer login.",
       },
-      detail: "Sign in to view that reservation",
+      detail: tr(ctx)("chat.detail.signInToView"),
     };
   }
 
@@ -999,13 +1032,16 @@ async function handleLookupBooking(
         cancellation: detail.cancellation,
         paymentUrl: `/pay/${detail.bookingReference}`,
       },
-      detail: `${detail.bookingReference} · ${detail.bookingStatus}`,
+      detail: tr(ctx)("chat.detail.bookingLine", {
+        ref: detail.bookingReference,
+        status: detail.bookingStatus,
+      }),
     };
   } catch (error) {
     if (error instanceof BookingError && error.code === "booking_not_found") {
       return {
         data: { ok: false, reason: "not_found", message: `No reservation matches ${reference}.` },
-        detail: "Reservation not found",
+        detail: tr(ctx)("chat.detail.notFound"),
       };
     }
     throw error;
@@ -1046,7 +1082,7 @@ async function handleCheckOutStay(
     if (!bookingRow) {
       return {
         data: { ok: false, reason: "not_found", message: `No reservation matches ${reference}.` },
-        detail: "Reservation not found",
+        detail: tr(ctx)("chat.detail.notFound"),
       };
     }
     const viewer = viewerFor(ctx, bookingRow.bookingReference);
@@ -1057,7 +1093,7 @@ async function handleCheckOutStay(
           reason: "not_authorized",
           message: "Only the guest who owns that reservation (or staff) can check it out.",
         },
-        detail: "Not your reservation",
+        detail: tr(ctx)("chat.detail.notYours"),
       };
     }
   } else {
@@ -1068,7 +1104,7 @@ async function handleCheckOutStay(
           reason: "reference_required",
           message: "Ask for the reservation reference (SH-YYYY-NNNNNN) to check a stay out.",
         },
-        detail: "Reference needed",
+        detail: tr(ctx)("chat.detail.referenceNeeded"),
       };
     }
     bookingRow = await prisma.booking.findFirst({
@@ -1094,7 +1130,7 @@ async function handleCheckOutStay(
           reason: "no_active_stay",
           message: "There is no in-house or upcoming stay to check out right now.",
         },
-        detail: "No active stay",
+        detail: tr(ctx)("chat.detail.noActiveStay"),
       };
     }
   }
@@ -1114,7 +1150,10 @@ async function handleCheckOutStay(
             : `This reservation is ${bookingRow.bookingStatus} and cannot be checked out.`,
         checkIn: arrives,
       },
-      detail: `${bookingRow.bookingReference} · ${bookingRow.bookingStatus}`,
+      detail: tr(ctx)("chat.detail.bookingLine", {
+        ref: bookingRow.bookingReference,
+        status: bookingRow.bookingStatus,
+      }),
     };
   }
 
@@ -1131,7 +1170,7 @@ async function handleCheckOutStay(
     );
     return {
       data: { ok: true, ...folio(summary) },
-      detail: `Checked out · ${summary.bookingReference}`,
+      detail: tr(ctx)("chat.detail.checkedOut", { ref: summary.bookingReference }),
     };
   }
 
@@ -1148,14 +1187,14 @@ async function handleCheckOutStay(
         reason: "not_authorized",
         message: "Sign in as the guest who owns this reservation to check out.",
       },
-      detail: "Sign in to check out",
+      detail: tr(ctx)("chat.detail.signInToCheckOut"),
     };
   }
 
   const summary = await guestSelfCheckOut({ bookingId: bookingRow.id, guestId, note });
   return {
     data: { ok: true, ...folio(summary) },
-    detail: `Checked out · ${summary.bookingReference}`,
+    detail: tr(ctx)("chat.detail.checkedOut", { ref: summary.bookingReference }),
   };
 }
 
@@ -1255,9 +1294,12 @@ export async function executeConciergeTool(
       console.error(`concierge tool ${name} failed`, error);
       return {
         data: { ok: false, reason: "internal", message: "That action failed — tell the guest to try again." },
-        detail: "Something went wrong",
+        detail: tr(ctx)("chat.detail.somethingWrong"),
       };
     }
-    return { data: { ok: false, reason: "rejected", message }, detail: "Could not complete that" };
+    return {
+      data: { ok: false, reason: "rejected", message },
+      detail: tr(ctx)("chat.detail.couldNotComplete"),
+    };
   }
 }

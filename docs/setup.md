@@ -155,6 +155,22 @@ building, not the street). Enter both or neither; the database rejects a lone
 coordinate, and the map never geocodes the address itself. Changing the
 coordinates takes effect on the next page load — no restart.
 
+## Flight tracking (OpenSky)
+
+`/flights` shows live aircraft around the hotel and searches the global feed by
+callsign or flight number. The OpenSky OAuth client credentials are server-only:
+
+```env
+OPENSKY_CLIENT_ID=...
+OPENSKY_CLIENT_SECRET=...
+```
+
+The browser calls `/api/public/flights`, never OpenSky directly. Responses and
+the OAuth token are cached server-side to protect the daily credit quota. See
+[`docs/FLIGHT_TRACKING.md`](FLIGHT_TRACKING.md) for the full setup, credit and
+search details. Without credentials the page still renders and shows a
+"temporarily unavailable/not configured" state — no other feature is affected.
+
 ## Troubleshooting
 
 - **`Can't reach database server at 127.0.0.1:5432`** — nothing is listening on

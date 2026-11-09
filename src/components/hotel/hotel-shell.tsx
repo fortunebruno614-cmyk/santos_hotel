@@ -9,7 +9,6 @@ import {
   Mail,
   MapPin,
   Menu,
-  UserRound,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,12 +16,19 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { AiChat } from "@/components/hotel/ai-chat";
 import { CurrencySwitch } from "@/components/hotel/currency-switch";
 import { LanguageSwitch } from "@/components/hotel/language-switch";
+import { UserAvatar } from "@/components/auth/user-avatar";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
 import { useLocale, useT } from "@/components/hotel/locale-provider";
 import { LOCALE_NAMES } from "@/lib/i18n";
 import type { Dictionary } from "@/lib/dictionaries";
 import { defaultStayDates, searchHref } from "@/lib/hotel";
-import { logout } from "@/server/auth/actions";
+
+export type ShellUser = {
+  name: string;
+  email: string | null;
+  avatarUrl: string | null;
+};
 
 /** Href is the stable identity; the label is translated at render time. */
 const NAV = [
@@ -30,6 +36,7 @@ const NAV = [
   { href: "/hotels", key: "nav.hotels" },
   { href: "/rooms", key: "nav.rooms" },
   { href: "/offers", key: "nav.offers" },
+  { href: "/flights", key: "nav.flights" },
   { href: "/hotel", key: "nav.hotel" },
   { href: "/contact", key: "nav.contact" },
 ] as const;
@@ -49,6 +56,7 @@ export function HotelShell({
   children,
   signedIn,
   staff,
+  user,
   currency,
   hotelName,
   address,
@@ -59,6 +67,8 @@ export function HotelShell({
   children: React.ReactNode;
   signedIn: boolean;
   staff: boolean;
+  /** Signed-in guest/staff profile for the header avatar (null when anonymous). */
+  user: ShellUser | null;
   currency: string;
   hotelName: string;
   address: string;
@@ -103,8 +113,14 @@ export function HotelShell({
             <CurrencySwitch />
             {signedIn ? (
               <Link href={staff ? "/admin" : "/account"} className="account-link">
-                <UserRound size={16} />
-                <span>{staff ? t("header.staffConsole") : t("header.myBookings")}</span>
+                <UserAvatar
+                  name={user?.name}
+                  src={user?.avatarUrl}
+                  className="account-avatar"
+                />
+                <span className="account-name">
+                  {user?.name || user?.email || (staff ? t("header.staffConsole") : t("header.myBookings"))}
+                </span>
               </Link>
             ) : (
               <div className="auth-actions">
@@ -179,6 +195,7 @@ export function HotelShell({
             <h3>{t("footer.explore")}</h3>
             <Link href="/rooms">{t("footer.rooms")}</Link>
             <Link href="/offers">{t("footer.offers")}</Link>
+            <Link href="/flights">{t("footer.flightTracker")}</Link>
             <Link href="/hotel">{t("footer.ourHotel")}</Link>
             <Link href="/hotel">{t("footer.gallery")}</Link>
           </div>
@@ -192,11 +209,7 @@ export function HotelShell({
             <Link href="/hotel">{t("footer.faq")}</Link>
             {staff && <Link href="/admin">{t("header.staffConsole")}</Link>}
             {signedIn && (
-              <form action={logout}>
-                <Button type="submit" variant="link">
-                  {t("footer.signOut")}
-                </Button>
-              </form>
+              <SignOutButton label={t("footer.signOut")} variant="link" />
             )}
           </div>
           <div>

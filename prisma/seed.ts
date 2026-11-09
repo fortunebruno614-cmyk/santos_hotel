@@ -1,6 +1,11 @@
 import "../scripts/load-env";
 import { prisma } from "../src/lib/prisma";
-import { OrganizationStatus, PromotionType, RecordStatus } from "../src/generated/prisma/enums";
+import {
+  OrganizationStatus,
+  PromotionType,
+  PropertyPublicationStatus,
+  RecordStatus,
+} from "../src/generated/prisma/enums";
 import { hashPassword } from "../src/server/auth/crypto";
 
 const AMENITIES = [
@@ -158,11 +163,18 @@ async function main() {
       longitude: 3.429399,
       locationVerification: "PLATFORM_VERIFIED",
       locationPrecision: "APPROXIMATE",
+      // Public pages (home, rooms, offers, hotel, contact, search) all resolve
+      // the default hotel by PUBLISHED status, so a seeded demo property must
+      // be published or the whole site renders empty. The multi-tenant
+      // migration only backfills org-less rows, which never matches a hotel
+      // the seed creates with an organization already attached.
+      publicationStatus: PropertyPublicationStatus.PUBLISHED,
     },
     create: {
       name: "Santo Hotel",
       slug: "santo-hotel",
       organizationId: organization.id,
+      publicationStatus: PropertyPublicationStatus.PUBLISHED,
       description: "Single-tenant hotel booking demo environment.",
       // Public map location (MR-07): street midpoint of Adetokunbo Ademola
       // Street, Victoria Island, Lagos — verified against OpenStreetMap

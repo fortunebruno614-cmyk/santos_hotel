@@ -104,9 +104,15 @@ Authenticated staff/admin accounts (guest login is a P3 decision, Q13).
 | ------ | ---- | -------- | ----- |
 | id | uuid | yes | PK |
 | first_name / last_name | text | yes | |
-| email | text | no | indexed (not unique — shared/walk-in guests) |
+| email | text | no | unique index (one account per email) |
 | phone | text | no | |
 | id_type / id_number | text | no | requirement **pending Q16** |
+| password_hash | text | no | argon2/bcrypt hash; null for Google-only accounts |
+| firebase_uid | text | no | unique; Firebase Auth uid for Google sign-in |
+| avatar_url | text | no | provider profile photo |
+| auth_provider | text | no | `google` when linked through Firebase |
+| is_active | boolean | yes | default true; false blocks sign-in |
+| last_login_at | timestamptz | no | updated on password or Google sign-in |
 | created_at / updated_at | timestamptz | yes | |
 
 ## room_types

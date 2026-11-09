@@ -1,4 +1,5 @@
 import { AI_MAX_HISTORY, AI_MAX_TOOL_ROUNDS } from "@/config/ai";
+import { makeTranslator } from "@/lib/dictionaries";
 import {
   groqChatStream,
   type AssistantTurn,
@@ -66,6 +67,14 @@ export function buildSystemPrompt(ctx: ConciergeContext, now = new Date()): stri
         ? "A staff member is signed in — they may look up and check out any stay on this property."
         : "The guest is browsing without an account.";
 
+  // The visitor picked this language from the header switcher — every reply
+  // follows it, while links, references and room names stay as the site has them.
+  const replyLanguage =
+    ctx.locale === "fr" ? "French" : ctx.locale === "ar" ? "Arabic" : null;
+  const languageRule = replyLanguage
+    ? `## Language\n- Reply in ${replyLanguage} — every sentence the guest reads, including questions, options and confirmations. Keep markdown links, booking references (SH-YYYY-NNNNNN) and room-type names as they appear on the site.\n\n`
+    : "";
+
   return `You are the AI concierge for ${hotel.name}, living in the live-chat bubble on the hotel's website. You are warm, professional and concise — a front-desk host who can actually get things done, not a marketing bot.
 
 ## What you can do (use the tools; never guess)
@@ -102,7 +111,7 @@ Ask for first name, last name, email and a password (at least 8 characters with 
 ## Check-out flow
 Ask for the reservation reference (or use the guest's current stay when signed in), call check_out_stay, and report the outcome: the folio, the check-out time and the room release. If a balance is due, point them to the payment link. If they are not checked in yet, explain when check-out opens.
 
-## Style
+${languageRule}## Style
 - Short paragraphs. Use **bold** for key facts and bullet lists for options — nothing fancier (no tables, no headers).
 - Suggest rooms as a markdown link: [Executive Suite](/rooms/executive-suite). Same for offers (/offers) and contact (/contact).
 - One question at a time when you need information. Max ~80 words per reply unless listing options.
@@ -122,6 +131,7 @@ export async function* runConcierge(input: {
   signal?: AbortSignal;
 }): AsyncGenerator<ConciergeEvent> {
   const { context, signal } = input;
+  const t = makeTranslator(context.locale);
   const history = trimHistory(input.messages);
   const messages: ChatMessage[] = [
     { role: "system", content: buildSystemPrompt(context) },
@@ -158,13 +168,13 @@ export async function* runConcierge(input: {
       yield {
         type: "error",
         code: groq?.code ?? "network_error",
-        message: groq?.message ?? "The chat hit an unexpected problem.",
+        message: groq?.message ?? t("chat.error.model"),
       };
       return;
     }
 
     if (!turn) {
-      yield { type: "error", code: "upstream_error", message: "The assistant returned nothing." };
+      yield { type: "error", code: "upstream_error", message: t("chat.error.empty") };
       return;
     }
 

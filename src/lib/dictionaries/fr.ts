@@ -11,6 +11,7 @@ export const fr: Partial<Dictionary> = {
   "nav.hotels": "Hôtels",
   "nav.rooms": "Chambres & Suites",
   "nav.offers": "Offres",
+  "nav.flights": "Vols",
   "nav.hotel": "L'hôtel",
   "nav.contact": "Contact",
 
@@ -31,6 +32,7 @@ export const fr: Partial<Dictionary> = {
   "footer.explore": "Découvrir Santo",
   "footer.rooms": "Chambres & Suites",
   "footer.offers": "Offres spéciales",
+  "footer.flightTracker": "Suivi des vols",
   "footer.ourHotel": "Notre hôtel",
   "footer.gallery": "Galerie & Équipements",
   "footer.yourStay": "Votre séjour",
@@ -522,6 +524,91 @@ export const fr: Partial<Dictionary> = {
   "quote.error.invalid_date_range": "Le départ doit être postérieur à l'arrivée.",
   "quote.error.stay_too_long": "Ce séjour dépasse la limite de 60 nuits.",
 
+  // --- Flight tracking (OpenSky) -------------------------------------------
+  "meta.flights.title": "Suivi des vols",
+  "meta.flights.description":
+    "Suivez les aéronefs en direct autour de Santo Hotel, recherchez par numéro de vol ou indicatif et consultez l'altitude, la vitesse et le cap.",
+  "flights.breadcrumb": "Suivi des vols",
+  "flights.eyebrow": "CIEL EN DIRECT",
+  "flights.title": "Suivez les vols en temps réel.",
+  "flights.description":
+    "Recherchez n'importe quel vol dans le monde ou explorez les aéronefs en direct près de {hotel}, avec l'altitude, la vitesse et le cap.",
+  "flights.worldwide": "Aéronefs en direct dans le monde",
+  "flights.scope.label": "Zone de la carte",
+  "flights.scope.world": "Monde",
+  "flights.scope.hotel": "Près de l'hôtel",
+  "flights.search.label": "Numéro de vol ou indicatif",
+  "flights.search.placeholder": "ex. BAW117 ou BA117",
+  "flights.search.hint":
+    "Recherchez dans le flux mondial en direct par indicatif OACI ou numéro de vol. Exemples : BAW117, KLM1023, N123AB.",
+  "flights.search.globalHint":
+    "Recherche dans le flux mondial en direct. Effacez la recherche pour revenir aux aéronefs près de l'hôtel.",
+  "flights.search.button": "Suivre le vol",
+  "flights.search.clear": "Effacer la recherche",
+  "flights.regional": "Aéronefs près de {hotel}",
+  "flights.searchResults": "Résultats pour {query}",
+  "flights.count": "{count} aéronefs",
+  "flights.countOne": "1 aéronef",
+  "flights.live": "En direct",
+  "flights.cached": "En cache",
+  "flights.loading": "Chargement des vols en direct...",
+  "flights.refreshing": "Mise à jour...",
+  "flights.errorShort": "Indisponible",
+  "flights.updated": "Mis à jour à {time}",
+  "flights.refresh": "Actualiser",
+  "flights.autoRefresh": "Actualisation auto",
+  "flights.map.loading": "Chargement de la carte en direct...",
+  "flights.map.errorTitle": "Carte indisponible",
+  "flights.map.errorBody":
+    "La carte en direct n'a pas pu être chargée. La liste des vols reste disponible.",
+  "flights.map.unavailableTitle": "Carte non configurée",
+  "flights.map.unavailableBody":
+    "Ajoutez une clé API Google Maps pour activer la carte interactive. La liste des vols reste disponible.",
+  "flights.map.aria": "Carte interactive des aéronefs en direct près de {hotel}",
+  "flights.map.ariaWorld": "Carte interactive des aéronefs en direct dans le monde",
+  "flights.map.noAircraft": "Aucun aéronef en direct dans cette zone pour le moment.",
+  "flights.legend": "Aéronefs en direct",
+  "flights.list.empty": "Aucun aéronef en direct trouvé près de {hotel}.",
+  "flights.list.emptyWorld": "Aucun aéronef en direct n'est disponible pour le moment.",
+  "flights.list.emptySearch":
+    "Aucun aéronef en direct ne correspond à {query}. OpenSky diffuse les indicatifs OACI ; essayez l'indicatif complet, par ex. BAW117.",
+  "flights.detail.title": "Détails du vol",
+  "flights.detail.close": "Fermer les détails du vol",
+  "flights.detail.altitude": "Altitude",
+  "flights.detail.speed": "Vitesse sol",
+  "flights.detail.heading": "Cap",
+  "flights.detail.verticalRate": "Taux vertical",
+  "flights.detail.status": "Statut",
+  "flights.detail.airborne": "En vol",
+  "flights.detail.onGround": "Au sol",
+  "flights.detail.lastContact": "Dernier contact",
+  "flights.detail.icao24": "ICAO24",
+  "flights.detail.squawk": "Squawk",
+  "flights.detail.positionSource": "Source de position",
+  "flights.detail.sourceAdsB": "ADS-B",
+  "flights.detail.sourceAsterix": "ASTERIX",
+  "flights.detail.sourceMlat": "MLAT",
+  "flights.detail.sourceFlarm": "FLARM",
+  "flights.detail.sourceOther": "Autre",
+  "flights.unit.meters": "m",
+  "flights.unit.feet": "ft",
+  "flights.unit.kmh": "km/h",
+  "flights.unit.knots": "kn",
+  "flights.unit.fpm": "ft/min",
+  "flights.attribution": "Données de vol en direct par",
+  "flights.error.not_configured":
+    "Le suivi des vols n'est pas encore configuré. Veuillez réessayer plus tard.",
+  "flights.error.invalid_query":
+    "Cette recherche n'est pas valide. Utilisez un numéro de vol ou un indicatif composé de lettres et de chiffres (2 à 10 caractères).",
+  "flights.error.rate_limited":
+    "Le flux de vols est très sollicité. Patientez un instant puis réessayez.",
+  "flights.error.upstream":
+    "Les données de vol sont temporairement indisponibles. Veuillez réessayer bientôt.",
+  "flights.error.network":
+    "Impossible de joindre le service de vols. Vérifiez votre connexion et réessayez.",
+  "flights.error.generic":
+    "Les données de vol n'ont pas pu être chargées. Veuillez réessayer.",
+
   // --- Login ---------------------------------------------------------------
   "login.breadcrumb": "Connexion",
   "login.eyebrow": "VOTRE COIN DE SANTO",
@@ -540,6 +627,39 @@ export const fr: Partial<Dictionary> = {
   "login.staffTitle": "Connexion personnel & administrateur",
   "login.staffEmail": "E-mail du personnel",
   "login.staffSignIn": "Se connecter à la console",
+
+  // --- Social sign-in (Firebase Google) -----------------------------------
+  "auth.google.continue": "Continuer avec Google",
+  "auth.google.signup": "S'inscrire avec Google",
+  "auth.google.signingIn": "Connexion à Google...",
+  "auth.google.or": "ou continuer avec l'e-mail",
+  "auth.google.orSignup": "ou créer un compte avec l'e-mail",
+  "auth.signingOut": "Déconnexion...",
+  "auth.google.error.invalid_token":
+    "Cette connexion n'est plus valide. Veuillez réessayer avec Google.",
+  "auth.google.error.email_unverified":
+    "Votre adresse Google n'est pas vérifiée. Vérifiez-la auprès de Google, puis réessayez.",
+  "auth.google.error.provider_not_allowed":
+    "Cette méthode de connexion n'est pas activée pour Santo. Veuillez utiliser Google.",
+  "auth.google.error.account_disabled":
+    "Ce compte a été désactivé. Veuillez contacter l'hôtel.",
+  "auth.google.error.signup_disabled":
+    "Les nouveaux comptes voyageurs sont indisponibles. Contactez l'hôtel pour réserver.",
+  "auth.google.error.staff_account":
+    "Cette adresse appartient à un compte du personnel. Utilisez le formulaire de connexion du personnel.",
+  "auth.google.error.identity_conflict":
+    "Cette adresse est déjà liée à une autre méthode de connexion. Veuillez contacter l'hôtel.",
+  "auth.google.error.rate_limited":
+    "Trop de tentatives. Patientez quelques minutes puis réessayez.",
+  "auth.google.error.popup_closed": "La connexion Google a été annulée.",
+  "auth.google.error.popup_blocked":
+    "Votre navigateur a bloqué la fenêtre Google. Autorisez les pop-ups et réessayez.",
+  "auth.google.error.unauthorized_domain":
+    "La connexion Google n'est pas configurée pour ce domaine. Veuillez contacter l'hôtel.",
+  "auth.google.error.network":
+    "Impossible de joindre Google. Vérifiez votre connexion et réessayez.",
+  "auth.google.error.generic":
+    "La connexion Google n'a pas pu aboutir. Veuillez réessayer.",
 
   // --- Signup --------------------------------------------------------------
   "signup.breadcrumb": "Créer un compte",
@@ -573,6 +693,7 @@ export const fr: Partial<Dictionary> = {
   "account.profileNote": "Contactez l'hôtel pour mettre à jour vos coordonnées.",
   "account.name": "Nom",
   "account.email": "Adresse e-mail",
+  "account.googleConnected": "Connecté avec Google",
   "account.contactHotel": "Contacter l'hôtel",
   "account.nextStay": "Votre prochain séjour",
   "account.liveReservations": "Réservations en direct",
@@ -652,6 +773,91 @@ export const fr: Partial<Dictionary> = {
   "pay.cancelledNotice":
     "Cette réservation a été annulée et ne peut plus être payée en ligne.",
   "pay.note": "Le paiement s'effectue via la page sécurisée de l'hôtel.",
+
+  // --- AI concierge chat ---------------------------------------------------
+  // Widget chrome (client) ---------------------------------------------------
+  "chat.greeting.signedIn":
+    "Content de vous revoir — je suis le **concierge Santo**. Je peux vérifier les disponibilités en direct, suggérer des chambres, valider un code promo, afficher nos chambres les plus demandées, prendre une réservation ou vous enregistrer au départ. Comment puis-je vous aider ?",
+  "chat.greeting.guest":
+    "Bonjour — je suis le **concierge Santo**. Je peux vérifier les disponibilités en direct, suggérer des chambres, valider un code promo, afficher nos chambres les plus demandées, prendre une réservation, créer votre compte ou vous enregistrer au départ. Comment puis-je vous aider ?",
+  "chat.quick.rooms": "Voir les chambres",
+  "chat.quick.discounts": "Des remises ?",
+  "chat.quick.best": "Chambres les plus demandées",
+  "chat.quick.book": "Je veux réserver",
+  "chat.quick.signup": "Créer mon compte",
+  "chat.quick.checkout": "Départ de mon séjour",
+  "chat.tool.suggest_rooms": "Recherche de chambres",
+  "chat.tool.check_availability": "Vérification des disponibilités",
+  "chat.tool.check_discount": "Vérification des remises",
+  "chat.tool.best_selling_rooms": "Classement des préférées",
+  "chat.tool.create_reservation": "Prise de la réservation",
+  "chat.tool.signup_user": "Création du compte",
+  "chat.tool.lookup_booking": "Recherche de la réservation",
+  "chat.tool.check_out_stay": "Traitement du départ",
+  "chat.title": "Concierge Santo",
+  "chat.panelAria": "Chat du concierge de l'hôtel",
+  "chat.status": "En ligne · répond instantanément",
+  "chat.closeAria": "Fermer le chat",
+  "chat.typingAria": "Le concierge écrit",
+  "chat.placeholder": "Une question sur les chambres, les dates, les remises…",
+  "chat.inputAria": "Écrire au concierge",
+  "chat.stop": "Arrêter",
+  "chat.sendAria": "Envoyer le message",
+  "chat.footer": "Concierge IA · données hôtelières en direct",
+  "chat.fabCloseAria": "Fermer le chat du concierge",
+  "chat.fabOpenAria": "Discuter avec le concierge de l'hôtel",
+  "chat.fabClose": "Fermer",
+  "chat.fabOpen": "Concierge",
+  "chat.error.offline":
+    "Le concierge est hors ligne pour le moment — veuillez utiliser la page contact.",
+  "chat.error.rateLimited":
+    "Nous recevons beaucoup de questions — patientez un instant puis réessayez.",
+  "chat.error.unreachable": "Impossible de joindre le concierge — veuillez réessayer.",
+  "chat.error.generic": "Une erreur est survenue — veuillez réessayer.",
+  "chat.error.cutOff": "La réponse a été interrompue — renvoyez votre message.",
+  "chat.error.stopped": "Arrêté.",
+  "chat.error.connection": "Problème de connexion — veuillez réessayer.",
+
+  // Server stream + tool activity rows ---------------------------------------
+  "chat.error.stream": "Le chat a rencontré un problème inattendu — veuillez réessayer.",
+  "chat.error.model": "Le chat a rencontré un problème inattendu.",
+  "chat.error.empty": "L'assistant n'a renvoyé aucune réponse.",
+  "chat.detail.noMatchFilters": "Aucune chambre ne correspond à ces filtres",
+  "chat.detail.typesFreeOne": "{count} type de chambre libre",
+  "chat.detail.typesFreeMany": "{count} types de chambres libres",
+  "chat.detail.noRoomsFreeDates": "Aucune chambre libre à ces dates",
+  "chat.detail.typesOnOfferOne": "{count} type de chambre disponible",
+  "chat.detail.typesOnOfferMany": "{count} types de chambres disponibles",
+  "chat.detail.roomsFreeOne": "{count} chambre libre",
+  "chat.detail.roomsFreeMany": "{count} chambres libres",
+  "chat.detail.noRoomsFree": "Aucune chambre libre",
+  "chat.detail.discountsOne": "{count} remise en cours",
+  "chat.detail.discountsMany": "{count} remises en cours",
+  "chat.detail.noDiscounts": "Aucune remise en cours",
+  "chat.detail.codeInvalid": "Code {code} non valide",
+  "chat.detail.codeValid": "Code {code} valide — {saving}",
+  "chat.detail.savingPercent": "{value} % de remise",
+  "chat.detail.savingFixed": "{amount} de remise",
+  "chat.detail.noHistory": "Aucun historique de réservation",
+  "chat.detail.top": "Top : {name}",
+  "chat.detail.nothingFree": "Rien de libre à ces dates",
+  "chat.detail.notEnough": "Pas assez de chambres de ce type",
+  "chat.detail.reserved": "Réservé · {ref}",
+  "chat.detail.alreadySignedIn": "Déjà connecté",
+  "chat.detail.signUpDisabled": "Inscription désactivée",
+  "chat.detail.detailsRejected": "Informations refusées",
+  "chat.detail.emailTaken": "E-mail déjà enregistré",
+  "chat.detail.signedUp": "Compte créé · {email}",
+  "chat.detail.referenceNeeded": "Référence requise",
+  "chat.detail.signInToView": "Connectez-vous pour voir cette réservation",
+  "chat.detail.bookingLine": "{ref} · {status}",
+  "chat.detail.notFound": "Réservation introuvable",
+  "chat.detail.notYours": "Pas votre réservation",
+  "chat.detail.noActiveStay": "Aucun séjour en cours",
+  "chat.detail.checkedOut": "Départ enregistré · {ref}",
+  "chat.detail.signInToCheckOut": "Connectez-vous pour votre départ",
+  "chat.detail.somethingWrong": "Une erreur est survenue",
+  "chat.detail.couldNotComplete": "Impossible de finaliser",
 
   // Server-side fallbacks when the admin content slots are empty ----------
   "home.addressFallback": "Adresse de l'hôtel à confirmer.",

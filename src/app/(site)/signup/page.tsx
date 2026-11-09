@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, PageHeading } from "@/components/hotel/shared";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { signupGuest } from "@/server/auth/actions";
 import { getCurrentSession } from "@/server/auth/dal";
 import { sanitizeNextPath, resolvePostLoginPath } from "@/config/access-map";
@@ -56,6 +57,11 @@ export default async function SignupPage({
           description={t("signup.description")}
         />
         {error && <p className="form-error">{error}</p>}
+
+        <GoogleSignInButton next={next} mode="signup" />
+        <div className="auth-divider" role="separator">
+          <span>{t("auth.google.orSignup")}</span>
+        </div>
 
         <form action={signupGuest}>
           <input type="hidden" name="next" value={next ?? ""} />

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { useT } from "@/components/hotel/locale-provider";
+import type { Translator } from "@/lib/dictionaries";
 
 /**
  * Floating AI concierge for every public page (mounted in HotelShell).
@@ -14,6 +16,9 @@ import { MessageCircle, Send, Sparkles, X } from "lucide-react";
  * ("Checking availability…"), `auth` redeems the sign-up session token on a
  * separate plain request (a cookie can't be set mid-stream), and the whole
  * conversation survives a refresh via sessionStorage.
+ *
+ * The display language travels on the `santo_locale` cookie, so the server
+ * replies in it too — this component only translates its own chrome.
  */
 
 type Activity = { name: string; status: "start" | "success" | "error"; detail?: string };
@@ -28,33 +33,32 @@ type ChatEntry = {
 
 const STORAGE_KEY = "santo-concierge-v1";
 
-const TOOL_LABELS: Record<string, string> = {
-  suggest_rooms: "Checking rooms",
-  check_availability: "Checking availability",
-  check_discount: "Checking discounts",
-  best_selling_rooms: "Pulling best sellers",
-  create_reservation: "Taking your reservation",
-  signup_user: "Creating the account",
-  lookup_booking: "Finding the reservation",
-  check_out_stay: "Processing check-out",
+/** Tool name → dictionary key for its activity label (start state). */
+const TOOL_LABEL_KEYS: Record<string, keyof import("@/lib/dictionaries").Dictionary> = {
+  suggest_rooms: "chat.tool.suggest_rooms",
+  check_availability: "chat.tool.check_availability",
+  check_discount: "chat.tool.check_discount",
+  best_selling_rooms: "chat.tool.best_selling_rooms",
+  create_reservation: "chat.tool.create_reservation",
+  signup_user: "chat.tool.signup_user",
+  lookup_booking: "chat.tool.lookup_booking",
+  check_out_stay: "chat.tool.check_out_stay",
 };
 
-const QUICK_PROMPTS = [
-  "Show me rooms",
-  "Any discounts?",
-  "Best-selling rooms",
-  "I want to book",
-  "Sign me up",
-  "Check out of my stay",
-] as const;
+const QUICK_PROMPT_KEYS = [
+  "chat.quick.rooms",
+  "chat.quick.discounts",
+  "chat.quick.best",
+  "chat.quick.book",
+  "chat.quick.signup",
+  "chat.quick.checkout",
+] as const satisfies readonly (keyof import("@/lib/dictionaries").Dictionary)[];
 
-function greeting(signedIn: boolean): ChatEntry {
+function greeting(t: Translator, signedIn: boolean): ChatEntry {
   return {
     id: "greeting",
     role: "assistant",
-    content: signedIn
-      ? "Welcome back — I'm the **Santo concierge**. I can check live availability, suggest rooms, verify a discount code, show our best-selling rooms, take a reservation, or check you out. What can I help with?"
-      : "Hi — I'm the **Santo concierge**. I can check live availability, suggest rooms, verify a discount code, show our best-selling rooms, take a reservation, sign you up, or check you out. What can I help with?",
+    content: t(signedIn ? "chat.greeting.signedIn" : "chat.greeting.guest"),
   };
 }
 
@@ -128,8 +132,9 @@ function RichText({ text }: { text: string }) {
   return <>{blocks}</>;
 }
 
-function activityLabel(activity: Activity): string {
-  const base = TOOL_LABELS[activity.name] ?? activity.name.replace(/_/g, " ");
+function activityLabel(t: Translator, activity: Activity): string {
+  const key = TOOL_LABEL_KEYS[activity.name];
+  const base = key ? t(key) : activity.name.replace(/_/g, " ");
   if (activity.status === "start") return `${base}…`;
   return activity.detail ?? base;
 }
@@ -168,8 +173,9 @@ async function readEventStream(
 
 export function AiChat({ signedIn }: { signedIn: boolean }) {
   const router = useRouter();
+  const t = useT();
   const [open, setOpen] = useState(false);
-  const [entries, setEntries] = useState<ChatEntry[]>(() => [greeting(signedIn)]);
+  const [entries, setEntries] = useState<ChatEntry[]>(() => [greeting(t, signedIn)]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -194,6 +200,18 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
     }
     loadedRef.current = true;
   }, []);
+
+  // The header switcher changes the locale in place — re-render the opening
+  // greeting (only if it is still the untouched first message).
+  useEffect(() => {
+    setEntries((prev) =>
+      prev.map((entry) =>
+        entry.id === "greeting" && entry.role === "assistant"
+          ? { ...entry, content: greeting(t, signedIn).content }
+          : entry,
+      ),
+    );
+  }, [t, signedIn]);
 
   useEffect(() => {
     if (!loadedRef.current) return;
@@ -259,10 +277,10 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
         if (!response.ok || !response.body) {
           throw new Error(
             response.status === 503
-              ? "The concierge is offline right now — please use the contact page."
+              ? t("chat.error.offline")
               : response.status === 429
-                ? "We're getting a lot of questions — give it a moment and try again."
-                : "The concierge could not be reached — please try again.",
+                ? t("chat.error.rateLimited")
+                : t("chat.error.unreachable"),
           );
         }
 
@@ -292,9 +310,7 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
             patch(replyId, (entry) => ({
               ...entry,
               notice:
-                typeof data.message === "string"
-                  ? data.message
-                  : "Something went wrong — please try again.",
+                typeof data.message === "string" ? data.message : t("chat.error.generic"),
             }));
           } else if (event === "done") {
             sawDone = true;
@@ -303,9 +319,7 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
 
         if (!sawDone) {
           patch(replyId, (entry) =>
-            entry.content
-              ? entry
-              : { ...entry, notice: "The reply was cut off — send that again." },
+            entry.content ? entry : { ...entry, notice: t("chat.error.cutOff") },
           );
         }
       } catch (error) {
@@ -315,15 +329,15 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
           notice: aborted
             ? entry.content
               ? null
-              : "Stopped."
-            : (error as Error)?.message || "Connection problem — please try again.",
+              : t("chat.error.stopped")
+            : (error as Error)?.message || t("chat.error.connection"),
         }));
       } finally {
         abortRef.current = null;
         setBusy(false);
       }
     },
-    [busy, entries, patch, redeemSession],
+    [busy, entries, patch, redeemSession, t],
   );
 
   const stop = useCallback(() => {
@@ -341,7 +355,7 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
         <section
           className="santo-chat-panel"
           role="dialog"
-          aria-label="Hotel concierge chat"
+          aria-label={t("chat.panelAria")}
           aria-modal="false"
         >
           <header className="santo-chat-head">
@@ -349,17 +363,17 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
               <Sparkles size={15} />
             </span>
             <div>
-              <div className="santo-chat-title">Santo Concierge</div>
+              <div className="santo-chat-title">{t("chat.title")}</div>
               <div className="santo-chat-status">
                 <span className="status-dot" aria-hidden="true" />
-                Online · replies instantly
+                {t("chat.status")}
               </div>
             </div>
             <button
               type="button"
               className="santo-chat-close"
               onClick={() => setOpen(false)}
-              aria-label="Close chat"
+              aria-label={t("chat.closeAria")}
             >
               <X size={16} />
             </button>
@@ -388,7 +402,7 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
                           }`}
                           aria-hidden="true"
                         />
-                        {activityLabel(activity)}
+                        {activityLabel(t, activity)}
                       </span>
                     ))}
                   </div>
@@ -405,7 +419,7 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
               </Fragment>
             ))}
             {showTyping && (
-              <div className="santo-chat-typing" aria-label="Concierge is typing">
+              <div className="santo-chat-typing" aria-label={t("chat.typingAria")}>
                 <i />
                 <i />
                 <i />
@@ -415,14 +429,14 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
 
           {showChips && (
             <div className="santo-chat-chips">
-              {QUICK_PROMPTS.map((prompt) => (
+              {QUICK_PROMPT_KEYS.map((key) => (
                 <button
-                  key={prompt}
+                  key={key}
                   type="button"
                   className="santo-chat-chip"
-                  onClick={() => void send(prompt)}
+                  onClick={() => void send(t(key))}
                 >
-                  {prompt}
+                  {t(key)}
                 </button>
               ))}
             </div>
@@ -440,8 +454,8 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
               className="santo-chat-input"
               rows={1}
               value={input}
-              placeholder="Ask about rooms, dates, discounts…"
-              aria-label="Message the concierge"
+              placeholder={t("chat.placeholder")}
+              aria-label={t("chat.inputAria")}
               disabled={busy}
               onChange={(event) => {
                 setInput(event.target.value);
@@ -458,20 +472,20 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
             />
             {busy ? (
               <button type="button" className="santo-chat-stop" onClick={stop}>
-                Stop
+                {t("chat.stop")}
               </button>
             ) : (
               <button
                 type="submit"
                 className="santo-chat-send"
                 disabled={!input.trim()}
-                aria-label="Send message"
+                aria-label={t("chat.sendAria")}
               >
                 <Send size={15} />
               </button>
             )}
           </form>
-          <div className="santo-chat-foot">AI concierge · live hotel data</div>
+          <div className="santo-chat-foot">{t("chat.footer")}</div>
         </section>
       )}
 
@@ -480,10 +494,10 @@ export function AiChat({ signedIn }: { signedIn: boolean }) {
         className="santo-chat-fab"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        aria-label={open ? "Close the concierge chat" : "Chat with the hotel concierge"}
+        aria-label={open ? t("chat.fabCloseAria") : t("chat.fabOpenAria")}
       >
         {open ? <X size={17} /> : <MessageCircle size={17} />}
-        <span>{open ? "Close" : "Concierge"}</span>
+        <span>{open ? t("chat.fabClose") : t("chat.fabOpen")}</span>
         {!open && <span className="fab-dot" aria-hidden="true" />}
       </button>
     </>
