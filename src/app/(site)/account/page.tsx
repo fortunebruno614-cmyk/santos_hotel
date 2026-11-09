@@ -5,6 +5,7 @@ import { Breadcrumb, PageHeading } from "@/components/hotel/shared";
 import { CancelReservationButton } from "@/components/hotel/cancel-button";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { UserAvatar } from "@/components/auth/user-avatar";
+import { WeatherWidget } from "@/components/weather/weather-widget";
 import { requireGuest, getCurrentUser } from "@/server/auth/dal";
 import { prisma } from "@/lib/prisma";
 import { cancellationInfoFor } from "@/server/booking/service";
@@ -183,6 +184,9 @@ export default async function AccountPage({
             </div>
           ) : (
             <>
+              {tab === "overview" && (
+                <WeatherWidget variant="card" className="account-weather" />
+              )}
               <section>
                 <div className="section-heading">
                   <h2>

@@ -126,15 +126,21 @@ function toEmailHotel(hotel: NonNullable<BookingForEmail["hotel"]>): EmailHotel 
 
 /**
  * Precedence: explicit env recipient(s) → hotel profile e-mail → active
- * organization admins. Duplicates are removed and invalid addresses dropped.
+ * organization admins. A configured override intentionally replaces the
+ * fallbacks so a production inbox does not also receive a duplicate at the
+ * seeded/legacy address.
  */
 async function resolveAdminRecipients(hotel: {
   organizationId: string;
   email: string | null;
 }): Promise<string[]> {
-  const configured = configuredAdminEmails();
+  const configured = configuredAdminEmails()
+    .map(validEmail)
+    .filter((email): email is string => email !== null);
+  if (configured.length > 0) return [...new Set(configured)];
+
   const hotelEmail = validEmail(hotel.email);
-  let organizationAdmins: string[] = [];
+  if (hotelEmail) return [hotelEmail];
 
   try {
     const members = await prisma.organizationMember.findMany({
@@ -147,20 +153,17 @@ async function resolveAdminRecipients(hotel: {
       take: 5,
       select: { user: { select: { email: true } } },
     });
-    organizationAdmins = members
-      .map((member) => validEmail(member.user.email))
-      .filter((email): email is string => email !== null);
+    return [
+      ...new Set(
+        members
+          .map((member) => validEmail(member.user.email))
+          .filter((email): email is string => email !== null),
+      ),
+    ];
   } catch (error) {
     console.error("could not resolve organization admins for notification", error);
+    return [];
   }
-
-  return [
-    ...new Set(
-      [...configured, ...(hotelEmail ? [hotelEmail] : []), ...organizationAdmins].filter(
-        (email): email is string => Boolean(email),
-      ),
-    ),
-  ];
 }
 
 function tagValue(value: string): string {

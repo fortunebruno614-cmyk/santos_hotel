@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { AiChat } from "@/components/hotel/ai-chat";
 import { CurrencySwitch } from "@/components/hotel/currency-switch";
 import { LanguageSwitch } from "@/components/hotel/language-switch";
+import { WeatherWidget } from "@/components/weather/weather-widget";
 import { UserAvatar } from "@/components/auth/user-avatar";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { useDisplayCurrency } from "@/components/hotel/currency-provider";
@@ -109,6 +110,7 @@ export function HotelShell({
             })}
           </nav>
           <div className="header-actions">
+            <WeatherWidget variant="header" />
             <LanguageSwitch />
             <CurrencySwitch />
             {signedIn ? (

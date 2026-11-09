@@ -171,6 +171,21 @@ APP_URL=https://your-domain.com
 [`docs/EMAIL_NOTIFICATIONS.md`](EMAIL_NOTIFICATIONS.md) for the event matrix,
 delivery log, dedupe keys, Resend domain verification and admin test page.
 
+## Weather widget
+
+The header and the signed-in account dashboard show live weather for the hotel
+via the keyless Open-Meteo API, proxied and cached by `/api/public/weather`.
+No API key is required. Optional overrides:
+
+```env
+WEATHER_ENABLED=true
+WEATHER_CACHE_TTL_SECONDS=900
+WEATHER_DEFAULT_LAT=6.426588
+WEATHER_DEFAULT_LON=3.429399
+```
+
+See [`docs/WEATHER_WIDGET.md`](WEATHER_WIDGET.md) for details.
+
 ## Flight tracking (OpenSky)
 
 `/flights` shows live aircraft around the hotel and searches the global feed by
