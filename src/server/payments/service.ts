@@ -17,6 +17,7 @@ import {
 } from "@/server/pricing/model";
 import { assertBookingTransition } from "@/server/booking/policy";
 import { writeAuditLog } from "@/server/audit/write";
+import { scheduleBookingNotification } from "@/server/notifications/schedule";
 
 /**
  * P6 payment service — every way money moves against a reservation.
@@ -438,6 +439,15 @@ export async function handleWebhook(
     },
   });
 
+  if (event.type === "payment.succeeded") {
+    if (applied.bookingStatus === BookingStatus.CONFIRMED) {
+      scheduleBookingNotification("booking.confirmed", applied.bookingId);
+    }
+    scheduleBookingNotification("payment.received", applied.bookingId, {
+      paymentId: applied.paymentId,
+    });
+  }
+
   return {
     ok: true,
     outcome: "applied",
@@ -674,6 +684,11 @@ export async function recordDeskPayment(
       currency: result.currency,
     },
   });
+
+  // The desk capture confirms a PENDING booking; send the guest a confirmation
+  // (deduped if it was already sent) and both parties a payment receipt.
+  scheduleBookingNotification("booking.confirmed", bookingId);
+  scheduleBookingNotification("payment.received", bookingId, { paymentId: result.id });
 
   return toPaymentSummary(result);
 }

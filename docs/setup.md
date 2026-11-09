@@ -155,6 +155,22 @@ building, not the street). Enter both or neither; the database rejects a lone
 coordinate, and the map never geocodes the address itself. Changing the
 coordinates takes effect on the next page load — no restart.
 
+## Email notifications (Resend)
+
+Booking, confirmation, cancellation and payment emails are sent through Resend.
+The API key is server-only:
+
+```env
+RESEND_API_KEY=re_...
+RESEND_FROM_EMAIL="Santo Hotel <reservations@your-verified-domain.com>"
+HOTEL_NOTIFICATION_EMAIL=owner@your-domain.com
+APP_URL=https://your-domain.com
+```
+
+`.env.local` is the right place for the real key. See
+[`docs/EMAIL_NOTIFICATIONS.md`](EMAIL_NOTIFICATIONS.md) for the event matrix,
+delivery log, dedupe keys, Resend domain verification and admin test page.
+
 ## Flight tracking (OpenSky)
 
 `/flights` shows live aircraft around the hotel and searches the global feed by

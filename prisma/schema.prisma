@@ -695,6 +695,10 @@ model Notification {
   body           String
   status         NotificationStatus  @default(PENDING)
   error          String?
+  /// Idempotency key: at most one notification per business event/recipient.
+  dedupeKey      String?             @unique @map("dedupe_key")
+  /// Provider message id (Resend) when the message was accepted.
+  providerId     String?             @map("provider_id")
   sentAt         DateTime?           @map("sent_at") @db.Timestamptz()
   createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz()
 
@@ -704,6 +708,8 @@ model Notification {
 
   @@index([bookingId])
   @@index([status])
+  @@index([hotelId, createdAt])
+  @@index([createdAt])
   @@map("notifications")
 }
 

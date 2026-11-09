@@ -52,6 +52,7 @@ import {
   settleCancellationPayments,
   type PaymentSummary,
 } from "@/server/payments/service";
+import { scheduleBookingNotification } from "@/server/notifications/schedule";
 
 /**
  * P5 booking service — every way a reservation can come into being or change.
@@ -550,6 +551,10 @@ export async function createBooking(
 
   const row = await loadBookingRow(prisma, result.booking.id);
   if (!row) throw new BookingError("booking_not_found", "reservation vanished after creation");
+
+  // Post-response: guest receipt/confirmation + admin new-booking alert.
+  scheduleBookingNotification("booking.created", result.booking.id);
+
   return toSummary(row, hotel.currency);
 }
 
@@ -648,6 +653,10 @@ async function doCancel(
   // audit log — a provider failure never un-cancels the reservation).
   await settleCancellationPayments(bookingId, {
     userId: actor.kind === "staff" ? actor.userId : null,
+  });
+
+  scheduleBookingNotification("booking.cancelled", bookingId, {
+    actorKind: actor.kind === "staff" ? "staff" : "guest",
   });
 
   const settled = await loadBookingRow(prisma, bookingId);
@@ -800,8 +809,13 @@ export async function transitionBooking(
     },
   });
 
+  if (input.to === BookingStatus.CONFIRMED) {
+    scheduleBookingNotification("booking.confirmed", input.bookingId);
+  }
+
   // P6: staff cancellation refunds captured money (config #6, post-commit).
   if (input.to === BookingStatus.CANCELLED) {
+    scheduleBookingNotification("booking.cancelled", input.bookingId, { actorKind: "staff" });
     await settleCancellationPayments(input.bookingId, { userId: actor.userId });
     const settled = await loadBookingRow(prisma, input.bookingId);
     if (!settled) throw new BookingError("booking_not_found", "reservation vanished");

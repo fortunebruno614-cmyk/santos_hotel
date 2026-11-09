@@ -17,6 +17,13 @@ export type HotelContext = {
   slug: string;
   publicationStatus: string;
   name: string;
+  email: string | null;
+  phone: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  postcode: string | null;
+  country: string | null;
   currency: string;
   timezone: string;
   checkInTime: string;
@@ -62,6 +69,13 @@ export async function requireHotelContext(
     slug: hotel.slug,
     publicationStatus: hotel.publicationStatus,
     name: hotel.name,
+    email: hotel.email ?? null,
+    phone: hotel.phone ?? null,
+    addressLine1: hotel.addressLine1 ?? null,
+    addressLine2: hotel.addressLine2 ?? null,
+    city: hotel.city ?? null,
+    postcode: hotel.postcode ?? null,
+    country: hotel.country ?? null,
     currency: hotel.currency || CURRENCY,
     timezone: hotel.timezone || "Asia/Kuala_Lumpur",
     checkInTime: hotel.checkInTime || CHECK_IN_TIME,
