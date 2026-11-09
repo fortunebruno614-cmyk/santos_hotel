@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LocationPicker } from "@/components/maps/location-picker";
 
 /**
  * System settings (P7, admin only): hotel profile plus the operational policy
@@ -163,30 +164,16 @@ export function SettingsForm({
         <Field label="Description">
           <textarea className="border px-2 py-1 rounded-md w-full text-sm" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </Field>
-        <div className="flex flex-wrap gap-3 text-sm">
-          <Field label={`Map latitude (${demoMapLocation ? "demo" : "verified"})`}>
-            <input
-              className="border px-2 py-1 rounded-md w-40"
-              value={form.latitude}
-              placeholder="e.g. 6.454100"
-              inputMode="decimal"
-              onChange={(e) => setForm({ ...form, latitude: e.target.value })}
-            />
-          </Field>
-          <Field label={`Map longitude (${demoMapLocation ? "demo" : "verified"})`}>
-            <input
-              className="border px-2 py-1 rounded-md w-40"
-              value={form.longitude}
-              placeholder="e.g. 3.394700"
-              inputMode="decimal"
-              onChange={(e) => setForm({ ...form, longitude: e.target.value })}
-            />
-          </Field>
-        </div>
+        <LocationPicker
+          latitude={form.latitude}
+          longitude={form.longitude}
+          demo={demoMapLocation}
+          onChange={(next) => setForm({ ...form, ...next })}
+        />
         <p className="text-xs text-zinc-500">
           {demoMapLocation
             ? "Local demo coordinates are synthetic, not the hotel's verified location. Replace them with coordinates from a trusted source before using this database outside local development."
-            : 'Enter both coordinates from a verified source (survey, Google Maps pin of the building entrance) or leave both empty — the public map shows "Map location unavailable" until a verified position is saved. Coordinates are never guessed from the address.'}
+            : 'Enter both coordinates from a verified source (survey, Google Maps pin of the building entrance) or leave both empty. A Santo platform operator must verify the position before the public map renders a pin; until then it shows "Map location unavailable". Coordinates are never guessed from the address.'}
         </p>
       </section>
 

@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { getConsoleContext } from "@/server/console/context";
 import { PromotionsManager } from "./promotions-manager";
 
 /** Promotions catalog (P7 CRUD). */
 export default async function AdminPromotionsPage() {
+  const { hotel } = await getConsoleContext();
   const promotions = await prisma.promotion.findMany({
+    where: { hotelId: hotel.id },
     orderBy: [{ status: "asc" }, { code: "asc" }],
     include: { _count: { select: { bookings: true } } },
   });

@@ -11,6 +11,7 @@ import type { Dictionary } from "./en";
 export const ar: Partial<Dictionary> = {
   // --- Header / navigation -------------------------------------------------
   "nav.home": "الرئيسية",
+  "nav.hotels": "الفنادق",
   "nav.rooms": "الغرف والأجنحة",
   "nav.offers": "العروض",
   "nav.hotel": "الفندق",

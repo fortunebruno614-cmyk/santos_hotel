@@ -1,15 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
-import {
-  CANCELLATION_WINDOW_HOURS,
-  CHECK_IN_TIME,
-  CHECK_OUT_TIME,
-  CURRENCY,
-  GUEST_CANCELLATION_ENABLED,
-  MAX_ROOMS_PER_BOOKING,
-  SERVICE_FEE,
-  TAX_RATE_PERCENT,
-} from "@/config/booking";
+import { CHECK_IN_TIME, CHECK_OUT_TIME, CURRENCY } from "@/config/booking";
 
 /**
  * Hotel-scoped context for P5/P7: money currency, timezone and the operational

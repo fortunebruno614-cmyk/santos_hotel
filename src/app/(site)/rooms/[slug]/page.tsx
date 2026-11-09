@@ -6,7 +6,6 @@ import { parsePublicStay } from "@/server/public/search";
 import { findAvailability } from "@/server/availability/service";
 import { computeTypePrices } from "@/server/pricing/service";
 import { requireHotelContext } from "@/server/pricing/context";
-import { getDefaultHotel } from "@/server/public/hotels";
 import { parseDateOnly } from "@/server/availability/overlap";
 import {
   bedForRoomType,
@@ -27,11 +26,8 @@ export default async function RoomDetailPage({
   const { slug } = await params;
   const sp = await searchParams;
 
-  const defaultHotel = await getDefaultHotel();
-  if (!defaultHotel) notFound();
-
   const roomType = await prisma.roomType.findFirst({
-    where: { slug, hotelId: defaultHotel.id },
+    where: { slug, hotel: { publicationStatus: "PUBLISHED", organization: { status: "ACTIVE" } } },
     include: {
       images: { orderBy: { sortOrder: "asc" } },
       amenities: { include: { amenity: true } },
@@ -40,9 +36,10 @@ export default async function RoomDetailPage({
   });
   if (!roomType || roomType.status !== RecordStatus.ACTIVE) notFound();
 
+  const hotelId = roomType.hotelId;
   const [hotel, context, parsed] = await Promise.all([
-    loadHotelProfile(defaultHotel.id),
-    requireHotelContext(defaultHotel.id),
+    loadHotelProfile(hotelId),
+    requireHotelContext(hotelId),
     Promise.resolve(parsePublicStay(sp)),
   ]);
 
@@ -90,7 +87,7 @@ export default async function RoomDetailPage({
     if (checkIn && checkOut) {
       try {
         const availability = await findAvailability({
-          hotelId: defaultHotel.id,
+          hotelId,
           checkIn,
           checkOut,
           adults: parsed.stay.adults,
@@ -104,7 +101,7 @@ export default async function RoomDetailPage({
         }));
 
         const prices = await computeTypePrices(
-          defaultHotel.id,
+          hotelId,
           [roomType.id],
           checkIn,
           checkOut,

@@ -1,17 +1,26 @@
 import { prisma } from "@/lib/prisma";
+import { getConsoleContext } from "@/server/console/context";
 import { RoomTypesManager } from "./room-types-manager";
 
 /** Room type catalog (P7 CRUD): server loads the rows, the manager mutates them. */
 export default async function AdminRoomTypesPage() {
+  const { hotel, member } = await getConsoleContext();
   const [roomTypes, amenities] = await Promise.all([
     prisma.roomType.findMany({
+      where: { hotelId: hotel.id },
       orderBy: [{ status: "asc" }, { name: "asc" }],
       include: {
         _count: { select: { rooms: true } },
         amenities: { include: { amenity: { select: { id: true, name: true } } } },
       },
     }),
-    prisma.amenity.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.amenity.findMany({
+      where: {
+        OR: [{ scope: "PLATFORM" }, { organizationId: member.organizationId }],
+      },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
 
   return (

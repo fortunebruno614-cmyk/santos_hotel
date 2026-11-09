@@ -8,6 +8,7 @@ import type { Dictionary } from "./en";
 export const fr: Partial<Dictionary> = {
   // --- Header / navigation -------------------------------------------------
   "nav.home": "Accueil",
+  "nav.hotels": "Hôtels",
   "nav.rooms": "Chambres & Suites",
   "nav.offers": "Offres",
   "nav.hotel": "L'hôtel",

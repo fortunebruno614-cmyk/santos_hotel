@@ -23,6 +23,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const sections = [
     { href: "/admin", label: "Dashboard" },
+    ...(hasOrgPermission(member.role, Permissions.MANAGE_HOTELS)
+      ? [{ href: "/admin/hotels", label: "Hotels" }]
+      : []),
     { href: "/admin/bookings", label: "Reservations" },
     { href: "/admin/rooms", label: "Rooms" },
     { href: "/admin/room-types", label: "Room types" },

@@ -13,6 +13,7 @@
 export const en = {
   // --- Header / navigation -------------------------------------------------
   "nav.home": "Home",
+  "nav.hotels": "Hotels",
   "nav.rooms": "Rooms & Suites",
   "nav.offers": "Offers",
   "nav.hotel": "The Hotel",

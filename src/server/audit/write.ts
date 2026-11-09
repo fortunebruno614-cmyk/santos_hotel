@@ -53,6 +53,8 @@ export type AuditAction =
   | "listing.suspend"
   | "listing.archive"
   | "listing.verify_location"
+  | "hotel.create"
+  | "hotel.update"
   | "organization.create"
   | "organization.update"
   | "organization.suspend"

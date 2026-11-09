@@ -6,7 +6,6 @@ import {
   cancelBooking as rawCancelBooking,
   createBooking as rawCreateBooking,
   transitionBooking as rawTransitionBooking,
-  type BookingActor,
   type StaffActor,
 } from "../../src/server/booking/service";
 import { computeQuote as rawComputeQuote } from "../../src/server/pricing/service";

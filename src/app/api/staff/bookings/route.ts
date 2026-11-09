@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { guardApi, guardTenantHotel } from "@/server/auth/api";
 import { staffActor } from "@/server/auth/actor";
-import { hotelOfBooking } from "@/server/auth/tenancy";
 import { AppRole, Permissions } from "@/server/auth/roles";
 import { createBooking, type StaffActor } from "@/server/booking/service";
 import { searchBookings } from "@/server/console/bookings";

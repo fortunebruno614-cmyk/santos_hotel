@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { RoomBoard } from "./room-board";
 import { RoomsInventory } from "./rooms-inventory";
 import { allowedRoomTransitions } from "@/server/booking/policy";
+import { getConsoleContext } from "@/server/console/context";
 
 /**
  * Staff rooms console (P7): the housekeeping status board plus the inventory
@@ -10,12 +11,18 @@ import { allowedRoomTransitions } from "@/server/booking/policy";
  * transition.
  */
 export default async function AdminRoomsPage() {
+  const { hotel } = await getConsoleContext();
   const [rooms, roomTypes] = await Promise.all([
     prisma.room.findMany({
+      where: { roomType: { hotelId: hotel.id } },
       orderBy: { roomNumber: "asc" },
       include: { roomType: { select: { name: true } } },
     }),
-    prisma.roomType.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.roomType.findMany({
+      where: { hotelId: hotel.id },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
 
   return (

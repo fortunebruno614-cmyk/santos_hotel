@@ -27,6 +27,7 @@ import { logout } from "@/server/auth/actions";
 /** Href is the stable identity; the label is translated at render time. */
 const NAV = [
   { href: "/", key: "nav.home" },
+  { href: "/hotels", key: "nav.hotels" },
   { href: "/rooms", key: "nav.rooms" },
   { href: "/offers", key: "nav.offers" },
   { href: "/hotel", key: "nav.hotel" },

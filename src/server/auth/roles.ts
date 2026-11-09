@@ -10,6 +10,8 @@ export type AppRole = (typeof AppRole)[keyof typeof AppRole];
 
 export const Permissions = {
   MANAGE_USERS: "MANAGE_USERS",
+  /** Create/edit the organization's hotels and business information. */
+  MANAGE_HOTELS: "MANAGE_HOTELS",
   MANAGE_ROOMS: "MANAGE_ROOMS",
   MANAGE_RATES: "MANAGE_RATES",
   MANAGE_RESERVATIONS: "MANAGE_RESERVATIONS",
@@ -40,6 +42,7 @@ const STAFF_PERMISSIONS: Permission[] = [
 
 const MANAGER_PERMISSIONS: Permission[] = [
   ...STAFF_PERMISSIONS,
+  Permissions.MANAGE_HOTELS,
   Permissions.MANAGE_GUESTS,
   Permissions.MANAGE_SETTINGS,
   Permissions.MANAGE_CONTENT,

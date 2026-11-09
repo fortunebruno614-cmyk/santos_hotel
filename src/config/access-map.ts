@@ -59,6 +59,10 @@ export const ACCESS_RULES: AccessRule[] = [
   open("/login"),
   open("/signup"),
   open("/unauthorized"),
+  // Staff/platform doors are deliberately separate from the guest site.
+  open("/staff/login"),
+  open("/platform/login"),
+  open("/platform/setup"),
 
   // --- Guest area (profile, booking history) ---
   guest("/account"),
@@ -93,6 +97,7 @@ export const ACCESS_RULES: AccessRule[] = [
 
   // --- API: catalog & records — staff hold these permissions too (P7), so the
   //     rules sit above the admin-only /api/admin catch-all ---
+  staff("/api/admin/hotels", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_HOTELS"),
   staff("/api/admin/room-types", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_ROOMS"),
   staff("/api/admin/rooms", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_ROOMS"),
   staff("/api/admin/amenities", [AppRole.STAFF, AppRole.ADMIN], "MANAGE_ROOMS"),

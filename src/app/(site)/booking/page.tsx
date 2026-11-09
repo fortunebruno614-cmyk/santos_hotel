@@ -56,10 +56,6 @@ export default async function BookingPage({
 }) {
   const sp = await searchParams;
   const display = await displayCurrency();
-  const hotel = sp.hotel
-    ? await getPublishedHotelBySlug(sp.hotel)
-    : await getDefaultHotel();
-  if (!hotel) redirect("/search");
   const parsed = StaySearchSchema.safeParse({
     checkIn: sp.checkIn ?? undefined,
     checkOut: sp.checkOut ?? undefined,
@@ -76,6 +72,25 @@ export default async function BookingPage({
   const adults = parsed.data.adults;
   const children = parsed.data.children;
   const selectedRoomIds = roomIds.data;
+
+  // The property is derived from the selected rooms, never assumed from the
+  // session or an untrusted body field. An explicit published slug wins.
+  const roomHotel = await prisma.room.findFirst({
+    where: { id: { in: selectedRoomIds } },
+    select: { roomType: { select: { hotel: { select: { id: true } } } } },
+  });
+  const hotel = sp.hotel
+    ? await getPublishedHotelBySlug(sp.hotel)
+    : roomHotel
+      ? await prisma.hotel.findFirst({
+          where: {
+            id: roomHotel.roomType.hotel.id,
+            publicationStatus: "PUBLISHED",
+            organization: { status: "ACTIVE" },
+          },
+        })
+      : await getDefaultHotel();
+  if (!hotel) redirect("/search");
   const searchHref = `/search?checkIn=${parsed.data.checkIn}&checkOut=${parsed.data.checkOut}&adults=${adults}&children=${children}&rooms=${selectedRoomIds.length}`;
 
   const session = await getCurrentSession();

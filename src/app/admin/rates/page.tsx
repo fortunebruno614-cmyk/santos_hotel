@@ -1,14 +1,21 @@
 import { prisma } from "@/lib/prisma";
+import { getConsoleContext } from "@/server/console/context";
 import { RatesManager } from "./rates-manager";
 
 /** Rate catalog (P7 CRUD): dated price windows per room type. */
 export default async function AdminRatesPage() {
+  const { hotel } = await getConsoleContext();
   const [rates, roomTypes] = await Promise.all([
     prisma.rate.findMany({
+      where: { roomType: { hotelId: hotel.id } },
       orderBy: [{ startDate: "desc" }, { name: "asc" }],
       include: { roomType: { select: { name: true } } },
     }),
-    prisma.roomType.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.roomType.findMany({
+      where: { hotelId: hotel.id },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
 
   return (

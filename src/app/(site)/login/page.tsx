@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, PageHeading } from "@/components/hotel/shared";
-import { loginStaff, loginGuest } from "@/server/auth/actions";
+import { loginGuest } from "@/server/auth/actions";
 import { getCurrentSession } from "@/server/auth/dal";
 import { sanitizeNextPath, resolvePostLoginPath } from "@/config/access-map";
 import { getT } from "@/server/locale/display";
@@ -76,24 +76,13 @@ export default async function LoginPage({
           .
         </p>
 
-        <details className="faq staff-signin">
-          <summary>{t("login.staffTitle")}</summary>
-          <form action={loginStaff}>
-            <input type="hidden" name="next" value={next ?? ""} />
-            <label>
-              {t("login.staffEmail")}
-              <input name="email" type="email" required autoComplete="email" />
-            </label>
-            <label>
-              {t("login.password")}
-              <input name="password" type="password" required autoComplete="current-password" />
-            </label>
-            <Button className="w-full" type="submit">
-              {t("login.staffSignIn")}
-              <ArrowRight />
-            </Button>
-          </form>
-        </details>
+        <p className="tiny-note">
+          Hotel staff and administrators use the{" "}
+          <Link href="/staff/login" className="underline">
+            staff console sign-in
+          </Link>
+          .
+        </p>
       </div>
     </div>
   );

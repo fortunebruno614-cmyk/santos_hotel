@@ -151,7 +151,14 @@ async function main() {
 
   const hotel = await prisma.hotel.upsert({
     where: { slug: "santo-hotel" },
-    update: { name: "Santo Hotel", organizationId: organization.id },
+    update: {
+      name: "Santo Hotel",
+      organizationId: organization.id,
+      latitude: 6.426588,
+      longitude: 3.429399,
+      locationVerification: "PLATFORM_VERIFIED",
+      locationPrecision: "APPROXIMATE",
+    },
     create: {
       name: "Santo Hotel",
       slug: "santo-hotel",
@@ -287,6 +294,29 @@ async function main() {
   });
 
   const accounts = await seedAccounts();
+
+  // Tenant memberships are what the staff console authorizes against; a User
+  // row alone is not enough. ADMIN -> OWNER, STAFF -> STAFF (MRD role mapping).
+  for (const account of ACCOUNTS.filter((entry) => entry.entity === "user")) {
+    const user = await prisma.user.findUnique({ where: { email: account.email } });
+    if (!user) continue;
+    await prisma.organizationMember.upsert({
+      where: {
+        organizationId_userId: { organizationId: organization.id, userId: user.id },
+      },
+      update: {
+        role: account.role === "ADMIN" ? "OWNER" : "STAFF",
+        status: "ACTIVE",
+      },
+      create: {
+        organizationId: organization.id,
+        userId: user.id,
+        role: account.role === "ADMIN" ? "OWNER" : "STAFF",
+        status: "ACTIVE",
+        activatedAt: new Date(),
+      },
+    });
+  }
 
   const [roomTypes, rooms, rateCount, amenityCount] = await Promise.all([
     prisma.roomType.count(),

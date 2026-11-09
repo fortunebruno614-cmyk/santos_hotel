@@ -53,7 +53,15 @@ export async function proxy(request: NextRequest) {
   }
 
   if (decision === "unauthenticated") {
-    const url = new URL("/login", request.url);
+    // Send each audience to its own door; the public guest login is not the
+    // staff or platform portal.
+    const loginPath =
+      path === "/platform" || path.startsWith("/platform/")
+        ? "/platform/login"
+        : path === "/admin" || path.startsWith("/admin/")
+          ? "/staff/login"
+          : "/login";
+    const url = new URL(loginPath, request.url);
     const next = `${request.nextUrl.pathname}${request.nextUrl.search}`;
     if (next !== "/login" && next !== "/signup") url.searchParams.set("next", next);
     return NextResponse.redirect(url);

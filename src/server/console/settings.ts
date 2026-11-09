@@ -110,6 +110,25 @@ export async function updateSettings(
     return getSettings(hotelId);
   }
 
+  // Tenant-edited coordinates (or an address change that invalidates them) are
+  // unverified until a platform operator reviews the position; the previous
+  // verification must never silently carry over.
+  const locationChanged = [
+    "latitude",
+    "longitude",
+    "addressLine1",
+    "addressLine2",
+    "city",
+    "postcode",
+    "country",
+  ].some((key) => key in data);
+  if (locationChanged) {
+    data.locationVerification = "NONE";
+    data.locationPrecision = "NONE";
+    data.verifiedAt = null;
+    data.verifiedById = null;
+  }
+
   const updated = await prisma.hotel.update({ where: { id: hotel.id }, data });
   await writeAuditLog({
     userId: actor.userId,

@@ -18,7 +18,9 @@ export type ConsoleErrorCode =
   | "in_use"
   | "last_admin"
   | "last_owner"
-  | "cannot_delete_self";
+  | "cannot_delete_self"
+  | "invalid_transition"
+  | "incomplete_listing";
 
 const CONSOLE_ERROR_STATUS: Record<ConsoleErrorCode, number> = {
   invalid_body: 400,
@@ -29,6 +31,8 @@ const CONSOLE_ERROR_STATUS: Record<ConsoleErrorCode, number> = {
   last_admin: 409,
   last_owner: 409,
   cannot_delete_self: 409,
+  invalid_transition: 409,
+  incomplete_listing: 409,
 };
 
 export class ConsoleError extends Error {

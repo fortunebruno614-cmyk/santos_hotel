@@ -75,9 +75,15 @@ export async function loadHotelProfile(hotelId: string) {
     city: hotel.city ?? null,
     postcode: hotel.postcode ?? null,
     country: hotel.country ?? null,
-    // Verified coordinates (MR-07) — null until an operator records them.
-    latitude: hotel.latitude != null ? Number(hotel.latitude) : null,
-    longitude: hotel.longitude != null ? Number(hotel.longitude) : null,
+    // Only platform-verified coordinates may render a public pin (MR-07).
+    latitude:
+      hotel.locationVerification === "PLATFORM_VERIFIED" && hotel.latitude != null
+        ? Number(hotel.latitude)
+        : null,
+    longitude:
+      hotel.locationVerification === "PLATFORM_VERIFIED" && hotel.longitude != null
+        ? Number(hotel.longitude)
+        : null,
     currency: hotel.currency,
     checkInTime: hotel.checkInTime,
     checkOutTime: hotel.checkOutTime,
