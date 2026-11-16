@@ -41,13 +41,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  // The simulated gateway only exists when the mock provider is configured.
+  // Real gateways (Paystack) complete through their hosted page + callback.
+  const provider = getPaymentProvider();
+  if (provider.id !== "mock") {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   try {
     // Ensure a pending intent (idempotent — a refreshed page reuses it).
     const initiated = await initiatePayment(bookingId, {
       guestId: session?.kind === "guest" ? session.guestId : claim?.guestId ?? null,
     });
 
-    const provider = getPaymentProvider();
     const reference = initiated.payment.providerReference;
     if (!reference) {
       return NextResponse.json({ error: "internal" }, { status: 500 });

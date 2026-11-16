@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
-import { handleWebhook, PaymentError, SIGNATURE_HEADER } from "@/server/payments/service";
+import { handleWebhook, PaymentError } from "@/server/payments/service";
+import { getPaymentProvider } from "@/server/payments/provider";
 import { bookingErrorResponse } from "@/server/booking/http";
 
 /**
  * Payment provider webhook (public — authenticated by signature, not session).
  *
  *   POST /api/public/payments/webhook
- *   headers: x-payment-signature: <HMAC-SHA256 hex of the raw body>
- *   body:    { type, provider, providerReference, amount, currency }
+ *   headers: x-paystack-signature  (Paystack, HMAC-SHA512 of the raw body)
+ *            x-payment-signature  (mock, HMAC-SHA256 of the raw body)
+ *   body:    the provider's native payload
  *
  * The signature is verified against the **raw body** before any parsing
  * (src/server/payments/provider.ts). The handler then correlates by the unique
@@ -21,7 +23,11 @@ import { bookingErrorResponse } from "@/server/booking/http";
  */
 export async function POST(request: Request) {
   const rawBody = await request.text();
-  const signature = request.headers.get(SIGNATURE_HEADER);
+  const provider = getPaymentProvider();
+  const signature =
+    provider.webhookSignatureHeaders
+      .map((header) => request.headers.get(header))
+      .find((value) => value?.trim()) ?? null;
 
   try {
     const outcome = await handleWebhook(rawBody, signature);

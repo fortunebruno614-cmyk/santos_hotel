@@ -4,10 +4,13 @@ import { PaymentStatus, BookingStatus, Prisma } from "@/generated/prisma/client"
 import { REFUND_ON_CANCELLATION } from "@/config/payments";
 import {
   getPaymentProvider,
+  InvalidWebhookPayloadError,
   PaymentProviderNotConfiguredError,
+  PaymentProviderRequestError,
   SIGNATURE_HEADER,
-  WebhookEventSchema,
+  type PaymentIntent,
   type PaymentProvider,
+  type WebhookEvent,
 } from "@/server/payments/provider";
 import {
   moneyEquals,
@@ -52,6 +55,7 @@ export type PaymentErrorCode =
   | "invalid_signature"
   | "invalid_webhook"
   | "invalid_provider"
+  | "provider_error"
   | "amount_mismatch";
 
 export class PaymentError extends Error {
@@ -201,6 +205,7 @@ export async function initiatePayment(
         organizationId: true,
         currency: true,
         hotel: { select: { currency: true, organizationId: true } },
+        guest: { select: { email: true } },
       },
     });
     if (!booking?.hotelId) throw new PaymentError("booking_not_found", "reservation not found");
@@ -221,11 +226,26 @@ export async function initiatePayment(
       throw new PaymentError("already_paid", "this reservation is already paid");
     }
 
+    // The gateway may charge in a different currency (Stripe charges USD for
+    // NGN-priced bookings), so match and store the amount it will actually take.
+    const charge = provider.chargeAmount
+      ? provider.chargeAmount({ amount: booking.total, currency })
+      : { amount: booking.total, currency };
+
     const pendingMatch = existing.find(
-      (p) => p.status === PaymentStatus.PENDING && moneyEquals(p.amount, booking.total),
+      (p) =>
+        p.status === PaymentStatus.PENDING &&
+        moneyEquals(p.amount, charge.amount) &&
+        p.currency.toUpperCase() === charge.currency.toUpperCase(),
     );
-    if (pendingMatch) {
-      return { payment: pendingMatch, created: false, checkoutPath: checkoutPathFor(provider, booking.bookingReference) };
+    if (pendingMatch?.checkoutUrl) {
+      // Reuse the stored hosted-checkout URL: a page refresh must not mint a
+      // second gateway reference, and Paystack rejects duplicate references.
+      return {
+        payment: pendingMatch,
+        created: false,
+        checkoutPath: pendingMatch.checkoutUrl,
+      };
     }
 
     // Re-priced since the last attempt: retire stale intents so they can never
@@ -237,11 +257,21 @@ export async function initiatePayment(
       });
     }
 
-    const intent = await provider.createIntent({
-      amount: booking.total,
-      currency,
-      bookingReference: booking.bookingReference,
-    });
+    let intent: PaymentIntent;
+    try {
+      intent = await provider.createIntent({
+        amount: charge.amount,
+        currency: charge.currency,
+        bookingReference: booking.bookingReference,
+        bookingId,
+        customerEmail: booking.guest?.email ?? null,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "payment provider request failed";
+      console.error("payment initiation failed", error);
+      throw new PaymentError("provider_error", message);
+    }
     const created = await tx.payment.create({
       data: {
         bookingId,
@@ -249,13 +279,14 @@ export async function initiatePayment(
         organizationId,
         provider: provider.id,
         providerReference: intent.providerReference,
-        amount: booking.total,
-        currency,
+        checkoutUrl: intent.checkoutPath,
+        amount: charge.amount,
+        currency: charge.currency,
         status: PaymentStatus.PENDING,
       },
     });
     return { payment: created, created: true, checkoutPath: intent.checkoutPath };
-  }, { maxWait: 10_000, timeout: 15_000 });
+  }, { maxWait: 10_000, timeout: 30_000 });
 
   if (result.created) {
     await writeAuditLog({
@@ -281,10 +312,6 @@ export async function initiatePayment(
   };
 }
 
-function checkoutPathFor(provider: PaymentProvider, bookingReference: string): string {
-  return `/pay/${encodeURIComponent(bookingReference)}`;
-}
-
 // ---------------------------------------------------------------------------
 // Webhook (the only path to PAID for online payments)
 // ---------------------------------------------------------------------------
@@ -293,7 +320,12 @@ export type WebhookOutcome =
   | { ok: true; outcome: "applied"; paymentId: string; bookingId: string; bookingStatus: BookingStatus }
   | { ok: true; outcome: "replay"; paymentId: string }
   | { ok: true; outcome: "ignored"; paymentId: string; reason: string }
+  | { ok: true; outcome: "unsupported"; reason: string }
   | { ok: true; outcome: "orphaned"; providerReference: string };
+
+export type PaymentCallbackOutcome =
+  | WebhookOutcome
+  | { ok: true; outcome: "pending"; providerReference: string };
 
 /**
  * Verifies, correlates and applies one webhook event. The signature is checked
@@ -311,17 +343,20 @@ export async function handleWebhook(
     throw new PaymentError("invalid_signature", "webhook signature verification failed");
   }
 
-  let parsedJson: unknown;
+  let event: WebhookEvent | null;
   try {
-    parsedJson = JSON.parse(rawBody);
-  } catch {
-    throw new PaymentError("invalid_webhook", "webhook body is not valid JSON");
+    event = provider.parseWebhookEvent(rawBody);
+  } catch (error) {
+    if (error instanceof InvalidWebhookPayloadError) {
+      throw new PaymentError("invalid_webhook", error.message);
+    }
+    throw error;
   }
-  const parsed = WebhookEventSchema.safeParse(parsedJson);
-  if (!parsed.success) {
-    throw new PaymentError("invalid_webhook", "webhook payload failed validation");
+  if (!event) {
+    // Well-formed event this app does not handle (e.g. a Paystack transfer
+    // notification). Answer 200 so the gateway stops retrying.
+    return { ok: true, outcome: "unsupported", reason: "event type is not handled" };
   }
-  const event = parsed.data;
   if (event.provider !== provider.id) {
     throw new PaymentError(
       "invalid_provider",
@@ -329,6 +364,46 @@ export async function handleWebhook(
     );
   }
 
+  return applyWebhookEvent(event);
+}
+
+/**
+ * Post-checkout callback (Paystack redirects the guest here). Asks the gateway
+ * for the transaction's true status and applies exactly the same state machine
+ * as a webhook — the callback is a convenience, not a second source of truth.
+ */
+export async function handlePaymentCallback(reference: string): Promise<PaymentCallbackOutcome> {
+  const provider = getPaymentProvider();
+  if (!provider.verifyTransaction) {
+    throw new PaymentError(
+      "invalid_provider",
+      `provider "${provider.id}" cannot verify transactions`,
+    );
+  }
+
+  let verified;
+  try {
+    verified = await provider.verifyTransaction(reference);
+  } catch (error) {
+    if (error instanceof PaymentProviderRequestError) {
+      throw new PaymentError("provider_error", error.message);
+    }
+    throw error;
+  }
+  if (verified.status === "pending") {
+    return { ok: true, outcome: "pending", providerReference: reference };
+  }
+
+  return applyWebhookEvent({
+    type: verified.status === "succeeded" ? "payment.succeeded" : "payment.failed",
+    provider: provider.id,
+    providerReference: reference,
+    amount: verified.amount,
+    currency: verified.currency,
+  });
+}
+
+async function applyWebhookEvent(event: WebhookEvent): Promise<WebhookOutcome> {
   const payment = await prisma.payment.findUnique({
     where: { providerReference: event.providerReference },
     select: { id: true, bookingId: true, organizationId: true, hotelId: true },
@@ -350,6 +425,13 @@ export async function handleWebhook(
   const applied = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT "id" FROM "payments" WHERE "id" = ${payment.id} FOR UPDATE`;
     const fresh = await tx.payment.findUniqueOrThrow({ where: { id: payment.id } });
+
+    if (fresh.provider !== event.provider) {
+      throw new PaymentError(
+        "invalid_provider",
+        `payment was created by "${fresh.provider}" but the event is from "${event.provider}"`,
+      );
+    }
 
     if (!moneyEquals(parseMoney(event.amount) ?? new Prisma.Decimal(-1), fresh.amount)) {
       throw new PaymentError(
@@ -504,7 +586,6 @@ export async function refundPayment(
   input: { paymentId: string; amount?: string | null },
   actor: { userId: string | null },
 ): Promise<PaymentSummary> {
-  const provider = getPaymentProvider();
   const payment = await prisma.payment.findUnique({ where: { id: input.paymentId } });
   if (!payment) throw new PaymentError("payment_not_found", "payment not found");
   if (!REFUNDABLE_STATUSES.includes(payment.status)) {
@@ -520,12 +601,35 @@ export async function refundPayment(
     );
   }
 
-  const accepted = await provider.refund({
-    providerReference: payment.providerReference ?? "",
-    amount: refundAmount,
-  });
-  if (!accepted) {
-    throw new PaymentError("refund_refused", "the payment provider refused the refund");
+  // Desk captures are cash/card taken in person: refunding them is a desk
+  // operation, not a gateway call. Online payments go back through the gateway
+  // that captured them (which may differ from the currently configured
+  // provider for historical rows).
+  if (payment.provider !== "desk") {
+    let provider: PaymentProvider;
+    try {
+      provider = getPaymentProvider(payment.provider);
+    } catch (error) {
+      if (error instanceof PaymentProviderNotConfiguredError) {
+        throw new PaymentError("invalid_provider", error.message);
+      }
+      throw error;
+    }
+
+    let accepted: boolean;
+    try {
+      accepted = await provider.refund({
+        providerReference: payment.providerReference ?? "",
+        amount: refundAmount,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "payment provider request failed";
+      console.error("payment refund failed", error);
+      throw new PaymentError("provider_error", message);
+    }
+    if (!accepted) {
+      throw new PaymentError("refund_refused", "the payment provider refused the refund");
+    }
   }
 
   const result = await prisma.$transaction(async (tx) => {

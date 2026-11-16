@@ -662,6 +662,9 @@ model Payment {
   bookingId         String        @map("booking_id") @db.Uuid
   provider          String
   providerReference String?       @unique @map("provider_reference")
+  /// Hosted checkout URL returned by the gateway, reused on page refresh so a
+  /// pending intent never mints a second provider reference.
+  checkoutUrl       String?       @map("checkout_url")
   amount            Decimal       @db.Decimal(10, 2)
   currency          String        @default("NGN")
   status            PaymentStatus @default(PENDING)

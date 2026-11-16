@@ -45,6 +45,7 @@ const PAYMENT_ERROR_STATUS: Record<PaymentErrorCode, number> = {
   invalid_signature: 401,
   invalid_webhook: 400,
   invalid_provider: 400,
+  provider_error: 502,
   amount_mismatch: 400,
 };
 

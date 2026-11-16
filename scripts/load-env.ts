@@ -11,3 +11,8 @@ const isTestRunner =
   process.env.npm_lifecycle_event === "test" ||
   process.argv.some((arg) => arg === "--test");
 if (isTestRunner) process.env.EMAIL_ENABLED = "false";
+
+// The payment suite exercises the money path end-to-end against the local mock
+// gateway. Never let a developer's .env.local (e.g. PAYMENT_PROVIDER=paystack)
+// send test bookings to a real gateway.
+if (isTestRunner) process.env.PAYMENT_PROVIDER = "mock";

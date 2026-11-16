@@ -13,6 +13,7 @@ import {
   type BookingViewer,
 } from "@/server/booking/service";
 import { prisma } from "@/lib/prisma";
+import { getPaymentProvider } from "@/server/payments/provider";
 import { displayCurrency } from "@/server/currency/display";
 import { fallbackImageForSlug, formatMoney } from "@/lib/hotel";
 import { getT } from "@/server/locale/display";
@@ -112,7 +113,11 @@ export default async function PayPage({ params }: { params: Promise<{ reference:
                   <p>{t("pay.secureBody")}</p>
                 </div>
               </div>
-              <PayButtons bookingId={detail.id} reference={detail.bookingReference} />
+              <PayButtons
+                bookingId={detail.id}
+                reference={detail.bookingReference}
+                provider={getPaymentProvider().id}
+              />
             </>
           ) : (
             <div className="info-notice">
