@@ -1,120 +1,201 @@
-﻿import Link from "next/link";
-import { SignOutButton } from "@/components/auth/sign-out-button";
-import { Permissions, hasOrgPermission } from "@/server/auth/roles";
+import Link from "next/link";
 import {
-  accessibleHotels,
-  listUserMemberships,
-} from "@/server/auth/tenancy";
-import { switchHotel, switchOrganization } from "@/server/auth/tenant-actions";
+  Bell,
+  Download,
+  LayoutDashboard,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+import { SignOutButton } from "@/components/auth/sign-out-button";
+import { userInitials } from "@/components/auth/user-avatar";
+import { TopNav, type TopNavItem } from "@/components/dashboard/top-nav";
+import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
+import { Permissions, hasOrgPermission, type Permission } from "@/server/auth/roles";
+import { accessibleHotels, listUserMemberships } from "@/server/auth/tenancy";
 import { getConsoleContext } from "@/server/console/context";
 
-/**
- * Staff console chrome. The active organization/property context is always
- * visible where data can change (NFR-016) and can only be switched through
- * server-side membership checks.
- */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { session, member, hotel } = await getConsoleContext();
   const [memberships, hotels] = await Promise.all([
     listUserMemberships(session.userId!),
     accessibleHotels(member),
   ]);
-  const isAdmin = hasOrgPermission(member.role, Permissions.MANAGE_USERS);
 
-  const sections = [
+  const can = (permission: Permission) => hasOrgPermission(member.role, permission);
+
+  const primary: TopNavItem[] = [
     { href: "/admin", label: "Dashboard" },
-    ...(hasOrgPermission(member.role, Permissions.MANAGE_HOTELS)
-      ? [{ href: "/admin/hotels", label: "Hotels" }]
-      : []),
-    { href: "/admin/bookings", label: "Reservations" },
-    { href: "/admin/rooms", label: "Rooms" },
-    { href: "/admin/room-types", label: "Room types" },
-    { href: "/admin/rates", label: "Rates" },
-    { href: "/admin/promotions", label: "Promotions" },
-    { href: "/admin/guests", label: "Guests" },
-    { href: "/admin/payments", label: "Payments" },
-    ...(isAdmin
+    { href: "/admin/payments", label: "Financials" },
+    ...(can(Permissions.VIEW_GUESTS) ? [{ href: "/admin/guests", label: "Customers" }] : []),
+    { href: "/admin/bookings", label: "Operations" },
+    ...(can(Permissions.MANAGE_AUDIT) ? [{ href: "/admin/audit", label: "Reports" }] : []),
+    { href: "/admin?range=90d#insights", label: "Insights" },
+    ...(can(Permissions.MANAGE_USERS) ? [{ href: "/admin/users", label: "Employees" }] : []),
+  ];
+
+  const management = [
+    ...(can(Permissions.MANAGE_HOTELS) ? [{ href: "/admin/hotels", label: "Portfolio" }] : []),
+    ...(can(Permissions.MANAGE_ROOMS)
       ? [
-          { href: "/admin/users", label: "Users" },
-          { href: "/admin/settings", label: "Settings" },
-          { href: "/admin/notifications", label: "Notifications" },
-          { href: "/admin/content", label: "Content" },
-          { href: "/admin/audit", label: "Audit" },
+          { href: "/admin/rooms", label: "Rooms" },
+          { href: "/admin/room-types", label: "Room types" },
         ]
+      : []),
+    ...(can(Permissions.MANAGE_RATES) ? [{ href: "/admin/rates", label: "Rates" }] : []),
+    ...(can(Permissions.MANAGE_PROMOTIONS)
+      ? [{ href: "/admin/promotions", label: "Promotions" }]
+      : []),
+    ...(can(Permissions.MANAGE_CONTENT) ? [{ href: "/admin/content", label: "Content" }] : []),
+    ...(can(Permissions.MANAGE_SETTINGS) ? [{ href: "/admin/settings", label: "Settings" }] : []),
+    ...(can(Permissions.MANAGE_AUDIT) ? [{ href: "/admin/audit", label: "Audit" }] : []),
+    ...(can(Permissions.MANAGE_SETTINGS)
+      ? [{ href: "/admin/notifications", label: "Notifications" }]
       : []),
   ];
 
+  const displayName = session.email ?? session.userId ?? "Operator";
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link href="/admin" className="font-medium">
-            {member.organization.name} Admin
+    <div className="flex min-h-screen flex-col bg-[#f7f8fa] text-zinc-900">
+      <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 lg:px-6">
+          <Link href="/admin" className="flex shrink-0 items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-zinc-900 text-[11px] font-bold text-white">
+              S
+            </span>
+            <span className="hidden leading-none sm:block">
+              <span className="block text-[13px] font-semibold tracking-tight text-zinc-900">
+                Santo<span className="text-emerald-700">.</span>
+              </span>
+              <span className="block text-[8px] font-medium uppercase tracking-[0.16em] text-zinc-400">
+                Hotel OS
+              </span>
+            </span>
           </Link>
-          <span className="text-xs text-zinc-500">
-            {member.role} · {session.email ?? session.userId}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          {memberships.length > 1 && (
-            <form action={switchOrganization} className="flex items-center gap-1">
-              <label htmlFor="orgId" className="text-xs text-zinc-500">
-                Organization
-              </label>
-              <select
-                id="orgId"
-                name="orgId"
-                defaultValue={member.organizationId}
-                className="border px-2 py-1 rounded-md"
+
+          <span className="hidden h-6 w-px bg-zinc-200 sm:block" />
+
+          <WorkspaceSwitcher
+            organizations={memberships.map((entry) => ({
+              id: entry.organizationId,
+              name: entry.organization.name,
+            }))}
+            hotels={hotels.map((entry) => ({ id: entry.id, name: entry.name }))}
+            currentOrganizationId={member.organizationId}
+            currentHotelId={hotel.id}
+            organizationName={member.organization.name}
+            hotelName={hotel.name}
+          />
+
+          <div className="min-w-0 flex-1 pl-1">
+            <TopNav items={primary} />
+          </div>
+
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            {can(Permissions.VIEW_REPORTS) && (
+              <a
+                href="/api/admin/reports/transactions?range=30d"
+                className="hidden h-8 items-center gap-1.5 rounded-md bg-emerald-700 px-2.5 text-[11px] font-medium text-white shadow-sm hover:bg-emerald-800 sm:inline-flex"
               >
-                {memberships.map((entry) => (
-                  <option key={entry.organizationId} value={entry.organizationId}>
-                    {entry.organization.name}
-                  </option>
-                ))}
-              </select>
-              <button className="border px-2 py-1 rounded-md">Switch</button>
-            </form>
-          )}
-          {hotels.length > 1 && (
-            <form action={switchHotel} className="flex items-center gap-1">
-              <label htmlFor="hotelId" className="text-xs text-zinc-500">
-                Property
-              </label>
-              <select
-                id="hotelId"
-                name="hotelId"
-                defaultValue={hotel.id}
-                className="border px-2 py-1 rounded-md"
-              >
-                {hotels.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.name}
-                  </option>
-                ))}
-              </select>
-              <button className="border px-2 py-1 rounded-md">Switch</button>
-            </form>
-          )}
-          {session.platformRole && (
-            <Link href="/platform" className="border px-2 py-1 rounded-md">
-              Platform ({session.platformRole})
+                <Download size={12} />
+                Generate report
+              </a>
+            )}
+            <Link
+              href="/admin/notifications"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-900"
+              aria-label="Notifications"
+            >
+              <Bell size={14} />
             </Link>
-          )}
-          <SignOutButton label="Sign out" variant="outline" size="sm" />
+            <details className="relative">
+              <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-zinc-200 bg-white py-0.5 pl-0.5 pr-2 shadow-sm hover:bg-zinc-50">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-[10px] font-semibold text-white">
+                  {userInitials(displayName)}
+                </span>
+                <span className="hidden max-w-[120px] truncate text-[11px] font-medium text-zinc-700 md:block">
+                  {session.email ?? "Account"}
+                </span>
+              </summary>
+              <div className="absolute right-0 z-50 mt-1 w-56 rounded-lg border border-zinc-200 bg-white p-2 text-[11px] shadow-xl">
+                <div className="border-b border-zinc-100 px-2 pb-2">
+                  <p className="truncate font-medium text-zinc-800">{session.email ?? session.userId}</p>
+                  <p className="text-[10px] capitalize text-zinc-400">
+                    {member.role.toLowerCase()} · {member.organization.name}
+                  </p>
+                </div>
+                <div className="py-1">
+                  <Link
+                    href="/admin/settings"
+                    className="flex items-center gap-2 rounded px-2 py-1.5 text-zinc-600 hover:bg-zinc-50"
+                  >
+                    <Settings2 size={12} /> Property settings
+                  </Link>
+                  {session.platformRole && (
+                    <Link
+                      href="/platform"
+                      className="flex items-center gap-2 rounded px-2 py-1.5 text-zinc-600 hover:bg-zinc-50"
+                    >
+                      <ShieldCheck size={12} /> Platform console
+                    </Link>
+                  )}
+                  <Link
+                    href="/"
+                    className="flex items-center gap-2 rounded px-2 py-1.5 text-zinc-600 hover:bg-zinc-50"
+                  >
+                    <Sparkles size={12} /> View public site
+                  </Link>
+                </div>
+                <div className="border-t border-zinc-100 pt-1">
+                  <SignOutButton
+                    label="Sign out"
+                    icon
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-full justify-start px-2 text-[11px]"
+                  />
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div className="border-t border-zinc-100 lg:hidden">
+          <div className="flex items-center gap-1 overflow-x-auto px-3 py-1.5 text-[11px]">
+            {primary.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="shrink-0 rounded px-2 py-1 font-medium text-zinc-600 hover:bg-zinc-100"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-zinc-100">
+          <div className="mx-auto flex max-w-[1600px] items-center gap-3 overflow-x-auto px-4 py-1.5 text-[11px] lg:px-6">
+            <span className="inline-flex shrink-0 items-center gap-1 text-[9px] font-medium uppercase tracking-[0.12em] text-zinc-400">
+              <LayoutDashboard size={11} /> Manage
+            </span>
+            {management.map((item) => (
+              <Link
+                key={`${item.href}-${item.label}`}
+                href={item.href}
+                className="shrink-0 rounded px-1.5 py-1 font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+              >
+                {item.label}
+              </Link>
+            ))}
+            <span className="ml-auto hidden shrink-0 items-center gap-1 text-[9px] text-zinc-400 md:flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              {hotel.name} · {hotel.publicationStatus.toLowerCase()} · {hotel.currency}
+            </span>
+          </div>
         </div>
       </header>
-      <div className="border-b bg-zinc-50 px-6 py-1 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
-        Active property: <strong>{hotel.name}</strong> · {hotel.currency} ·{" "}
-        {hotel.publicationStatus}
-      </div>
-      <nav className="border-b px-6 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-        {sections.map((section) => (
-          <Link key={section.href} href={section.href} className="hover:underline">
-            {section.label}
-          </Link>
-        ))}
-      </nav>
+
       <main className="flex-1 p-6">{children}</main>
     </div>
   );

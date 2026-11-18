@@ -166,7 +166,14 @@ export async function accessibleHotels(member: TenantMember) {
       ...(member.orgWide ? {} : { id: { in: member.hotelIds } }),
     },
     orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, slug: true, publicationStatus: true, currency: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      publicationStatus: true,
+      currency: true,
+      timezone: true,
+    },
   });
 }
 

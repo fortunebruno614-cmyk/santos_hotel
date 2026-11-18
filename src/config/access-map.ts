@@ -94,6 +94,7 @@ export const ACCESS_RULES: AccessRule[] = [
   // --- API: admin-only ---
   staff("/api/admin/users", [AppRole.ADMIN], "MANAGE_USERS"),
   staff("/api/admin/audit", [AppRole.ADMIN], "MANAGE_AUDIT"),
+  staff("/api/admin/reports", [AppRole.STAFF, AppRole.ADMIN], "VIEW_REPORTS"),
   staff("/api/admin/settings", [AppRole.ADMIN], "MANAGE_SETTINGS"),
   staff("/api/admin/notifications", [AppRole.ADMIN], "MANAGE_SETTINGS"),
   staff("/api/admin/content", [AppRole.ADMIN], "MANAGE_CONTENT"),

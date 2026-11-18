@@ -1,6 +1,7 @@
 import "../scripts/load-env";
 import { prisma } from "../src/lib/prisma";
 import {
+  ExpenseCategory,
   OrganizationStatus,
   PromotionType,
   PropertyPublicationStatus,
@@ -304,6 +305,52 @@ async function main() {
       maxUses: 100,
     },
   });
+
+  // Operating expenses for the analytics dashboard. Two years of monthly
+  // history so range filters (30/90/365 days) always have data.
+  await prisma.expense.deleteMany({
+    where: { hotelId: hotel.id, description: { startsWith: "Seed " } },
+  });
+  const expensePlan: Array<[ExpenseCategory, number]> = [
+    [ExpenseCategory.SALARIES, 48_000],
+    [ExpenseCategory.UTILITIES, 14_500],
+    [ExpenseCategory.MAINTENANCE, 9_800],
+    [ExpenseCategory.MARKETING, 12_400],
+    [ExpenseCategory.SUPPLIES, 6_300],
+    [ExpenseCategory.TAXES, 8_100],
+  ];
+  const expenseRows: Array<{
+    organizationId: string;
+    hotelId: string;
+    category: ExpenseCategory;
+    description: string;
+    amount: number;
+    currency: string;
+    incurredAt: Date;
+  }> = [];
+  const now = new Date();
+  for (let monthOffset = 11; monthOffset >= 0; monthOffset -= 1) {
+    const month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthOffset, 1));
+    for (const [category, base] of expensePlan) {
+      const variance = 1 + (((monthOffset * 17 + category.length * 13) % 21) - 10) / 100;
+      // Four entries per month keep the daily chart readable instead of a
+      // single artificial spike on the first of the month.
+      for (let week = 0; week < 4; week += 1) {
+        expenseRows.push({
+          organizationId: organization.id,
+          hotelId: hotel.id,
+          category,
+          description: `Seed ${category.toLowerCase()}`,
+          amount: Math.round((base * variance) / 4),
+          currency: "NGN",
+          incurredAt: new Date(
+            Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1 + week * 7),
+          ),
+        });
+      }
+    }
+  }
+  await prisma.expense.createMany({ data: expenseRows });
 
   const accounts = await seedAccounts();
 
