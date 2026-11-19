@@ -9,18 +9,18 @@ export function PlatformHotelForm({ organizationId }: { organizationId: string }
   const [longitude, setLongitude] = useState("");
 
   return (
-    <form action={createHotelForOrganizationAction} className="space-y-3 rounded-md border p-4">
-      <h2 className="font-medium">Add a property</h2>
+    <form action={createHotelForOrganizationAction} className="space-y-4">
+      <h2 className="text-sm font-semibold text-slate-100">Add a property</h2>
       <input type="hidden" name="organizationId" value={organizationId} />
       <input type="hidden" name="latitude" value={latitude} />
       <input type="hidden" name="longitude" value={longitude} />
       <div className="flex flex-wrap gap-3 text-sm">
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Name</span>
+          <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Name</span>
           <input name="hotelName" required className="border px-2 py-1 rounded-md w-64" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Slug</span>
+          <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Slug</span>
           <input
             name="hotelSlug"
             required
@@ -29,33 +29,33 @@ export function PlatformHotelForm({ organizationId }: { organizationId: string }
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Phone</span>
+          <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Phone</span>
           <input name="hotelPhone" className="border px-2 py-1 rounded-md w-44" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">E-mail</span>
+          <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">E-mail</span>
           <input name="hotelEmail" type="email" className="border px-2 py-1 rounded-md w-60" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Timezone</span>
+          <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Timezone</span>
           <input name="timezone" defaultValue="Africa/Lagos" className="border px-2 py-1 rounded-md w-52" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Currency</span>
+          <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Currency</span>
           <input name="currency" defaultValue="NGN" maxLength={3} className="border px-2 py-1 rounded-md w-24 uppercase" />
         </label>
       </div>
       <div className="flex flex-wrap gap-3 text-sm">
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Address line 1</span>
+          <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Address line 1</span>
           <input name="addressLine1" className="border px-2 py-1 rounded-md w-64" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">City</span>
+          <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">City</span>
           <input name="city" className="border px-2 py-1 rounded-md w-44" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Country</span>
+          <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Country</span>
           <input name="country" className="border px-2 py-1 rounded-md w-44" />
         </label>
       </div>
@@ -67,7 +67,7 @@ export function PlatformHotelForm({ organizationId }: { organizationId: string }
           setLongitude(next.longitude);
         }}
       />
-      <button className="border px-4 py-2 rounded-md text-sm font-medium" type="submit">
+      <button className="p-btn p-btn-primary" type="submit">
         Add property
       </button>
     </form>

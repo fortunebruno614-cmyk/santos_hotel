@@ -186,7 +186,7 @@ export function LocationPicker({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="location-picker space-y-2">
       <div className="flex flex-wrap items-end gap-2 text-sm">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-zinc-500">

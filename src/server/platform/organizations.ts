@@ -59,7 +59,10 @@ export async function getOrganizationDetail(id: string) {
   return prisma.organization.findUnique({
     where: { id },
     include: {
-      hotels: { orderBy: { createdAt: "asc" } },
+      hotels: {
+        orderBy: { createdAt: "asc" },
+        include: { _count: { select: { rooms: true, roomTypes: true, bookings: true } } },
+      },
       members: {
         orderBy: { createdAt: "asc" },
         include: { user: { select: { id: true, name: true, email: true, isActive: true } } },

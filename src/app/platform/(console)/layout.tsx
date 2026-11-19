@@ -1,41 +1,113 @@
-import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { PlatformShell, type PlatformSearchItem } from "@/components/platform/shell";
 import { requirePlatformPage } from "@/server/auth/tenancy";
-import { logout } from "@/server/auth/actions";
+import "../platform.css";
+
+export const dynamic = "force-dynamic";
 
 export default async function PlatformLayout({ children }: { children: React.ReactNode }) {
   const { session, platformRole } = await requirePlatformPage();
+
+  const [user, pendingVerification, pendingReviews, organizations, properties] =
+    await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.userId! },
+        select: { name: true, email: true },
+      }),
+      prisma.organizationKyc.count({ where: { status: "PENDING" } }),
+      prisma.hotel.count({
+        where: { publicationStatus: { in: ["SUBMITTED", "UNDER_REVIEW"] } },
+      }),
+      prisma.organization.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, slug: true },
+      }),
+      prisma.hotel.findMany({
+        orderBy: { name: "asc" },
+        take: 120,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          publicationStatus: true,
+          organization: { select: { name: true } },
+        },
+      }),
+    ]);
+
+  const operator = {
+    name: user?.name ?? session.email ?? "Platform operator",
+    email: user?.email ?? session.email ?? "",
+    role: platformRole,
+  };
+
+  const searchItems: PlatformSearchItem[] = [
+    { href: "/platform", label: "Overview", hint: "Platform dashboard", group: "Navigate" },
+    {
+      href: "/platform/organizations",
+      label: "Organizations",
+      hint: "All hotel businesses",
+      group: "Navigate",
+    },
+    {
+      href: "/platform/properties",
+      label: "Properties",
+      hint: "Marketplace listings",
+      group: "Navigate",
+    },
+    {
+      href: "/platform/verification",
+      label: "Verification queue",
+      hint: "Business KYC reviews",
+      group: "Navigate",
+    },
+    {
+      href: "/platform/organizations/new",
+      label: "Onboard business",
+      hint: "Create an organization and owner",
+      group: "Navigate",
+    },
+    {
+      href: "/platform/analytics",
+      label: "Analytics",
+      hint: "Marketplace growth and revenue",
+      group: "Navigate",
+    },
+    {
+      href: "/platform/activity",
+      label: "Activity",
+      hint: "Platform audit trail",
+      group: "Navigate",
+    },
+    {
+      href: "/platform/operators",
+      label: "Operators",
+      hint: "Platform team",
+      group: "Navigate",
+    },
+    ...organizations.map((organization) => ({
+      href: `/platform/organizations/${organization.id}`,
+      label: organization.name,
+      hint: organization.slug,
+      group: "Organizations" as const,
+    })),
+    ...properties.map((property) => ({
+      href: `/platform/hotels/${property.id}`,
+      label: property.name,
+      hint: `${property.organization.name} · ${property.publicationStatus.toLowerCase()}`,
+      group: "Properties" as const,
+    })),
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b px-6 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-white">
-            <ShieldCheck size={18} />
-          </span>
-          <div>
-            <p className="text-xs uppercase tracking-widest text-zinc-500">Santo Platform</p>
-            <p className="font-medium">{platformRole} operator</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-xs text-zinc-500">{session.email ?? session.userId}</span>
-          <Link href="/platform/organizations/new" className="border px-3 py-1 rounded-md">
-            Onboard organization
-          </Link>
-          <form action={logout}>
-            <button className="border px-3 py-1 rounded-md">Sign out</button>
-          </form>
-        </div>
-      </header>
-      <nav className="border-b px-6 py-2 flex gap-4 text-sm">
-        <Link href="/platform" className="hover:underline">
-          Organizations
-        </Link>
-        <Link href="/platform/organizations/new" className="hover:underline">
-          New organization
-        </Link>
-      </nav>
-      <main className="flex-1 p-6">{children}</main>
-    </div>
+    <PlatformShell
+      operator={operator}
+      pendingVerification={pendingVerification}
+      pendingReviews={pendingReviews}
+      organizations={organizations}
+      searchItems={searchItems}
+    >
+      {children}
+    </PlatformShell>
   );
 }

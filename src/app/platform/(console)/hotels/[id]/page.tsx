@@ -1,5 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowUpRight, Building2, CalendarDays, Hotel, MapPin } from "lucide-react";
+import {
+  EmptyState,
+  KpiCard,
+  PageHeader,
+  Panel,
+  PanelBody,
+  PanelHeader,
+  StatusPill,
+  formatDate,
+  formatDateTime,
+} from "@/components/platform/ui";
 import { prisma } from "@/lib/prisma";
 import { allowedPublicationTransitions } from "@/server/platform/listings";
 import { transitionPublicationAction } from "@/server/platform/actions";
@@ -15,6 +27,17 @@ const PUBLICATION_LABELS: Record<string, string> = {
   ARCHIVED: "Archived",
 };
 
+function transitionLabel(to: string) {
+  if (to === "PUBLISHED") return "Publish";
+  if (to === "PAUSED") return "Pause";
+  if (to === "SUSPENDED") return "Suspend";
+  if (to === "ARCHIVED") return "Archive";
+  if (to === "UNDER_REVIEW") return "Start review";
+  if (to === "DRAFT") return "Return to draft";
+  if (to === "SUBMITTED") return "Submit";
+  return PUBLICATION_LABELS[to] ?? to;
+}
+
 export default async function PlatformHotelPage({
   params,
 }: {
@@ -25,7 +48,7 @@ export default async function PlatformHotelPage({
     where: { id },
     include: {
       organization: { select: { id: true, name: true } },
-      _count: { select: { roomTypes: true, rooms: true } },
+      _count: { select: { roomTypes: true, rooms: true, bookings: true } },
     },
   });
   if (!hotel) notFound();
@@ -48,119 +71,216 @@ export default async function PlatformHotelPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href={`/platform/organizations/${hotel.organization.id}`} className="text-sm underline">
-          ← {hotel.organization.name}
-        </Link>
-        <h1 className="text-2xl font-semibold">{hotel.name}</h1>
-        <p className="text-sm text-zinc-500">
-          {hotel.slug} · {PUBLICATION_LABELS[hotel.publicationStatus]} ·{" "}
-          {hotel._count.roomTypes} room types · {hotel._count.rooms} rooms
-        </p>
-      </div>
-
-      <section className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-md border p-4 text-sm">
-          <h2 className="font-medium">Business information</h2>
-          <p className="mt-2 text-zinc-600">{hotel.description ?? "No description yet."}</p>
-          <dl className="mt-3 space-y-1">
-            <div>
-              <dt className="text-xs text-zinc-500">Address</dt>
-              <dd>{address || "Not set"}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-zinc-500">Contact</dt>
-              <dd>
-                {hotel.email ?? "—"} · {hotel.phone ?? "—"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-zinc-500">Timezone / currency</dt>
-              <dd>
-                {hotel.timezone} · {hotel.currency}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-zinc-500">Map</dt>
-              <dd>
-                {hotel.latitude != null && hotel.longitude != null ? (
-                  <a
-                    className="underline"
-                    href={`https://www.google.com/maps?q=${hotel.latitude},${hotel.longitude}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {hotel.latitude.toString()}, {hotel.longitude.toString()} (
-                    {hotel.locationVerification})
-                  </a>
-                ) : (
-                  "No verified position"
-                )}
-              </dd>
-            </div>
-          </dl>
-        </div>
-
-        <div className="rounded-md border p-4 text-sm">
-          <h2 className="font-medium">Publication</h2>
-          <p className="mt-1 text-zinc-600">
-            Current: <strong>{PUBLICATION_LABELS[hotel.publicationStatus]}</strong>
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {transitions.map((to) => (
-              <form key={to} action={transitionPublicationAction} className="flex items-center gap-1">
-                <input type="hidden" name="hotelId" value={hotel.id} />
-                <input type="hidden" name="to" value={to} />
-                {to === "UNDER_REVIEW" || to === "DRAFT" ? (
-                  <input
-                    name="reason"
-                    placeholder="Decision reason"
-                    className="border px-2 py-1 rounded-md w-48"
-                  />
-                ) : null}
-                <button className="border px-3 py-1 rounded-md">
-                  {to === "PUBLISHED"
-                    ? "Publish"
-                    : to === "PAUSED"
-                      ? "Pause"
-                      : to === "SUSPENDED"
-                        ? "Suspend"
-                        : to === "ARCHIVED"
-                          ? "Archive"
-                          : PUBLICATION_LABELS[to]}
-                </button>
-              </form>
-            ))}
-            {transitions.length === 0 && (
-              <p className="text-xs text-zinc-500">Archived listings are read-only.</p>
+      <PageHeader
+        eyebrow="Property"
+        title={hotel.name}
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            <StatusPill status={hotel.publicationStatus} />
+            <Link
+              href={`/platform/organizations/${hotel.organization.id}`}
+              className="inline-flex items-center gap-1 text-slate-400 hover:text-cyan-300"
+            >
+              <Building2 className="size-3.5" /> {hotel.organization.name}
+            </Link>
+            <span className="font-mono text-xs text-slate-500">/{hotel.slug}</span>
+          </span>
+        }
+        actions={
+          <>
+            {hotel.publicationStatus === "PUBLISHED" && (
+              <Link href={`/hotels/${hotel.slug}`} target="_blank" className="p-btn">
+                <ArrowUpRight className="size-3.5" /> View listing
+              </Link>
             )}
-          </div>
-          <p className="mt-3 text-xs text-zinc-500">
-            Publishing requires name, contact, address, city, country, and at least one active
-            room type with a physical room.
-          </p>
-        </div>
-      </section>
-
-      <VerifyLocationForm
-        hotelId={hotel.id}
-        initialLatitude={hotel.latitude?.toString() ?? ""}
-        initialLongitude={hotel.longitude?.toString() ?? ""}
+            <Link href="/platform/properties" className="p-btn">
+              <Hotel className="size-3.5" /> All properties
+            </Link>
+          </>
+        }
       />
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-medium">Review history</h2>
-        <ul className="space-y-1 text-sm">
-          {reviews.map((review) => (
-            <li key={review.id} className="border-b py-1 last:border-0">
-              {review.fromStatus} → {review.toStatus} ·{" "}
-              {review.decidedAt.toISOString().slice(0, 16).replace("T", " ")} UTC
-              {review.decisionReason ? ` · ${review.decisionReason}` : ""}
-            </li>
-          ))}
-          {reviews.length === 0 && <li className="text-zinc-500">No reviews yet.</li>}
-        </ul>
-      </section>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label="Rooms"
+          value={hotel._count.rooms}
+          hint={`${hotel._count.roomTypes} room types`}
+          icon={<Hotel className="size-4" />}
+          accent="#3b82f6"
+        />
+        <KpiCard
+          label="Bookings"
+          value={hotel._count.bookings}
+          hint="All time"
+          icon={<CalendarDays className="size-4" />}
+          accent="#22c55e"
+        />
+        <KpiCard
+          label="Map position"
+          value={hotel.locationVerification === "PLATFORM_VERIFIED" ? "Verified" : "Unverified"}
+          hint={
+            hotel.latitude != null && hotel.longitude != null
+              ? `${hotel.latitude.toString()}, ${hotel.longitude.toString()}`
+              : "No coordinates recorded"
+          }
+          icon={<MapPin className="size-4" />}
+          accent={hotel.locationVerification === "PLATFORM_VERIFIED" ? "#22c55e" : "#f59e0b"}
+        />
+        <KpiCard
+          label="Currency / timezone"
+          value={hotel.currency}
+          hint={hotel.timezone}
+          icon={<Building2 className="size-4" />}
+          accent="#06b6d4"
+        />
+      </div>
+
+      <div className="grid items-start gap-4 xl:grid-cols-2">
+        <Panel>
+          <PanelHeader title="Business information" />
+          <PanelBody className="space-y-4 text-sm">
+            <p className="text-slate-400">{hotel.description ?? "No description yet."}</p>
+            <dl className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <dt className="text-[0.65rem] font-medium uppercase tracking-[0.1em] text-slate-500">
+                  Address
+                </dt>
+                <dd className="mt-1 text-slate-200">{address || "Not set"}</dd>
+              </div>
+              <div>
+                <dt className="text-[0.65rem] font-medium uppercase tracking-[0.1em] text-slate-500">
+                  Contact
+                </dt>
+                <dd className="mt-1 text-slate-200">
+                  {hotel.email ?? "—"} · {hotel.phone ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[0.65rem] font-medium uppercase tracking-[0.1em] text-slate-500">
+                  Coordinates
+                </dt>
+                <dd className="mt-1 text-slate-200">
+                  {hotel.latitude != null && hotel.longitude != null ? (
+                    <a
+                      className="text-cyan-400 underline-offset-4 hover:underline"
+                      href={`https://www.google.com/maps?q=${hotel.latitude},${hotel.longitude}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {hotel.latitude.toString()}, {hotel.longitude.toString()}
+                    </a>
+                  ) : (
+                    "No verified position"
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[0.65rem] font-medium uppercase tracking-[0.1em] text-slate-500">
+                  Location verification
+                </dt>
+                <dd className="mt-1 text-slate-200">
+                  {hotel.locationVerification.replaceAll("_", " ").toLowerCase()}
+                  {hotel.verifiedAt ? ` · ${formatDate(hotel.verifiedAt)}` : ""}
+                </dd>
+              </div>
+            </dl>
+          </PanelBody>
+        </Panel>
+
+        <Panel>
+          <PanelHeader
+            title="Publication"
+            description={`Current state: ${PUBLICATION_LABELS[hotel.publicationStatus] ?? hotel.publicationStatus}.`}
+            actions={<StatusPill status={hotel.publicationStatus} />}
+          />
+          <PanelBody className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {transitions.map((to) => (
+                <form key={to} action={transitionPublicationAction} className="flex flex-wrap items-center gap-1.5">
+                  <input type="hidden" name="hotelId" value={hotel.id} />
+                  <input type="hidden" name="to" value={to} />
+                  {to === "UNDER_REVIEW" || to === "DRAFT" ? (
+                    <input name="reason" placeholder="Decision reason" className="w-48 text-xs" />
+                  ) : null}
+                  <button
+                    type="submit"
+                    className={
+                      to === "PUBLISHED"
+                        ? "p-btn p-btn-primary"
+                        : to === "SUSPENDED" || to === "ARCHIVED"
+                          ? "p-btn p-btn-danger"
+                          : "p-btn"
+                    }
+                  >
+                    {transitionLabel(to)}
+                  </button>
+                </form>
+              ))}
+              {transitions.length === 0 && (
+                <p className="text-xs text-slate-500">Archived listings are read-only.</p>
+              )}
+            </div>
+            <p className="text-[0.68rem] leading-5 text-slate-500">
+              Publishing requires a name, contact, address, city, country and at least one active
+              room type with a physical room. Every transition is written to the listing review
+              history and the audit trail.
+            </p>
+          </PanelBody>
+        </Panel>
+      </div>
+
+      <Panel>
+        <PanelHeader
+          title="Verified map location"
+          description="Only a platform operator can mark coordinates as verified."
+        />
+        <PanelBody>
+          <VerifyLocationForm
+            hotelId={hotel.id}
+            initialLatitude={hotel.latitude?.toString() ?? ""}
+            initialLongitude={hotel.longitude?.toString() ?? ""}
+          />
+        </PanelBody>
+      </Panel>
+
+      <Panel>
+        <PanelHeader title="Review history" description="Publication decisions for this property." />
+        <div className="p-table-wrap rounded-none border-0 bg-transparent">
+          <table className="p-table">
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Reason</th>
+                <th className="text-right">Decided</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reviews.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="p-empty">
+                    <EmptyState title="No reviews yet" description="Publication decisions will appear here." />
+                  </td>
+                </tr>
+              )}
+              {reviews.map((review) => (
+                <tr key={review.id}>
+                  <td>
+                    <StatusPill status={review.fromStatus} />
+                  </td>
+                  <td>
+                    <StatusPill status={review.toStatus} />
+                  </td>
+                  <td className="text-slate-400">{review.decisionReason ?? "—"}</td>
+                  <td className="text-right whitespace-nowrap text-slate-400">
+                    {formatDateTime(review.decidedAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
     </div>
   );
 }
