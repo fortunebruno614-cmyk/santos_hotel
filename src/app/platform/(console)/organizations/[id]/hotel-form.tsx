@@ -17,7 +17,7 @@ export function PlatformHotelForm({ organizationId }: { organizationId: string }
       <div className="flex flex-wrap gap-3 text-sm">
         <label className="flex flex-col gap-1">
           <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Name</span>
-          <input name="hotelName" required className="border px-2 py-1 rounded-md w-64" />
+          <input name="hotelName" required className="w-64" />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Slug</span>
@@ -25,38 +25,38 @@ export function PlatformHotelForm({ organizationId }: { organizationId: string }
             name="hotelSlug"
             required
             pattern="[a-z0-9]+(-[a-z0-9]+)*"
-            className="border px-2 py-1 rounded-md w-64"
+            className="w-64"
           />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Phone</span>
-          <input name="hotelPhone" className="border px-2 py-1 rounded-md w-44" />
+          <input name="hotelPhone" className="w-44" />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">E-mail</span>
-          <input name="hotelEmail" type="email" className="border px-2 py-1 rounded-md w-60" />
+          <input name="hotelEmail" type="email" className="w-60" />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Timezone</span>
-          <input name="timezone" defaultValue="Africa/Lagos" className="border px-2 py-1 rounded-md w-52" />
+          <input name="timezone" defaultValue="Africa/Lagos" className="w-52" />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Currency</span>
-          <input name="currency" defaultValue="NGN" maxLength={3} className="border px-2 py-1 rounded-md w-24 uppercase" />
+          <input name="currency" defaultValue="NGN" maxLength={3} className="w-24 uppercase" />
         </label>
       </div>
       <div className="flex flex-wrap gap-3 text-sm">
         <label className="flex flex-col gap-1">
           <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Address line 1</span>
-          <input name="addressLine1" className="border px-2 py-1 rounded-md w-64" />
+          <input name="addressLine1" className="w-64" />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">City</span>
-          <input name="city" className="border px-2 py-1 rounded-md w-44" />
+          <input name="city" className="w-44" />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Country</span>
-          <input name="country" className="border px-2 py-1 rounded-md w-44" />
+          <input name="country" className="w-44" />
         </label>
       </div>
       <LocationPicker

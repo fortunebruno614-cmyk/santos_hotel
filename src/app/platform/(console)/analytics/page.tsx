@@ -8,7 +8,6 @@ import {
   Panel,
   PanelBody,
   PanelHeader,
-  formatCompactMoney,
   formatMoney,
   formatNumber,
 } from "@/components/platform/ui";
@@ -149,8 +148,8 @@ export default async function PlatformAnalyticsPage({
               labels={data.series.labels}
               series={revenue}
               height={260}
-              formatValue={(value) => formatCompactMoney(value, data.totals.revenueCurrency)}
-              formatAxis={(value) => formatCompactMoney(value, data.totals.revenueCurrency)}
+              valueKind="money"
+              currency={data.totals.revenueCurrency}
             />
           </PanelBody>
         </Panel>

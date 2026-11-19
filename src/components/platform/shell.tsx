@@ -192,7 +192,7 @@ export function PlatformShell({
           collapsed && "justify-center px-2",
         )}
       >
-        <Link href="/platform" className="flex min-w-0 items-center gap-2.5">
+        <Link href="/platform" className="flex min-w-0 items-center gap-2.5" onClick={() => setMobileOpen(false)}>
           <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 text-[#031018] shadow-[0_0_24px_rgba(6,182,212,0.25)]">
             <Sparkles className="size-4" />
           </span>
@@ -237,6 +237,7 @@ export function PlatformShell({
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={() => setMobileOpen(false)}
                     title={collapsed ? item.label : undefined}
                     aria-current={active ? "page" : undefined}
                     className={cn(
@@ -349,7 +350,10 @@ export function PlatformShell({
             <div className="flex h-16 items-center gap-3 px-4 lg:px-7">
               <button
                 type="button"
-                onClick={() => setMobileOpen(true)}
+                onClick={() => {
+                  setCollapsed(false);
+                  setMobileOpen(true);
+                }}
                 className="flex size-9 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-slate-300 lg:hidden"
                 aria-label="Open navigation"
               >
@@ -393,7 +397,7 @@ export function PlatformShell({
 
                 <select
                   aria-label="Jump to organization"
-                  value={currentOrganization}
+                  value={currentOrganization || "__all"}
                   onChange={(event) => {
                     const value = event.target.value;
                     if (value === "__all") router.push("/platform/organizations");
@@ -490,7 +494,7 @@ export function PlatformShell({
           </header>
 
           <main className="flex-1 px-4 py-6 lg:px-7 lg:py-8">
-            <div className="mx-auto w-full max-w-[1480px]">{children}</div>
+            <div className="p-fade-in mx-auto w-full max-w-[1480px]">{children}</div>
           </main>
         </div>
       </div>
@@ -531,7 +535,7 @@ export function PlatformShell({
                   }
                 }}
                 placeholder="Search organizations, properties and pages…"
-                className="h-9 border-0 bg-transparent px-0 text-sm shadow-none focus:ring-0"
+                className="p-command-input h-9 w-0 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus:ring-0"
                 aria-label="Search"
               />
               <kbd className="rounded border border-white/[0.08] bg-white/[0.04] px-1.5 py-0.5 text-[0.6rem] text-slate-500">

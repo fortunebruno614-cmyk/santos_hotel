@@ -26,7 +26,6 @@ import {
   PanelBody,
   PanelHeader,
   StatusPill,
-  formatCompactMoney,
   formatDate,
   formatMoney,
   formatNumber,
@@ -323,8 +322,8 @@ export default async function PlatformHomePage({
               labels={data.series.labels}
               series={revenueSeries}
               height={220}
-              formatValue={(value) => formatCompactMoney(value, data.totals.revenueCurrency)}
-              formatAxis={(value) => formatCompactMoney(value, data.totals.revenueCurrency)}
+              valueKind="money"
+              currency={data.totals.revenueCurrency}
             />
           </PanelBody>
         </Panel>

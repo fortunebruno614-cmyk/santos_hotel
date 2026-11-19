@@ -44,7 +44,7 @@ export function OrganizationCreateForm({ error }: { error: string | null }) {
                 setOrgName(event.target.value);
                 if (!slugTouched) setOrgSlug(slugify(event.target.value));
               }}
-              className="border px-2 py-1 rounded-md w-72"
+              className="w-72"
             />
           </label>
           <label className="flex flex-col gap-1">
@@ -58,20 +58,20 @@ export function OrganizationCreateForm({ error }: { error: string | null }) {
                 setSlugTouched(true);
                 setOrgSlug(slugify(event.target.value));
               }}
-              className="border px-2 py-1 rounded-md w-72"
+              className="w-72"
             />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Business e-mail</span>
-            <input name="organizationEmail" type="email" className="border px-2 py-1 rounded-md w-64" />
+            <input name="organizationEmail" type="email" className="w-64" />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Business phone</span>
-            <input name="organizationPhone" className="border px-2 py-1 rounded-md w-48" />
+            <input name="organizationPhone" className="w-48" />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Country</span>
-            <input name="organizationCountry" className="border px-2 py-1 rounded-md w-48" />
+            <input name="organizationCountry" className="w-48" />
           </label>
         </div>
       </section>
@@ -85,7 +85,7 @@ export function OrganizationCreateForm({ error }: { error: string | null }) {
         <div className="flex flex-wrap gap-3 text-sm">
           <label className="flex flex-col gap-1">
             <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Owner name</span>
-            <input name="ownerName" required className="border px-2 py-1 rounded-md w-64" />
+            <input name="ownerName" required className="w-64" />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Owner e-mail</span>
@@ -93,7 +93,7 @@ export function OrganizationCreateForm({ error }: { error: string | null }) {
               name="ownerEmail"
               type="email"
               required
-              className="border px-2 py-1 rounded-md w-64"
+              className="w-64"
             />
           </label>
           <label className="flex flex-col gap-1">
@@ -103,7 +103,7 @@ export function OrganizationCreateForm({ error }: { error: string | null }) {
               type="password"
               minLength={8}
               required
-              className="border px-2 py-1 rounded-md w-56"
+              className="w-56"
             />
           </label>
         </div>
@@ -126,7 +126,7 @@ export function OrganizationCreateForm({ error }: { error: string | null }) {
                     setHotelName(event.target.value);
                     if (!hotelSlugTouched) setHotelSlug(slugify(event.target.value));
                   }}
-                  className="border px-2 py-1 rounded-md w-72"
+                  className="w-72"
                 />
               </label>
               <label className="flex flex-col gap-1">
@@ -140,46 +140,46 @@ export function OrganizationCreateForm({ error }: { error: string | null }) {
                     setHotelSlugTouched(true);
                     setHotelSlug(slugify(event.target.value));
                   }}
-                  className="border px-2 py-1 rounded-md w-72"
+                  className="w-72"
                 />
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Phone</span>
-                <input name="hotelPhone" className="border px-2 py-1 rounded-md w-48" />
+                <input name="hotelPhone" className="w-48" />
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">E-mail</span>
-                <input name="hotelEmail" type="email" className="border px-2 py-1 rounded-md w-64" />
+                <input name="hotelEmail" type="email" className="w-64" />
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Timezone</span>
-                <input name="timezone" defaultValue="Africa/Lagos" className="border px-2 py-1 rounded-md w-56" />
+                <input name="timezone" defaultValue="Africa/Lagos" className="w-56" />
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Currency</span>
-                <input name="currency" defaultValue="NGN" maxLength={3} className="border px-2 py-1 rounded-md w-24 uppercase" />
+                <input name="currency" defaultValue="NGN" maxLength={3} className="w-24 uppercase" />
               </label>
             </div>
             <div className="flex flex-wrap gap-3 text-sm">
               <label className="flex flex-col gap-1">
                 <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Address line 1</span>
-                <input name="addressLine1" className="border px-2 py-1 rounded-md w-72" />
+                <input name="addressLine1" className="w-72" />
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Address line 2</span>
-                <input name="addressLine2" className="border px-2 py-1 rounded-md w-72" />
+                <input name="addressLine2" className="w-72" />
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">City</span>
-                <input name="city" className="border px-2 py-1 rounded-md w-48" />
+                <input name="city" className="w-48" />
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Postcode</span>
-                <input name="postcode" className="border px-2 py-1 rounded-md w-28" />
+                <input name="postcode" className="w-28" />
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-slate-500">Country</span>
-                <input name="country" className="border px-2 py-1 rounded-md w-48" />
+                <input name="country" className="w-48" />
               </label>
             </div>
             <input type="hidden" name="latitude" value={latitude} />

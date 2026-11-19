@@ -19,10 +19,13 @@ import { KycPanel } from "./kyc-panel";
 
 export default async function PlatformOrganizationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
   const organization = await getOrganizationDetail(id);
   if (!organization) notFound();
   const kyc = await getOrganizationKycSummary(organization.id);
@@ -33,6 +36,11 @@ export default async function PlatformOrganizationPage({
 
   return (
     <div className="space-y-6">
+      {sp.created === "1" && (
+        <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300">
+          Organization created. Add its first property and finish the business verification below.
+        </div>
+      )}
       <PageHeader
         eyebrow="Organization"
         title={organization.name}

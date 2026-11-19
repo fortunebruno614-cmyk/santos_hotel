@@ -27,14 +27,14 @@ export function ActivityChart({
   labels,
   series,
   height = 280,
-  formatValue,
-  formatAxis,
+  valueKind = "number",
+  currency = "NGN",
 }: {
   labels: string[];
   series: ActivitySeries[];
   height?: number;
-  formatValue?: (value: number) => string;
-  formatAxis?: (value: number) => string;
+  valueKind?: "number" | "money";
+  currency?: string;
 }) {
   const [hidden, setHidden] = useState<Record<string, boolean>>({});
   const [hover, setHover] = useState<number | null>(null);
@@ -75,8 +75,17 @@ export function ActivityChart({
   };
 
   const active = hover !== null ? hover : null;
-  const format = formatValue ?? ((value: number) => new Intl.NumberFormat("en-NG").format(value));
-  const formatY = formatAxis ?? format;
+  const format =
+    valueKind === "money"
+      ? (value: number) =>
+          new Intl.NumberFormat("en-NG", {
+            style: "currency",
+            currency,
+            notation: "compact",
+            maximumFractionDigits: 1,
+          }).format(value)
+      : (value: number) => new Intl.NumberFormat("en-NG").format(value);
+  const formatY = format;
 
   return (
     <div className="space-y-3">

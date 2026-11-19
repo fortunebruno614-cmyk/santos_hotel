@@ -51,6 +51,10 @@ const STATUS_TONES: Record<string, Tone> = {
   ADMIN: "accent",
   OPERATIONS: "info",
   SUPPORT: "neutral",
+  OWNER: "accent",
+  MANAGER: "info",
+  STAFF: "neutral",
+  GUEST: "neutral",
   // Generic
   VERIFIED: "success",
   UNVERIFIED: "neutral",
@@ -87,6 +91,10 @@ const STATUS_LABELS: Record<string, string> = {
   SUPPORT: "Support",
   VERIFIED: "Verified",
   UNVERIFIED: "Unverified",
+  OWNER: "Owner",
+  MANAGER: "Manager",
+  STAFF: "Staff",
+  GUEST: "Guest",
 };
 
 export function StatusPill({

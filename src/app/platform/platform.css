@@ -5,6 +5,7 @@
  * forms are overridden by the platform field styles.
  */
 
+@layer components {
 .platform-shell {
   color-scheme: dark;
   --p-bg: #080d18;
@@ -87,6 +88,21 @@
 
 .platform-shell select {
   cursor: pointer;
+}
+
+/* Command-palette input sits inside its own dark panel, not a form card. */
+.platform-shell input.p-command-input {
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.platform-shell input.p-command-input:focus-visible {
+  border: 0;
+  box-shadow: none;
 }
 
 .platform-shell form label > span {
@@ -198,6 +214,42 @@
   text-align: center;
 }
 
+/* Subtle entrance + motion preferences. */
+@keyframes p-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes p-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.platform-shell .p-fade-in {
+  animation: p-fade-up 260ms ease-out both;
+}
+
+.platform-shell details[open] > div {
+  animation: p-fade 120ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .p-fade-in,
+  .platform-shell details[open] > div {
+    animation: none;
+  }
+}
+
 /* Scrollbars inside the console. */
 .platform-shell * {
   scrollbar-width: thin;
@@ -214,6 +266,8 @@
   border-radius: 999px;
 }
 
+}
+
 /* Reused Google location picker: dark surfaces, cyan actions. */
 .platform-shell .location-picker button {
   border-color: var(--p-line);
@@ -226,6 +280,11 @@
 }
 
 .platform-shell .location-picker > div:last-child {
+  border-color: var(--p-line);
+  background-color: #0b1220;
+}
+
+.platform-shell .location-picker [aria-label="Hotel location map"] {
   border-color: var(--p-line);
   background-color: #0b1220;
 }
