@@ -146,9 +146,8 @@ export function PlatformShell({
 
   const paletteItems = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const items = paletteOpen ? searchItems : searchItems;
-    if (!needle) return items.slice(0, 14);
-    return items
+    if (!needle) return searchItems.slice(0, 14);
+    return searchItems
       .filter(
         (item) =>
           item.label.toLowerCase().includes(needle) ||
@@ -156,7 +155,7 @@ export function PlatformShell({
           item.group.toLowerCase().includes(needle),
       )
       .slice(0, 14);
-  }, [paletteOpen, query, searchItems]);
+  }, [query, searchItems]);
 
   const breadcrumbs = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean);

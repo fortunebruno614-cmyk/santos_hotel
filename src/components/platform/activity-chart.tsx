@@ -64,7 +64,7 @@ export function ActivityChart({
     return Array.from({ length: count }, (_, index) =>
       Math.round((index / (count - 1)) * (labels.length - 1)),
     );
-  }, [labels.length]);
+  }, [labels]);
 
   const onMove = (event: React.MouseEvent<HTMLDivElement>) => {
     const container = containerRef.current;
