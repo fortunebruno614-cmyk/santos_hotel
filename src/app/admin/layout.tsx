@@ -14,6 +14,7 @@ import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
 import { Permissions, hasOrgPermission, type Permission } from "@/server/auth/roles";
 import { accessibleHotels, listUserMemberships } from "@/server/auth/tenancy";
 import { getConsoleContext } from "@/server/console/context";
+import "./admin.css";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { session, member, hotel } = await getConsoleContext();
@@ -40,6 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ? [
           { href: "/admin/rooms", label: "Rooms" },
           { href: "/admin/room-types", label: "Room types" },
+          { href: "/admin/amenities", label: "Amenities" },
         ]
       : []),
     ...(can(Permissions.MANAGE_RATES) ? [{ href: "/admin/rates", label: "Rates" }] : []),
@@ -53,11 +55,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ? [{ href: "/admin/notifications", label: "Notifications" }]
       : []),
   ];
-
   const displayName = session.email ?? session.userId ?? "Operator";
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#f7f8fa] text-zinc-900">
+    <div className="admin-shell flex min-h-screen flex-col bg-[#f7f8fa] text-zinc-900">
       <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 lg:px-6">
           <Link href="/admin" className="flex shrink-0 items-center gap-2">

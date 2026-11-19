@@ -49,6 +49,7 @@ export const ACCESS_RULES: AccessRule[] = [
   // --- Public site (home, room list/detail, availability search, booking flow) ---
   open("/"),
   open("/hotels"),
+  open("/h"),
   open("/rooms"),
   open("/search"),
   open("/offers"),
@@ -61,6 +62,7 @@ export const ACCESS_RULES: AccessRule[] = [
   open("/signup"),
   open("/unauthorized"),
   // Staff/platform doors are deliberately separate from the guest site.
+  open("/staff"),
   open("/staff/login"),
   open("/platform/login"),
   open("/platform/setup"),

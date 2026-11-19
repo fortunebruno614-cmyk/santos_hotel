@@ -1,4 +1,5 @@
-﻿import { listUsers } from "@/server/console/users";
+﻿import { PageHeader } from "@/components/admin/ui";
+import { listUsers } from "@/server/console/users";
 import { getConsoleContext } from "@/server/console/context";
 import { UsersManager } from "./users-manager";
 
@@ -8,14 +9,11 @@ export default async function AdminUsersPage() {
   const users = await listUsers(member.organizationId);
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Users</h1>
-        <p className="text-sm text-zinc-500">
-          Staff and administrator accounts. Role changes take effect immediately — the
-          previous session stops working on the next request.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Users"
+        description="Staff and administrator accounts. Role changes take effect immediately — the previous session stops working on the next request."
+      />
       <UsersManager
         selfId={session.userId ?? ""}
         users={users.map((user) => ({

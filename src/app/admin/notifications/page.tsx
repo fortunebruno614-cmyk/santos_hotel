@@ -1,14 +1,15 @@
+import {
+  EmptyRow,
+  Notice,
+  PageHeader,
+  StatusBadge,
+  TableShell,
+} from "@/components/admin/ui";
 import { Permissions } from "@/server/auth/roles";
 import { configuredAdminEmails, resendFromEmail } from "@/config/email";
 import { getConsoleContext } from "@/server/console/context";
 import { listRecentNotifications } from "@/server/notifications/service";
 import { NotificationTestForm } from "./notification-test-form";
-
-const STATUS_STYLES: Record<string, string> = {
-  SENT: "text-emerald-700",
-  PENDING: "text-amber-700",
-  FAILED: "text-red-700",
-};
 
 function formatDate(date: Date): string {
   return new Intl.DateTimeFormat("en-GB", {
@@ -29,76 +30,60 @@ export default async function AdminNotificationsPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold">Notifications</h1>
-        <p className="text-sm text-zinc-500">
-          Guest and administrator emails sent through Resend. Delivery failures are recorded
-          here and never block a booking or payment.
-        </p>
-      </div>
+      <PageHeader
+        title="Notifications"
+        description="Guest and administrator emails sent through Resend. Delivery failures are recorded here and never block a booking or payment."
+      />
+
+      {usingTestSender && (
+        <Notice tone="warning" title="Resend test sender in use">
+          You can only send to the Resend account owner until a sending domain is verified. Verify
+          a domain at resend.com/domains and set <code>RESEND_FROM_EMAIL</code> before sending to
+          guests.
+        </Notice>
+      )}
 
       <NotificationTestForm defaultEmail={defaultRecipient} />
 
-      {usingTestSender && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
-          <strong>Resend test sender in use.</strong> You can only send to the Resend
-          account owner until a sending domain is verified. Verify a domain at
-          resend.com/domains and set <code>RESEND_FROM_EMAIL</code> before sending to
-          guests.
-        </div>
-      )}
-
-      <div className="border rounded-lg overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 dark:bg-zinc-900 text-left text-xs text-zinc-500">
-            <tr>
-              <th className="px-3 py-2 font-medium">Created</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Recipient</th>
-              <th className="px-3 py-2 font-medium">Subject</th>
-              <th className="px-3 py-2 font-medium">Booking</th>
-              <th className="px-3 py-2 font-medium">Error</th>
-            </tr>
-          </thead>
-          <tbody>
-            {notifications.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-zinc-500">
-                  No notification emails yet.
+      <TableShell>
+        <thead>
+          <tr>
+            <th>Created</th>
+            <th>Status</th>
+            <th>Recipient</th>
+            <th>Subject</th>
+            <th>Booking</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          {notifications.length === 0 ? (
+            <EmptyRow colSpan={6}>No notification emails yet.</EmptyRow>
+          ) : (
+            notifications.map((notification) => (
+              <tr key={notification.id}>
+                <td className="whitespace-nowrap text-xs text-muted-foreground">
+                  {formatDate(notification.createdAt)}
+                </td>
+                <td>
+                  <StatusBadge status={notification.status} />
+                </td>
+                <td className="break-all text-xs">{notification.recipient}</td>
+                <td className="max-w-xs text-xs">{notification.subject ?? "—"}</td>
+                <td className="whitespace-nowrap text-xs">
+                  {notification.booking?.bookingReference ?? "—"}
+                </td>
+                <td className="max-w-xs break-words text-xs text-red-700">
+                  {notification.error ?? "—"}
                 </td>
               </tr>
-            ) : (
-              notifications.map((notification) => (
-                <tr key={notification.id} className="border-t align-top">
-                  <td className="px-3 py-2 whitespace-nowrap text-xs">
-                    {formatDate(notification.createdAt)}
-                  </td>
-                  <td
-                    className={`px-3 py-2 text-xs font-medium ${
-                      STATUS_STYLES[notification.status] ?? "text-zinc-600"
-                    }`}
-                  >
-                    {notification.status}
-                  </td>
-                  <td className="px-3 py-2 text-xs break-all">{notification.recipient}</td>
-                  <td className="px-3 py-2 text-xs max-w-xs">
-                    {notification.subject ?? "—"}
-                  </td>
-                  <td className="px-3 py-2 text-xs whitespace-nowrap">
-                    {notification.booking?.bookingReference ?? "—"}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-red-700 max-w-xs break-words">
-                    {notification.error ?? "—"}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+            ))
+          )}
+        </tbody>
+      </TableShell>
 
       {notifications.some((notification) => notification.status === "FAILED") && (
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-muted-foreground">
           Failed messages are safe to retry from the booking/payment workflow once the Resend
           configuration is corrected; the dedupe key prevents duplicate sends.
         </p>

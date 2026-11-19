@@ -1,6 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { Plus } from "lucide-react";
+import {
+  Card,
+  CardHeader,
+  Field,
+  InlineError,
+  StatusBadge,
+  TableShell,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 import { RoomStatus } from "@/generated/prisma/enums";
 import { roomStatusLabel } from "@/components/labels";
 
@@ -127,139 +137,143 @@ export function RoomsInventory({
   };
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium">Inventory</h2>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="border px-3 py-1 rounded-md text-sm font-medium"
-        >
-          Add room
-        </button>
-      </div>
+    <Card>
+      <CardHeader
+        title="Inventory"
+        description="Physical rooms and their housekeeping status. Deleting a room removes it from the sellable inventory."
+        actions={
+          <Button type="button" onClick={openCreate} size="sm">
+            <Plus /> Add room
+          </Button>
+        }
+      />
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      {(creating || editing) && (
-        <div className="border rounded-md p-4 space-y-3 text-sm">
-          <p className="font-medium">{editing ? `Edit room ${editing.roomNumber}` : "New room"}</p>
-          <div className="flex flex-wrap gap-3">
-            <label className="flex flex-col gap-1">
-              <span className="text-xs text-zinc-500">Room number</span>
-              <input
-                className="border px-2 py-1 rounded-md w-28"
-                value={form.roomNumber}
-                onChange={(e) => setForm({ ...form, roomNumber: e.target.value })}
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-xs text-zinc-500">Floor</span>
-              <input
-                className="border px-2 py-1 rounded-md w-20"
-                value={form.floor}
-                placeholder="—"
-                onChange={(e) => setForm({ ...form, floor: e.target.value })}
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-xs text-zinc-500">Room type</span>
-              <select
-                className="border px-2 py-1 rounded-md"
-                value={form.roomTypeId}
-                onChange={(e) => setForm({ ...form, roomTypeId: e.target.value })}
-              >
-                {roomTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-xs text-zinc-500">Status</span>
-              <select
-                className="border px-2 py-1 rounded-md"
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-              >
-                {Object.values(RoomStatus).map((status) => (
-                  <option key={status} value={status}>
-                    {roomStatusLabel(status)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 flex-1 min-w-48">
-              <span className="text-xs text-zinc-500">Notes</span>
-              <input
-                className="border px-2 py-1 rounded-md"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-            </label>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={save}
-              disabled={busy || !form.roomNumber.trim() || !form.roomTypeId}
-              className="border px-3 py-1 rounded-md disabled:opacity-50"
-            >
-              {busy ? "Saving…" : "Save"}
-            </button>
-            <button type="button" onClick={close} className="border px-3 py-1 rounded-md">
-              Cancel
-            </button>
-          </div>
+      {(error || creating || editing) && (
+        <div className="space-y-3 border-b border-[var(--admin-line)] px-5 py-4">
+          <InlineError>{error}</InlineError>
+          {(creating || editing) && (
+            <div className="space-y-3 rounded-xl bg-muted/50 p-4">
+              <p className="text-sm font-semibold">
+                {editing ? `Edit room ${editing.roomNumber}` : "New room"}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Field label="Room number" required className="w-28">
+                  <input
+                    value={form.roomNumber}
+                    onChange={(e) => setForm({ ...form, roomNumber: e.target.value })}
+                  />
+                </Field>
+                <Field label="Floor" className="w-20">
+                  <input
+                    value={form.floor}
+                    placeholder="—"
+                    onChange={(e) => setForm({ ...form, floor: e.target.value })}
+                  />
+                </Field>
+                <Field label="Room type">
+                  <select
+                    value={form.roomTypeId}
+                    onChange={(e) => setForm({ ...form, roomTypeId: e.target.value })}
+                  >
+                    {roomTypes.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Status">
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  >
+                    {Object.values(RoomStatus).map((status) => (
+                      <option key={status} value={status}>
+                        {roomStatusLabel(status)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Notes" className="min-w-56 flex-1">
+                  <input
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  onClick={save}
+                  disabled={busy || !form.roomNumber.trim() || !form.roomTypeId}
+                  size="sm"
+                >
+                  {busy ? "Saving…" : "Save room"}
+                </Button>
+                <Button type="button" onClick={close} variant="outline" size="sm">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="py-2 pr-3">Room</th>
-              <th className="py-2 pr-3">Type</th>
-              <th className="py-2 pr-3">Floor</th>
-              <th className="py-2 pr-3">Status</th>
-              <th className="py-2 pr-3">Notes</th>
-              <th className="py-2">Actions</th>
+      <TableShell className="rounded-t-none border-0 shadow-none">
+        <thead>
+          <tr>
+            <th>Room</th>
+            <th>Type</th>
+            <th>Floor</th>
+            <th>Status</th>
+            <th>Notes</th>
+            <th className="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rooms.length === 0 && (
+            <tr>
+              <td colSpan={6} className="admin-empty-row">
+                No rooms yet — add the first room to start selling.
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {rooms.map((room) => (
-              <tr key={room.id} className="border-b last:border-0">
-                <td className="py-2 pr-3 font-medium">{room.roomNumber}</td>
-                <td className="py-2 pr-3">{room.roomTypeName}</td>
-                <td className="py-2 pr-3">{room.floor ?? "—"}</td>
-                <td className="py-2 pr-3">{roomStatusLabel(room.status)}</td>
-                <td className="py-2 pr-3 text-zinc-500">{room.notes ?? "—"}</td>
-                <td className="py-2">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(room)}
-                      disabled={busy}
-                      className="border px-2 py-1 rounded-md text-xs"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(room)}
-                      disabled={busy}
-                      className="border px-2 py-1 rounded-md text-xs text-red-600"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+          )}
+          {rooms.map((room) => (
+            <tr key={room.id}>
+              <td className="admin-cell-strong whitespace-nowrap">{room.roomNumber}</td>
+              <td className="admin-cell-muted">{room.roomTypeName}</td>
+              <td>{room.floor ?? "—"}</td>
+              <td>
+                <StatusBadge status={room.status} label={roomStatusLabel(room.status)} />
+              </td>
+              <td className="admin-cell-muted max-w-56 truncate">{room.notes ?? "—"}</td>
+              <td>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    onClick={() => openEdit(room)}
+                    disabled={busy}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => remove(room)}
+                    disabled={busy}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-700 hover:bg-red-50 hover:text-red-800"
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </TableShell>
+    </Card>
   );
 }

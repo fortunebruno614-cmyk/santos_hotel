@@ -239,13 +239,20 @@ export async function requirePlatformPage(permission?: PlatformPermission): Prom
   platformRole: PlatformRole;
 }> {
   const session = await getCurrentSession();
-  if (!session) redirect("/login");
-  if (session.kind !== "staff" || !session.userId) redirect("/unauthorized");
+  if (!session) redirect("/platform/login");
+  if (session.kind !== "staff" || !session.userId) redirect("/platform/login");
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
     select: { platformRole: true, isActive: true },
   });
-  if (!user?.isActive || !user.platformRole) redirect("/unauthorized");
+  if (!user?.isActive) redirect("/platform/login?error=forbidden");
+  if (!user.platformRole) {
+    // First run: send the operator to the one-time bootstrap instead of a
+    // generic "unauthorized" wall. Afterwards, explain that this account is
+    // not a platform operator.
+    const operators = await prisma.user.count({ where: { platformRole: { not: null } } });
+    redirect(operators === 0 ? "/platform/setup" : "/platform/login?error=forbidden");
+  }
   if (permission && !hasPlatformPermission(user.platformRole, permission)) {
     redirect("/unauthorized");
   }

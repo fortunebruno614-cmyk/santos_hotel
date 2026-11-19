@@ -1,4 +1,12 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
+import {
+  Notice,
+  PageHeader,
+  StatusBadge,
+  TableShell,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 import { getConsoleContext } from "@/server/console/context";
 import { accessibleHotels } from "@/server/auth/tenancy";
 import { Permissions, hasOrgPermission } from "@/server/auth/roles";
@@ -22,70 +30,75 @@ export default async function AdminHotelsPage({
   const error = MESSAGES[sp.error ?? ""] ?? null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <PageHeader
+        title="Hotels"
+        description={`Properties in ${member.organization.name}. The property selected in the header is marked as active.`}
+        actions={
+          canCreate ? (
+            <Button asChild size="sm">
+              <Link href="/admin/hotels/new">
+                <Plus /> Add hotel
+              </Link>
+            </Button>
+          ) : undefined
+        }
+      />
+
       {sp.submitted === "1" && (
-        <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Notice tone="success" title="Submitted for review">
           Property submitted for marketplace review.
-        </p>
+        </Notice>
       )}
-      {error && (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Hotels</h1>
-          <p className="text-sm text-zinc-500">
-            Properties in {member.organization.name}. The active property is marked.
-          </p>
-        </div>
-        {canCreate && (
-          <Link href="/admin/hotels/new" className="border px-4 py-2 rounded-md text-sm">
-            Add hotel
-          </Link>
-        )}
-      </div>
+      {error && <Notice tone="danger">{error}</Notice>}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="py-2 pr-4">Property</th>
-              <th className="py-2 pr-4">Slug</th>
-              <th className="py-2 pr-4">Publication</th>
-              <th className="py-2 pr-4">Currency</th>
-              <th className="py-2 pr-4">Active</th>
-              <th className="py-2">Action</th>
+      <TableShell>
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th>Slug</th>
+            <th>Publication</th>
+            <th>Currency</th>
+            <th>Active</th>
+            <th className="text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {hotels.map((row) => (
+            <tr key={row.id}>
+              <td className="admin-cell-strong">{row.name}</td>
+              <td>
+                <span className="admin-mono text-muted-foreground">{row.slug}</span>
+              </td>
+              <td>
+                <StatusBadge status={row.publicationStatus} />
+              </td>
+              <td>{row.currency}</td>
+              <td>
+                {row.id === hotel.id ? (
+                  <StatusBadge status="ACTIVE" label="Active" />
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </td>
+              <td className="text-right">
+                {row.publicationStatus === "DRAFT" && (
+                  <form action={submitHotelForReviewAction}>
+                    <input type="hidden" name="hotelId" value={row.id} />
+                    <Button type="submit" variant="outline" size="sm">
+                      Submit for review
+                    </Button>
+                  </form>
+                )}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {hotels.map((row) => (
-              <tr key={row.id} className="border-b last:border-0">
-                <td className="py-2 pr-4 font-medium">{row.name}</td>
-                <td className="py-2 pr-4 font-mono text-xs">{row.slug}</td>
-                <td className="py-2 pr-4">{row.publicationStatus}</td>
-                <td className="py-2 pr-4">{row.currency}</td>
-                <td className="py-2 pr-4">{row.id === hotel.id ? "Yes" : ""}</td>
-                <td className="py-2">
-                  {row.publicationStatus === "DRAFT" && (
-                    <form action={submitHotelForReviewAction}>
-                      <input type="hidden" name="hotelId" value={row.id} />
-                      <button className="border px-3 py-1 rounded-md text-xs">
-                        Submit for review
-                      </button>
-                    </form>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </TableShell>
 
-      <p className="text-xs text-zinc-500">
-        Use the property selector in the header to switch context before adding rooms, rates
-        or content.
+      <p className="text-xs text-muted-foreground">
+        Use the property selector in the header to switch context before adding rooms, rates or
+        content.
       </p>
     </div>
   );

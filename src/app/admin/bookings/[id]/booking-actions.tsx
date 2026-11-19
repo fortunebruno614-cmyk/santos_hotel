@@ -1,6 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Field,
+  InlineError,
+  StatusBadge,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 import { BookingStatus } from "@/generated/prisma/enums";
 import { bookingStatusLabel } from "@/components/labels";
 
@@ -181,190 +190,217 @@ export function BookingActions({ booking }: { booking: Booking }) {
   const heldNotListed = booking.rooms.filter((line) => !availableIds.has(line.roomId));
 
   return (
-    <div className="space-y-6">
-      <section className="space-y-3 rounded-xl border p-4">
-        <h2 className="font-medium">Status: {bookingStatusLabel(booking.bookingStatus)}</h2>
-        {booking.allowedTransitions.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {booking.allowedTransitions.map((to) => (
-              <button
-                key={to}
-                type="button"
-                disabled={busy}
-                onClick={() => transition(to)}
-                className={`border px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 ${
-                  to === "CANCELLED" ? "border-red-300 text-red-700" : ""
-                }`}
-              >
-                {TRANSITION_LABELS[to] ?? to}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-zinc-500">No further status changes are available.</p>
-        )}
-        {booking.cancellation.deadline && (
-          <p className="text-sm text-zinc-500">
-            Guest free-cancellation deadline:{" "}
-            {new Date(booking.cancellation.deadline).toISOString().replace("T", " ").slice(0, 16)}{" "}
-            UTC
-          </p>
-        )}
-        <label className="block space-y-1 text-sm">
-          <span>Optional note for this action</span>
-          <textarea
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            rows={2}
-            maxLength={500}
-            className="w-full border px-3 py-2 rounded-md"
-          />
-        </label>
-        <button
-          type="button"
-          disabled={busy || !note.trim()}
-          onClick={addNote}
-          className="border px-3 py-1 rounded-md text-sm disabled:opacity-50"
-        >
-          Add operational note
-        </button>
-      </section>
+    <div className="space-y-5">
+      <InlineError>{error}</InlineError>
+
+      <Card>
+        <CardHeader
+          title="Status"
+          description="Every change is recorded on the reservation's activity log."
+          actions={
+            <StatusBadge
+              status={booking.bookingStatus}
+              label={bookingStatusLabel(booking.bookingStatus)}
+            />
+          }
+        />
+        <CardBody className="space-y-3">
+          {booking.allowedTransitions.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {booking.allowedTransitions.map((to) => {
+                const destructive = to === "CANCELLED" || to === "NO_SHOW";
+                return (
+                  <Button
+                    key={to}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => transition(to)}
+                    variant={destructive ? "outline" : "default"}
+                    className={destructive ? "text-red-700 hover:bg-red-50 hover:text-red-800" : undefined}
+                  >
+                    {TRANSITION_LABELS[to] ?? to}
+                  </Button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No further status changes are available.
+            </p>
+          )}
+          {booking.cancellation.deadline && (
+            <p className="text-xs text-muted-foreground">
+              Guest free-cancellation deadline:{" "}
+              {new Date(booking.cancellation.deadline)
+                .toISOString()
+                .replace("T", " ")
+                .slice(0, 16)}{" "}
+              UTC
+            </p>
+          )}
+          <Field label="Optional note for this action">
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={2}
+              maxLength={500}
+            />
+          </Field>
+          <Button
+            type="button"
+            disabled={busy || !note.trim()}
+            onClick={addNote}
+            variant="outline"
+            size="sm"
+          >
+            Add operational note
+          </Button>
+        </CardBody>
+      </Card>
 
       {modifiable && (
-        <section className="space-y-3 rounded-xl border p-4">
-          <h2 className="font-medium">Modify</h2>
-          <div className="grid gap-3 sm:grid-cols-4">
-            <label className="space-y-1 text-sm">
-              <span>Check-in</span>
-              <input
-                type="date"
-                value={checkIn}
-                onChange={(event) => setCheckIn(event.target.value)}
-                className="w-full border px-3 py-2 rounded-md"
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span>Check-out</span>
-              <input
-                type="date"
-                value={checkOut}
-                onChange={(event) => setCheckOut(event.target.value)}
-                className="w-full border px-3 py-2 rounded-md"
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span>Adults</span>
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={adults}
-                onChange={(event) => setAdults(Number(event.target.value))}
-                className="w-full border px-3 py-2 rounded-md"
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span>Children</span>
-              <input
-                type="number"
-                min={0}
-                max={20}
-                value={children}
-                onChange={(event) => setChildren(Number(event.target.value))}
-                className="w-full border px-3 py-2 rounded-md"
-              />
-            </label>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1 text-sm">
-              <span>Promotion code (empty = remove)</span>
-              <input
-                value={promotionCode}
-                onChange={(event) => setPromotionCode(event.target.value)}
-                className="w-full border px-3 py-2 rounded-md"
-                maxLength={40}
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span>Notes (replaces)</span>
-              <textarea
-                value={modifyNotes}
-                onChange={(event) => setModifyNotes(event.target.value)}
-                rows={2}
-                maxLength={500}
-                className="w-full border px-3 py-2 rounded-md"
-              />
-            </label>
-          </div>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={showRoomChange}
-              onChange={(event) => setShowRoomChange(event.target.checked)}
-            />
-            Change room allocation {stayChanged ? "" : "(re-check rooms for the same stay)"}
-          </label>
-          {showRoomChange && (
-            <div className="space-y-2 text-sm">
-              {types.length === 0 && <p className="text-zinc-500">Loading available rooms…</p>}
-              {types.map((type) => (
-                <div key={type.id}>
-                  <p className="font-medium">
-                    {type.name}{" "}
-                    <span className="font-normal text-zinc-500">({type.availableCount} free)</span>
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {type.availableRooms.map((room) => (
-                      <label key={room.id} className="cursor-pointer rounded-md border px-2 py-1">
-                        <input
-                          type="checkbox"
-                          className="mr-1"
-                          checked={roomIds.includes(room.id)}
-                          onChange={() => toggleRoom(room.id)}
-                        />
-                        {room.roomNumber}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              {heldNotListed.length > 0 && (
-                <div>
-                  <p className="font-medium">Currently allocated (blocked for these dates)</p>
-                  <div className="flex flex-wrap gap-2">
-                    {heldNotListed.map((line) => (
-                      <label key={line.roomId} className="cursor-pointer rounded-md border px-2 py-1">
-                        <input
-                          type="checkbox"
-                          className="mr-1"
-                          checked={roomIds.includes(line.roomId)}
-                          onChange={() => toggleRoom(line.roomId)}
-                        />
-                        {line.roomNumber} ({line.roomTypeName})
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <p className="text-xs text-zinc-500">
-                Tick the rooms to keep; untick to release them.
-              </p>
+        <Card>
+          <CardHeader
+            title="Modify"
+            description="Changing dates or occupancy re-prices the stay on save."
+          />
+          <CardBody className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Field label="Check-in">
+                <input
+                  type="date"
+                  value={checkIn}
+                  onChange={(event) => setCheckIn(event.target.value)}
+                />
+              </Field>
+              <Field label="Check-out">
+                <input
+                  type="date"
+                  value={checkOut}
+                  onChange={(event) => setCheckOut(event.target.value)}
+                />
+              </Field>
+              <Field label="Adults">
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={adults}
+                  onChange={(event) => setAdults(Number(event.target.value))}
+                />
+              </Field>
+              <Field label="Children">
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={children}
+                  onChange={(event) => setChildren(Number(event.target.value))}
+                />
+              </Field>
             </div>
-          )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Promotion code (empty = remove)">
+                <input
+                  value={promotionCode}
+                  onChange={(event) => setPromotionCode(event.target.value)}
+                  maxLength={40}
+                />
+              </Field>
+              <Field label="Notes (replaces)">
+                <textarea
+                  value={modifyNotes}
+                  onChange={(event) => setModifyNotes(event.target.value)}
+                  rows={2}
+                  maxLength={500}
+                />
+              </Field>
+            </div>
 
-          <button
-            type="button"
-            disabled={busy}
-            onClick={saveModify}
-            className="border px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
-          >
-            Save changes (re-priced)
-          </button>
-        </section>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showRoomChange}
+                onChange={(event) => setShowRoomChange(event.target.checked)}
+              />
+              Change room allocation {stayChanged ? "" : "(re-check rooms for the same stay)"}
+            </label>
+            {showRoomChange && (
+              <div className="space-y-3 rounded-xl bg-muted/50 p-4 text-sm">
+                {types.length === 0 && (
+                  <p className="text-muted-foreground">Loading available rooms…</p>
+                )}
+                {types.map((type) => (
+                  <div key={type.id} className="space-y-2">
+                    <p className="font-medium">
+                      {type.name}{" "}
+                      <span className="font-normal text-muted-foreground">
+                        ({type.availableCount} free)
+                      </span>
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {type.availableRooms.map((room) => {
+                        const checked = roomIds.includes(room.id);
+                        return (
+                          <label
+                            key={room.id}
+                            className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1 transition-colors ${
+                              checked
+                                ? "border-primary/40 bg-primary/10 font-medium text-primary"
+                                : "border-[var(--admin-line)] bg-card hover:bg-muted"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleRoom(room.id)}
+                            />
+                            {room.roomNumber}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {heldNotListed.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="font-medium">Currently allocated (blocked for these dates)</p>
+                    <div className="flex flex-wrap gap-2">
+                      {heldNotListed.map((line) => {
+                        const checked = roomIds.includes(line.roomId);
+                        return (
+                          <label
+                            key={line.roomId}
+                            className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1 transition-colors ${
+                              checked
+                                ? "border-primary/40 bg-primary/10 font-medium text-primary"
+                                : "border-[var(--admin-line)] bg-card hover:bg-muted"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleRoom(line.roomId)}
+                            />
+                            {line.roomNumber} ({line.roomTypeName})
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Tick the rooms to keep; untick to release them.
+                </p>
+              </div>
+            )}
+
+            <Button type="button" disabled={busy} onClick={saveModify} size="sm">
+              Save changes (re-priced)
+            </Button>
+          </CardBody>
+        </Card>
       )}
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
 }

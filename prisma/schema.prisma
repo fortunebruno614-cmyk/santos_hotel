@@ -95,6 +95,21 @@ enum MemberStatus {
   REVOKED
 }
 
+/// Business-verification lifecycle for a self-onboarded hotel organization.
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Evidence types accepted during business onboarding.
+enum KycDocumentType {
+  CAC_CERTIFICATE
+  BUSINESS_LICENSE
+  TAX_CERTIFICATE
+  OTHER
+}
+
 enum PlatformRole {
   SUPPORT
   OPERATIONS
@@ -162,6 +177,7 @@ model Organization {
 
   hotels        Hotel[]
   members       OrganizationMember[]
+  kyc           OrganizationKyc?
   roomTypes     RoomType[]
   amenities     Amenity[]
   content       SiteContent[]
@@ -206,6 +222,32 @@ model OrganizationMemberHotel {
   @@id([memberId, hotelId])
   @@index([hotelId])
   @@map("organization_member_hotels")
+}
+
+/// Business KYC submitted during self-service hotel onboarding. The file is
+/// stored inline so the platform review queue works without external object
+/// storage; only platform operators may read it back through the guarded API.
+model OrganizationKyc {
+  id                 String          @id @default(uuid()) @db.Uuid
+  organizationId     String          @unique @map("organization_id") @db.Uuid
+  legalName          String          @map("legal_name")
+  registrationNumber String?         @map("registration_number")
+  documentType       KycDocumentType @map("document_type")
+  documentName       String          @map("document_name")
+  documentMimeType   String          @map("document_mime_type")
+  documentSize       Int             @map("document_size")
+  documentData       Bytes           @map("document_data")
+  status             KycStatus       @default(PENDING)
+  reviewNote         String?         @map("review_note")
+  submittedAt        DateTime        @default(now()) @map("submitted_at") @db.Timestamptz()
+  reviewedAt         DateTime?       @map("reviewed_at") @db.Timestamptz()
+  reviewedById       String?         @map("reviewed_by_id") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reviewedBy   User?        @relation("KycReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, submittedAt])
+  @@map("organization_kyc")
 }
 
 model Hotel {
@@ -347,6 +389,7 @@ model User {
   siteContent             SiteContent[]
   organizationMemberships OrganizationMember[]
   verifiedHotels          Hotel[]              @relation("HotelVerifiedBy")
+  kycReviews              OrganizationKyc[]    @relation("KycReviewedBy")
 
   @@map("users")
 }

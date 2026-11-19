@@ -47,6 +47,11 @@ export default async function StaffLoginPage({
           </div>
         </div>
 
+        {sp.registered === "1" && (
+          <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            Business account created. Sign in to finish setting up your property.
+          </p>
+        )}
         {error && (
           <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -82,6 +87,13 @@ export default async function StaffLoginPage({
         </form>
 
         <div className="mt-6 space-y-2 border-t pt-4 text-xs text-zinc-500">
+          <p>
+            New hotel business?{" "}
+            <Link href="/signup?type=hotel" className="font-medium text-zinc-900 underline">
+              Create a business account
+            </Link>{" "}
+            with KYC verification.
+          </p>
           <p>
             Santo platform operator?{" "}
             <Link href="/platform/login" className="font-medium text-zinc-900 underline">

@@ -1,6 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Field,
+  InlineError,
+  InlineSuccess,
+  StatusBadge,
+  TableShell,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 
 /**
  * User & permission management (P7, admin only): create accounts, change roles,
@@ -92,91 +103,90 @@ export function UsersManager({ users, selfId }: { users: UserRow[]; selfId: stri
   };
 
   return (
-    <div className="space-y-4">
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {notice && <p className="text-sm text-green-700">{notice}</p>}
+    <div className="space-y-5">
+      <InlineError>{error}</InlineError>
+      <InlineSuccess>{notice}</InlineSuccess>
 
-      <div className="border rounded-md p-4 space-y-3 text-sm">
-        <p className="font-medium">New account</p>
-        <div className="flex flex-wrap gap-3">
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-zinc-500">Name</span>
-            <input
-              className="border px-2 py-1 rounded-md w-44"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-zinc-500">E-mail</span>
-            <input
-              className="border px-2 py-1 rounded-md w-56"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-zinc-500">Temporary password</span>
-            <input
-              type="password"
-              className="border px-2 py-1 rounded-md w-44"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-zinc-500">Role</span>
-            <select
-              className="border px-2 py-1 rounded-md"
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-            >
-              <option value="STAFF">Staff</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-          </label>
-        </div>
-        <button
-          type="button"
-          onClick={createUser}
-          disabled={busy || !form.name.trim() || !form.email.trim() || form.password.length < 8}
-          className="border px-3 py-1 rounded-md disabled:opacity-50"
-        >
-          {busy ? "Saving…" : "Create account"}
-        </button>
-      </div>
+      <Card>
+        <CardHeader
+          title="New account"
+          description="Create a staff or administrator login. The temporary password can be changed by the user after signing in."
+        />
+        <CardBody className="space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <Field label="Name" className="w-48">
+              <input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </Field>
+            <Field label="E-mail" className="w-60">
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </Field>
+            <Field label="Temporary password" className="w-48">
+              <input
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+            </Field>
+            <Field label="Role">
+              <select
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value })}
+              >
+                <option value="STAFF">Staff</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </Field>
+          </div>
+          <Button
+            type="button"
+            onClick={createUser}
+            disabled={busy || !form.name.trim() || !form.email.trim() || form.password.length < 8}
+          >
+            {busy ? "Saving…" : "Create account"}
+          </Button>
+        </CardBody>
+      </Card>
 
-      <table className="w-full text-sm">
+      <TableShell>
         <thead>
-          <tr className="border-b text-left">
-            <th className="py-2 pr-3">Name</th>
-            <th className="py-2 pr-3">E-mail</th>
-            <th className="py-2 pr-3">Role</th>
-            <th className="py-2 pr-3">Access</th>
-            <th className="py-2 pr-3">Last sign-in</th>
-            <th className="py-2">Actions</th>
+          <tr>
+            <th>Name</th>
+            <th>E-mail</th>
+            <th>Role</th>
+            <th>Access</th>
+            <th>Last sign-in</th>
+            <th className="text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
           {users.map((user) => (
-            <tr key={user.id} className="border-b last:border-0">
-              <td className="py-2 pr-3 font-medium">
+            <tr key={user.id}>
+              <td className="admin-cell-strong">
                 {user.name}
-                {user.id === selfId && <span className="ml-2 text-xs text-zinc-500">(you)</span>}
+                {user.id === selfId && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">(you)</span>
+                )}
               </td>
-              <td className="py-2 pr-3">{user.email}</td>
-              <td className="py-2 pr-3">
+              <td className="admin-cell-muted">{user.email}</td>
+              <td>
                 <select
                   value={user.role}
                   disabled={busy || user.id === selfId}
                   onChange={(e) => patch(user.id, { role: e.target.value }, "Could not change the role.")}
-                  className="border px-2 py-1"
+                  className="w-auto"
                 >
-                  <option value="STAFF">STAFF</option>
-                  <option value="ADMIN">ADMIN</option>
+                  <option value="STAFF">Staff</option>
+                  <option value="ADMIN">Admin</option>
                 </select>
               </td>
-              <td className="py-2 pr-3">
+              <td>
                 <button
                   type="button"
                   disabled={busy || user.id === selfId}
@@ -187,39 +197,48 @@ export function UsersManager({ users, selfId }: { users: UserRow[]; selfId: stri
                       user.isActive ? "Could not deactivate." : "Could not reactivate.",
                     )
                   }
-                  className={`border px-2 py-1 rounded-md text-xs ${user.isActive ? "" : "text-red-600"}`}
+                  className="disabled:pointer-events-none disabled:opacity-50"
+                  title={user.isActive ? "Deactivate this account" : "Reactivate this account"}
                 >
-                  {user.isActive ? "Active" : "Inactive"}
+                  <StatusBadge
+                    status={user.isActive ? "ACTIVE" : "INACTIVE"}
+                    label={user.isActive ? "Active" : "Inactive"}
+                  />
                 </button>
               </td>
-              <td className="py-2 pr-3">{user.lastLoginAt?.slice(0, 16).replace("T", " ") ?? "—"}</td>
-              <td className="py-2">
-                <div className="flex gap-2">
-                  <button
+              <td className="whitespace-nowrap text-muted-foreground">
+                {user.lastLoginAt?.slice(0, 16).replace("T", " ") ?? "—"}
+              </td>
+              <td>
+                <div className="flex justify-end gap-2">
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     disabled={busy}
                     onClick={() => {
                       const password = window.prompt(`New password for ${user.email} (min 8 characters).`);
                       if (password) patch(user.id, { password }, "Could not reset the password.");
                     }}
-                    className="border px-2 py-1 rounded-md text-xs"
                   >
                     Reset password
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     disabled={busy || user.id === selfId}
                     onClick={() => remove(user)}
-                    className="border px-2 py-1 rounded-md text-xs text-red-600"
+                    className="text-red-700 hover:bg-red-50 hover:text-red-800"
                   >
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </TableShell>
     </div>
   );
 }

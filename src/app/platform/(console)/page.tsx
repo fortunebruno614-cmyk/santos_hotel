@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listOrganizations } from "@/server/platform/organizations";
 import { listPublishedHotels } from "@/server/public/hotels";
+import { listPendingKycSubmissions } from "@/server/onboarding/kyc";
 
 export default async function PlatformHomePage({
   searchParams,
@@ -8,9 +9,10 @@ export default async function PlatformHomePage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
-  const [organizations, published] = await Promise.all([
+  const [organizations, published, pendingKyc] = await Promise.all([
     listOrganizations(),
     listPublishedHotels(),
+    listPendingKycSubmissions(),
   ]);
   const hotelCount = organizations.reduce((sum, org) => sum + org._count.hotels, 0);
 
@@ -28,6 +30,35 @@ export default async function PlatformHomePage({
           published
         </p>
       </div>
+
+      {pendingKyc.length > 0 && (
+        <section className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="font-medium text-amber-900">Business verification queue</h2>
+              <p className="text-xs text-amber-800">
+                {pendingKyc.length} submission{pendingKyc.length === 1 ? "" : "s"} awaiting review.
+              </p>
+            </div>
+          </div>
+          <ul className="mt-3 space-y-1.5 text-sm">
+            {pendingKyc.map((entry) => (
+              <li key={entry.organizationId} className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/platform/organizations/${entry.organizationId}`}
+                  className="font-medium text-amber-900 underline-offset-4 hover:underline"
+                >
+                  {entry.legalName}
+                </Link>
+                <span className="text-xs text-amber-800">
+                  {entry.organizationName} · {entry.documentName} · submitted{" "}
+                  {entry.submittedAt.slice(0, 10)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="space-y-3">
         {organizations.map((org) => (

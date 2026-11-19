@@ -89,6 +89,14 @@ export default async function LoginPage({
           </Link>
           .
         </p>
+
+        <p className="tiny-note">
+          New hotel business?{" "}
+          <Link href="/signup?type=hotel" className="underline">
+            Register your property
+          </Link>{" "}
+          with business verification.
+        </p>
       </div>
     </div>
   );

@@ -1,6 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Card,
+  CardHeader,
+  StatusBadge,
+  TableShell,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 import { RoomStatus } from "@/generated/prisma/enums";
 import { roomStatusLabel } from "@/components/labels";
 
@@ -54,16 +61,18 @@ function StatusRow({ room }: { room: BoardRoom }) {
   };
 
   return (
-    <tr className="border-b last:border-0">
-      <td className="py-2 pr-3 font-medium">{room.roomNumber}</td>
-      <td className="py-2 pr-3">{room.roomTypeName}</td>
-      <td className="py-2 pr-3">{room.floor ?? "—"}</td>
-      <td className="py-2 pr-3">{roomStatusLabel(room.status)}</td>
-      <td className="py-2 pr-3">
+    <tr>
+      <td className="admin-cell-strong whitespace-nowrap">{room.roomNumber}</td>
+      <td className="admin-cell-muted">{room.roomTypeName}</td>
+      <td>{room.floor ?? "—"}</td>
+      <td>
+        <StatusBadge status={room.status} label={roomStatusLabel(room.status)} />
+      </td>
+      <td>
         <select
           value={target}
           onChange={(event) => setTarget(event.target.value as RoomStatus | "")}
-          className="border px-2 py-1 rounded-md text-sm"
+          className="w-auto"
           disabled={busy || room.allowedTransitions.length === 0}
         >
           <option value="">
@@ -76,16 +85,18 @@ function StatusRow({ room }: { room: BoardRoom }) {
           ))}
         </select>
       </td>
-      <td className="py-2">
-        <button
-          type="button"
-          onClick={save}
-          disabled={busy || !target || target === room.status}
-          className="border px-3 py-1 rounded-md text-sm disabled:opacity-50"
-        >
-          {busy ? "Saving…" : "Apply"}
-        </button>
-        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      <td className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            onClick={save}
+            disabled={busy || !target || target === room.status}
+            size="sm"
+          >
+            {busy ? "Saving…" : "Apply"}
+          </Button>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
       </td>
     </tr>
   );
@@ -93,16 +104,20 @@ function StatusRow({ room }: { room: BoardRoom }) {
 
 export function RoomBoard({ rooms }: { rooms: BoardRoom[] }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <Card>
+      <CardHeader
+        title="Status board"
+        description="Live housekeeping state for every room. Only legal transitions are offered."
+      />
+      <TableShell className="rounded-t-none border-0 shadow-none">
         <thead>
-          <tr className="border-b text-left">
-            <th className="py-2 pr-3">Room</th>
-            <th className="py-2 pr-3">Type</th>
-            <th className="py-2 pr-3">Floor</th>
-            <th className="py-2 pr-3">Status</th>
-            <th className="py-2 pr-3">Change to</th>
-            <th className="py-2">Action</th>
+          <tr>
+            <th>Room</th>
+            <th>Type</th>
+            <th>Floor</th>
+            <th>Status</th>
+            <th>Change to</th>
+            <th className="text-right">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -110,7 +125,7 @@ export function RoomBoard({ rooms }: { rooms: BoardRoom[] }) {
             <StatusRow key={room.id} room={room} />
           ))}
         </tbody>
-      </table>
-    </div>
+      </TableShell>
+    </Card>
   );
 }

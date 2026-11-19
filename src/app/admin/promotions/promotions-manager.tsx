@@ -1,6 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { Plus } from "lucide-react";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Field,
+  InlineError,
+  PageHeader,
+  StatusBadge,
+  TableShell,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 
 /**
  * Promotions CRUD (P7): discount rules the pricing service evaluates on every
@@ -52,6 +64,12 @@ export function PromotionsManager({ promotions }: { promotions: PromotionRow[] }
   const [editing, setEditing] = useState<PromotionRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm(EMPTY);
+    setError(null);
+  };
 
   const openEdit = (row: PromotionRow) => {
     setEditing(row);
@@ -121,159 +139,163 @@ export function PromotionsManager({ promotions }: { promotions: PromotionRow[] }
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Promotions</h1>
-        <button
-          type="button"
-          onClick={() => {
-            setEditing(null);
-            setForm(EMPTY);
-            setError(null);
-          }}
-          className="border px-3 py-1 rounded-md text-sm"
-        >
-          New promotion
-        </button>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Promotions"
+        description="Discount codes evaluated on every quote. A code stops applying the moment it expires, reaches its cap or is marked inactive."
+        actions={
+          <Button type="button" onClick={openCreate} size="sm">
+            <Plus /> New promotion
+          </Button>
+        }
+      />
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <InlineError>{error}</InlineError>
 
-      <div className="border rounded-md p-4 space-y-3 text-sm">
-        <p className="font-medium">{editing ? `Edit ${editing.code}` : "New promotion"}</p>
-        <div className="flex flex-wrap gap-3">
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-zinc-500">Code</span>
-            <input
-              className="border px-2 py-1 rounded-md w-32 font-mono"
-              value={form.code}
-              placeholder="STAY10"
-              onChange={(e) => setForm({ ...form, code: e.target.value })}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-zinc-500">Type</span>
-            <select
-              className="border px-2 py-1 rounded-md"
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
+      <Card>
+        <CardHeader
+          title={editing ? `Edit ${editing.code}` : "New promotion"}
+          description="Times are entered in local time and stored in UTC. Leave “Max uses” blank for unlimited redemptions."
+        />
+        <CardBody className="space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <Field label="Code" required className="w-36">
+              <input
+                className="font-mono uppercase"
+                value={form.code}
+                placeholder="STAY10"
+                onChange={(e) => setForm({ ...form, code: e.target.value })}
+              />
+            </Field>
+            <Field label="Type">
+              <select
+                value={form.type}
+                onChange={(e) => setForm({ ...form, type: e.target.value })}
+              >
+                <option value="PERCENTAGE">Percentage</option>
+                <option value="FIXED_AMOUNT">Fixed amount</option>
+              </select>
+            </Field>
+            <Field
+              label={`Value ${form.type === "PERCENTAGE" ? "(%)" : "(amount)"}`}
+              required
+              className="w-28"
             >
-              <option value="PERCENTAGE">Percentage</option>
-              <option value="FIXED_AMOUNT">Fixed amount</option>
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-zinc-500">
-              Value {form.type === "PERCENTAGE" ? "(%)" : "(amount)"}
-            </span>
-            <input
-              className="border px-2 py-1 rounded-md w-24"
-              value={form.value}
-              onChange={(e) => setForm({ ...form, value: e.target.value })}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-zinc-500">Starts</span>
-            <input
-              type="datetime-local"
-              className="border px-2 py-1 rounded-md"
-              value={form.startAt}
-              onChange={(e) => setForm({ ...form, startAt: e.target.value })}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-zinc-500">Ends</span>
-            <input
-              type="datetime-local"
-              className="border px-2 py-1 rounded-md"
-              value={form.endAt}
-              onChange={(e) => setForm({ ...form, endAt: e.target.value })}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-zinc-500">Max uses (blank = unlimited)</span>
-            <input
-              className="border px-2 py-1 rounded-md w-28"
-              value={form.maxUses}
-              onChange={(e) => setForm({ ...form, maxUses: e.target.value })}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-zinc-500">Status</span>
-            <select
-              className="border px-2 py-1 rounded-md"
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-            >
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-            </select>
-          </label>
-        </div>
-        <button
-          type="button"
-          onClick={save}
-          disabled={
-            busy || !form.code.trim() || !form.value.trim() || !form.startAt || !form.endAt
-          }
-          className="border px-3 py-1 rounded-md disabled:opacity-50"
-        >
-          {busy ? "Saving…" : "Save"}
-        </button>
-      </div>
+              <input
+                value={form.value}
+                onChange={(e) => setForm({ ...form, value: e.target.value })}
+              />
+            </Field>
+            <Field label="Starts" required className="w-52">
+              <input
+                type="datetime-local"
+                value={form.startAt}
+                onChange={(e) => setForm({ ...form, startAt: e.target.value })}
+              />
+            </Field>
+            <Field label="Ends" required className="w-52">
+              <input
+                type="datetime-local"
+                value={form.endAt}
+                onChange={(e) => setForm({ ...form, endAt: e.target.value })}
+              />
+            </Field>
+            <Field label="Max uses (blank = unlimited)" className="w-40">
+              <input
+                value={form.maxUses}
+                onChange={(e) => setForm({ ...form, maxUses: e.target.value })}
+              />
+            </Field>
+            <Field label="Status">
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+              >
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </Field>
+          </div>
+          <Button
+            type="button"
+            onClick={save}
+            disabled={busy || !form.code.trim() || !form.value.trim() || !form.startAt || !form.endAt}
+            size="sm"
+          >
+            {busy ? "Saving…" : "Save promotion"}
+          </Button>
+        </CardBody>
+      </Card>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="py-2 pr-3">Code</th>
-              <th className="py-2 pr-3">Discount</th>
-              <th className="py-2 pr-3">Window</th>
-              <th className="py-2 pr-3">Uses</th>
-              <th className="py-2 pr-3">Status</th>
-              <th className="py-2">Actions</th>
+      <TableShell>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Discount</th>
+            <th>Window</th>
+            <th className="text-right">Uses</th>
+            <th>Status</th>
+            <th className="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {promotions.length === 0 && (
+            <tr>
+              <td colSpan={6} className="admin-empty-row">
+                No promotions yet — create a code when you are ready to run an offer.
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {promotions.map((row) => (
-              <tr key={row.id} className="border-b last:border-0">
-                <td className="py-2 pr-3 font-mono font-medium">{row.code}</td>
-                <td className="py-2 pr-3">
-                  {row.type === "PERCENTAGE" ? `${row.value}%` : `${row.value} fixed`}
-                </td>
-                <td className="py-2 pr-3 whitespace-nowrap">
-                  {row.startAt.slice(0, 10)} → {row.endAt.slice(0, 10)}
-                </td>
-                <td className="py-2 pr-3">
-                  {row.redeemed}
-                  {row.maxUses === null ? "" : ` / ${row.maxUses}`}
-                </td>
-                <td className="py-2 pr-3">{row.status === "ACTIVE" ? "Active" : "Inactive"}</td>
-                <td className="py-2">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => openEdit(row)}
-                      className="border px-2 py-1 rounded-md text-xs"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => remove(row)}
-                      className="border px-2 py-1 rounded-md text-xs text-red-600"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          )}
+          {promotions.map((row) => (
+            <tr key={row.id}>
+              <td>
+                <span className="admin-mono rounded bg-muted px-1.5 py-0.5 font-medium">
+                  {row.code}
+                </span>
+              </td>
+              <td>
+                {row.type === "PERCENTAGE" ? `${row.value}%` : `${row.value} fixed`}
+              </td>
+              <td className="whitespace-nowrap">
+                {row.startAt.slice(0, 10)} → {row.endAt.slice(0, 10)}
+              </td>
+              <td className="text-right tabular-nums">
+                {row.redeemed}
+                {row.maxUses === null ? "" : ` / ${row.maxUses}`}
+              </td>
+              <td>
+                <StatusBadge
+                  status={row.status}
+                  label={row.status === "ACTIVE" ? "Active" : "Inactive"}
+                />
+              </td>
+              <td>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => openEdit(row)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => remove(row)}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-700 hover:bg-red-50 hover:text-red-800"
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </TableShell>
     </div>
   );
 }

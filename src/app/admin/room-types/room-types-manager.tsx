@@ -1,6 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { Plus } from "lucide-react";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Field,
+  InlineError,
+  PageHeader,
+  StatusBadge,
+  TableShell,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 
 /**
  * Room type CRUD (P7): the accommodation categories the public site sells and
@@ -140,178 +152,202 @@ export function RoomTypesManager({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Room types</h1>
-        <button type="button" onClick={openCreate} className="border px-3 py-1 rounded-md text-sm">
-          New room type
-        </button>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Room types"
+        description="The categories the public site sells. Each type carries its own capacity, base rate and amenities."
+        actions={
+          <Button type="button" onClick={openCreate} size="sm">
+            <Plus /> New room type
+          </Button>
+        }
+      />
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <InlineError>{error}</InlineError>
 
       {(editing || form.name !== "" || form.slug !== "") && (
-        <div className="border rounded-md p-4 space-y-3 text-sm">
-          <p className="font-medium">{editing ? `Edit ${editing.name}` : "New room type"}</p>
-          <div className="flex flex-wrap gap-3">
-            <Field label="Name">
-              <input
-                className="border px-2 py-1 rounded-md w-48"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </Field>
-            <Field label="Slug">
-              <input
-                className="border px-2 py-1 rounded-md w-40"
-                value={form.slug}
-                placeholder="deluxe-king"
-                onChange={(e) => setForm({ ...form, slug: e.target.value })}
-              />
-            </Field>
-            <Field label="Max adults">
-              <input
-                className="border px-2 py-1 rounded-md w-20"
-                value={form.maxAdults}
-                onChange={(e) => setForm({ ...form, maxAdults: e.target.value })}
-              />
-            </Field>
-            <Field label="Max children">
-              <input
-                className="border px-2 py-1 rounded-md w-24"
-                value={form.maxChildren}
-                onChange={(e) => setForm({ ...form, maxChildren: e.target.value })}
-              />
-            </Field>
-            <Field label="Base price / night">
-              <input
-                className="border px-2 py-1 rounded-md w-28"
-                value={form.basePrice}
-                placeholder="450.00"
-                onChange={(e) => setForm({ ...form, basePrice: e.target.value })}
-              />
-            </Field>
-            <Field label="Status">
-              <select
-                className="border px-2 py-1 rounded-md"
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-              </select>
-            </Field>
-          </div>
-          <Field label="Description">
-            <textarea
-              className="border px-2 py-1 rounded-md w-full"
-              rows={2}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-            />
-          </Field>
-          <div className="flex flex-wrap gap-3">
-            {amenities.map((amenity) => (
-              <label key={amenity.id} className="flex items-center gap-1 text-sm">
+        <Card>
+          <CardHeader
+            title={editing ? `Edit ${editing.name}` : "New room type"}
+            description="The slug drives the public room page URL; the base rate is the fallback when no dated rate covers a night."
+          />
+          <CardBody className="space-y-4">
+            <div className="flex flex-wrap gap-3">
+              <Field label="Name" required className="w-48">
                 <input
-                  type="checkbox"
-                  checked={amenityIds.includes(amenity.id)}
-                  onChange={() => toggleAmenity(amenity.id)}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
-                {amenity.name}
-              </label>
-            ))}
-            {amenities.length === 0 && (
-              <p className="text-xs text-zinc-500">No amenities defined yet.</p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={save}
-              disabled={busy || !form.name.trim() || !form.slug.trim() || !form.basePrice.trim()}
-              className="border px-3 py-1 rounded-md disabled:opacity-50"
-            >
-              {busy ? "Saving…" : "Save"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(null);
-                setForm({ ...EMPTY, name: "", slug: "" });
-                setAmenityIds([]);
-                setError(null);
-              }}
-              className="border px-3 py-1 rounded-md"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
+              </Field>
+              <Field label="Slug" required className="w-44">
+                <input
+                  value={form.slug}
+                  placeholder="deluxe-king"
+                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                />
+              </Field>
+              <Field label="Max adults" className="w-24">
+                <input
+                  value={form.maxAdults}
+                  onChange={(e) => setForm({ ...form, maxAdults: e.target.value })}
+                />
+              </Field>
+              <Field label="Max children" className="w-28">
+                <input
+                  value={form.maxChildren}
+                  onChange={(e) => setForm({ ...form, maxChildren: e.target.value })}
+                />
+              </Field>
+              <Field label="Base price / night" required className="w-32">
+                <input
+                  value={form.basePrice}
+                  placeholder="450.00"
+                  onChange={(e) => setForm({ ...form, basePrice: e.target.value })}
+                />
+              </Field>
+              <Field label="Status">
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </Field>
+            </div>
+            <Field label="Description">
+              <textarea
+                rows={3}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </Field>
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Amenities</p>
+              <div className="flex flex-wrap gap-2">
+                {amenities.map((amenity) => {
+                  const checked = amenityIds.includes(amenity.id);
+                  return (
+                    <label
+                      key={amenity.id}
+                      className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        checked
+                          ? "border-primary/30 bg-primary/10 text-primary"
+                          : "border-[var(--admin-line)] bg-card text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={checked}
+                        onChange={() => toggleAmenity(amenity.id)}
+                      />
+                      {amenity.name}
+                    </label>
+                  );
+                })}
+                {amenities.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No amenities defined yet — add them from the amenities catalog.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                onClick={save}
+                disabled={busy || !form.name.trim() || !form.slug.trim() || !form.basePrice.trim()}
+                size="sm"
+              >
+                {busy ? "Saving…" : "Save room type"}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setEditing(null);
+                  setForm({ ...EMPTY, name: "", slug: "" });
+                  setAmenityIds([]);
+                  setError(null);
+                }}
+                variant="outline"
+                size="sm"
+              >
+                Clear
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="py-2 pr-3">Name</th>
-              <th className="py-2 pr-3">Slug</th>
-              <th className="py-2 pr-3">Capacity</th>
-              <th className="py-2 pr-3">Base price</th>
-              <th className="py-2 pr-3">Rooms</th>
-              <th className="py-2 pr-3">Amenities</th>
-              <th className="py-2 pr-3">Status</th>
-              <th className="py-2">Actions</th>
+      <TableShell>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Slug</th>
+            <th>Capacity</th>
+            <th className="text-right">Base price</th>
+            <th className="text-right">Rooms</th>
+            <th>Amenities</th>
+            <th>Status</th>
+            <th className="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {roomTypes.length === 0 && (
+            <tr>
+              <td colSpan={8} className="admin-empty-row">
+                No room types yet — create the first category to start adding rooms.
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {roomTypes.map((row) => (
-              <tr key={row.id} className="border-b last:border-0">
-                <td className="py-2 pr-3 font-medium">{row.name}</td>
-                <td className="py-2 pr-3 font-mono text-xs">{row.slug}</td>
-                <td className="py-2 pr-3">
-                  {row.maxAdults}A / {row.maxChildren}C
-                </td>
-                <td className="py-2 pr-3">{row.basePrice}</td>
-                <td className="py-2 pr-3">{row.roomCount}</td>
-                <td className="py-2 pr-3 text-xs text-zinc-500">
-                  {row.amenities.map((amenity) => amenity.name).join(", ") || "—"}
-                </td>
-                <td className="py-2 pr-3">{row.status === "ACTIVE" ? "Active" : "Inactive"}</td>
-                <td className="py-2">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(row)}
-                      disabled={busy}
-                      className="border px-2 py-1 rounded-md text-xs"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(row)}
-                      disabled={busy}
-                      className="border px-2 py-1 rounded-md text-xs text-red-600"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          )}
+          {roomTypes.map((row) => (
+            <tr key={row.id}>
+              <td className="admin-cell-strong">{row.name}</td>
+              <td>
+                <span className="admin-mono text-muted-foreground">{row.slug}</span>
+              </td>
+              <td className="whitespace-nowrap">
+                {row.maxAdults}A / {row.maxChildren}C
+              </td>
+              <td className="text-right tabular-nums">{row.basePrice}</td>
+              <td className="text-right tabular-nums">{row.roomCount}</td>
+              <td className="admin-cell-muted max-w-64">
+                {row.amenities.map((amenity) => amenity.name).join(", ") || "—"}
+              </td>
+              <td>
+                <StatusBadge
+                  status={row.status}
+                  label={row.status === "ACTIVE" ? "Active" : "Inactive"}
+                />
+              </td>
+              <td>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    onClick={() => openEdit(row)}
+                    disabled={busy}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => remove(row)}
+                    disabled={busy}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-700 hover:bg-red-50 hover:text-red-800"
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </TableShell>
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs text-zinc-500">{label}</span>
-      {children}
-    </label>
   );
 }

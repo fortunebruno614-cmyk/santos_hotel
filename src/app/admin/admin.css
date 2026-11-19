@@ -1,0 +1,193 @@
+/*
+ * Staff console surface.
+ *
+ * The public site owns its own look in hotel-ui.css; the console shares the
+ * same warm neutral + deep green palette but stays quiet and functional. These
+ * rules are scoped to `.admin-shell` so they never leak into the marketing
+ * site, and they keep the console light even when the OS prefers a dark
+ * colour scheme (the old screens mixed light and dark halves).
+ */
+
+@layer components {
+  .admin-shell {
+    color-scheme: light;
+    --admin-canvas: oklch(0.972 0.007 135);
+    --admin-surface: oklch(1 0 0);
+    --admin-surface-soft: oklch(0.965 0.009 140);
+    --admin-line: oklch(0.9 0.01 140);
+    --admin-ink: oklch(0.27 0.02 160);
+    min-height: 100vh;
+    background-color: var(--admin-canvas);
+    color: var(--admin-ink);
+    font-family: var(--font-sans);
+  }
+  
+  .admin-shell h1,
+  .admin-shell h2,
+  .admin-shell h3 {
+    font-family: var(--font-display);
+  }
+  
+  .admin-card {
+    border: 1px solid var(--admin-line);
+    border-radius: 1rem;
+    background-color: var(--admin-surface);
+    box-shadow:
+      0 1px 2px oklch(0.2 0.02 160 / 4%),
+      0 14px 40px oklch(0.2 0.02 160 / 4%);
+  }
+  
+  /* ---------------------------------------------------------------- tables */
+  
+  .admin-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--admin-line);
+    border-radius: 1rem;
+    background-color: var(--admin-surface);
+    box-shadow:
+      0 1px 2px oklch(0.2 0.02 160 / 4%),
+      0 14px 40px oklch(0.2 0.02 160 / 4%);
+  }
+  
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  
+  .admin-table thead th {
+    padding: 0.7rem 1.1rem;
+    border-bottom: 1px solid var(--admin-line);
+    background-color: var(--admin-surface-soft);
+    color: oklch(0.48 0.012 155);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.075em;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  
+  .admin-table tbody td {
+    padding: 0.8rem 1.1rem;
+    border-bottom: 1px solid var(--admin-line);
+    vertical-align: middle;
+  }
+  
+  .admin-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  
+  .admin-table tbody tr {
+    transition: background-color 120ms ease;
+  }
+  
+  .admin-table tbody tr:hover {
+    background-color: oklch(0.975 0.009 140);
+  }
+  
+  .admin-table .admin-empty-row {
+    padding: 2.5rem 1.1rem;
+    color: oklch(0.52 0.014 155);
+    text-align: center;
+  }
+  
+  .admin-table .admin-cell-strong {
+    font-weight: 500;
+    color: var(--admin-ink);
+  }
+  
+  .admin-table .admin-cell-muted {
+    color: oklch(0.52 0.014 155);
+  }
+  
+  /* ----------------------------------------------------------------- forms */
+  
+  .admin-shell :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    width: 100%;
+    min-height: 2.35rem;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--admin-line);
+    border-radius: 0.55rem;
+    background-color: var(--admin-surface);
+    color: var(--admin-ink);
+    font: inherit;
+    font-size: 0.875rem;
+    outline: none;
+    transition:
+      border-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+  
+  .admin-shell :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):hover {
+    border-color: oklch(0.82 0.015 145);
+  }
+  
+  .admin-shell
+    :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px oklch(0.5 0.06 165 / 16%);
+  }
+  
+  .admin-shell :where(input, textarea)::placeholder {
+    color: oklch(0.58 0.012 155);
+  }
+  
+  .admin-shell :where(input, select, textarea):disabled {
+    background-color: var(--admin-surface-soft);
+    color: oklch(0.55 0.012 155);
+    cursor: not-allowed;
+  }
+  
+  .admin-shell textarea {
+    width: 100%;
+    line-height: 1.5;
+    resize: vertical;
+  }
+  
+  .admin-shell :where(input[type="checkbox"], input[type="radio"]) {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--primary);
+  }
+  
+  .admin-shell select {
+    cursor: pointer;
+  }
+  
+  /* Keep the native date/time controls from looking compressed. */
+  .admin-shell input[type="date"],
+  .admin-shell input[type="time"],
+  .admin-shell input[type="datetime-local"] {
+    padding-right: 0.55rem;
+  }
+  
+  /* Checkbox/radio inside a label should not inherit the tall field box. */
+  .admin-shell label > input[type="checkbox"],
+  .admin-shell label > input[type="radio"] {
+    flex: none;
+  }
+  
+  /* -------------------------------------------------------------- utilities */
+  
+  .admin-divider {
+    border-color: var(--admin-line);
+  }
+  
+  .admin-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: -0.01em;
+  }
+  
+  @media print {
+    .admin-shell {
+      background: white;
+    }
+  
+    .admin-shell aside,
+    .admin-shell header {
+      display: none;
+    }
+  }
+  
+}

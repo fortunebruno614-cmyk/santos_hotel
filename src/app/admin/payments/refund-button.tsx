@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 /**
  * Refund action (P7, permission-gated server-side with MANAGE_PAYMENTS).
@@ -52,15 +53,17 @@ export function RefundButton({
   };
 
   return (
-    <span className="inline-flex flex-col">
-      <button
+    <span className="inline-flex flex-col items-end">
+      <Button
         type="button"
         onClick={refund}
         disabled={busy || Number(remaining) <= 0}
-        className="border px-2 py-1 rounded-md text-xs text-red-600 disabled:opacity-50"
+        variant="outline"
+        size="sm"
+        className="text-red-700 hover:bg-red-50 hover:text-red-800"
       >
         {busy ? "Refunding…" : "Refund"}
-      </button>
+      </Button>
       {error && <span className="mt-1 text-xs text-red-600">{error}</span>}
     </span>
   );

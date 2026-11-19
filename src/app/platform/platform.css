@@ -1,0 +1,231 @@
+/*
+ * Santo Platform console — dark control-center theme.
+ * Scoped to `.platform-shell` so it never touches the hotel site or /admin.
+ * Unlayered on purpose: inherited, older light utility classes inside reused
+ * forms are overridden by the platform field styles.
+ */
+
+.platform-shell {
+  color-scheme: dark;
+  --p-bg: #080d18;
+  --p-sidebar: #0b1220;
+  --p-card: #111b2b;
+  --p-elevated: #152236;
+  --p-line: rgba(255, 255, 255, 0.07);
+  --p-line-strong: rgba(255, 255, 255, 0.12);
+  --p-accent: #06b6d4;
+  --p-blue: #3b82f6;
+  --p-success: #22c55e;
+  --p-warning: #f59e0b;
+  --p-error: #ef4444;
+  --p-text: #f8fafc;
+  --p-muted: #94a3b8;
+  min-height: 100vh;
+  background-color: var(--p-bg);
+  color: var(--p-text);
+  font-family: var(--font-sans);
+}
+
+.platform-shell ::selection {
+  background: rgba(6, 182, 212, 0.28);
+  color: #ffffff;
+}
+
+.platform-shell h1,
+.platform-shell h2,
+.platform-shell h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+.platform-shell :where(input, select, textarea) {
+  width: 100%;
+  min-height: 2.4rem;
+  border: 1px solid var(--p-line);
+  border-radius: 0.6rem;
+  background-color: var(--p-sidebar);
+  color: var(--p-text);
+  padding: 0.45rem 0.7rem;
+  font: inherit;
+  font-size: 0.875rem;
+  outline: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.platform-shell :where(input, select, textarea)::placeholder {
+  color: rgba(148, 163, 184, 0.65);
+}
+
+.platform-shell :where(input, select, textarea):hover {
+  border-color: var(--p-line-strong);
+}
+
+.platform-shell :where(input, select, textarea):focus-visible {
+  border-color: rgba(6, 182, 212, 0.65);
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.14);
+}
+
+.platform-shell :where(input, select, textarea):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.platform-shell textarea {
+  width: 100%;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.platform-shell :where(input[type="checkbox"], input[type="radio"]) {
+  width: 1rem;
+  height: 1rem;
+  min-height: 0;
+  accent-color: var(--p-accent);
+}
+
+.platform-shell select {
+  cursor: pointer;
+}
+
+.platform-shell form label > span {
+  color: var(--p-muted);
+}
+
+/* Buttons used inside platform forms and panels. */
+.platform-shell .p-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  height: 2.25rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--p-line);
+  border-radius: 0.55rem;
+  background-color: var(--p-elevated);
+  color: var(--p-text);
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.platform-shell .p-btn:hover {
+  background-color: #1b2b43;
+  border-color: var(--p-line-strong);
+}
+
+.platform-shell .p-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.platform-shell .p-btn-primary {
+  border-color: transparent;
+  background-color: var(--p-accent);
+  color: #031018;
+  font-weight: 600;
+}
+
+.platform-shell .p-btn-primary:hover {
+  background-color: #22d3ee;
+  border-color: transparent;
+}
+
+.platform-shell .p-btn-danger {
+  color: #fca5a5;
+}
+
+.platform-shell .p-btn-danger:hover {
+  background-color: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+}
+
+/* Dark tables. */
+.platform-shell .p-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--p-line);
+  border-radius: 0.9rem;
+  background-color: var(--p-card);
+}
+
+.platform-shell .p-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.platform-shell .p-table thead th {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--p-line);
+  background-color: rgba(255, 255, 255, 0.02);
+  color: var(--p-muted);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.platform-shell .p-table tbody td {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--p-line);
+  vertical-align: middle;
+}
+
+.platform-shell .p-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.platform-shell .p-table tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.platform-shell .p-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.025);
+}
+
+.platform-shell .p-empty {
+  padding: 2.5rem 1rem !important;
+  color: var(--p-muted);
+  text-align: center;
+}
+
+/* Scrollbars inside the console. */
+.platform-shell * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+}
+
+.platform-shell *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.platform-shell *::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+}
+
+/* Reused Google location picker: dark surfaces, cyan actions. */
+.platform-shell .location-picker button {
+  border-color: var(--p-line);
+  background-color: var(--p-elevated);
+  color: var(--p-text);
+}
+
+.platform-shell .location-picker button:hover {
+  background-color: #1b2b43;
+}
+
+.platform-shell .location-picker > div:last-child {
+  border-color: var(--p-line);
+  background-color: #0b1220;
+}

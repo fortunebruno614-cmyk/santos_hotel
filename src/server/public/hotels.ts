@@ -32,6 +32,7 @@ export async function getPublishedHotelBySlug(slug: string) {
       publicationStatus: PropertyPublicationStatus.PUBLISHED,
       organization: { status: "ACTIVE" },
     },
+    include: { organization: { select: { name: true, slug: true } } },
   });
 }
 

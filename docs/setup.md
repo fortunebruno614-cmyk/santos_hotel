@@ -49,7 +49,7 @@ DATABASE_URL="postgresql://YOUR_MAC_USERNAME@127.0.0.1:5432/santos_hotel"
 | ---- | ----- |
 | Shared dev DB (Docker) | user `santos` / password `santos` / db `santos_hotel` @ `127.0.0.1:5432` |
 | Homebrew DB (this repo's author) | user `mac` / no password / db `santos_hotel` @ `127.0.0.1:5432` |
-| App user login (admin) | `admin@santohotel.test` / `Admin123!` — role `ADMIN`, opens `/admin/users` + audit log |
+| App user login (admin) | `admin@santohotel.test` / `SantoAdmin2026` — role `ADMIN`, opens `/admin/users` + audit log |
 | App user login (staff) | `staff@santohotel.test` / `Staff123!` — role `STAFF`, `/admin` only |
 | App user login (guest) | `guest@santohotel.test` / `Guest123!` — role `GUEST`, `/account` only (`guest2@santohotel.test` / `Guest123!` is a second guest for isolation tests) |
 | Session signing | `SESSION_SECRET` in `.env.local` (required in production, see `.env.example`) |

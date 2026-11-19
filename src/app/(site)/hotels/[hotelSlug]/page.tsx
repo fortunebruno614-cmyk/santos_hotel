@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Listing } from "@/components/hotel/listing";
 import { loadHotelProfile, loadPublicRoomTypes } from "@/server/public/catalog";
@@ -40,6 +41,15 @@ export default async function HotelListingPage({
         </p>
         <h1 className="text-3xl font-semibold">{hotel.name}</h1>
         <p className="mt-1 text-sm text-zinc-600">{address ?? "Address to be confirmed."}</p>
+        <p className="mt-1 text-sm text-zinc-600">
+          Operated by{" "}
+          <Link
+            href={`/h/${published.organization.slug}`}
+            className="font-medium text-zinc-900 underline-offset-4 hover:underline"
+          >
+            {published.organization.name}
+          </Link>
+        </p>
         {hotel.description && <p className="mt-3 max-w-2xl text-sm">{hotel.description}</p>}
         <p className="mt-2 text-xs text-zinc-500">
           Check-in from {hotel.checkInTime} · check-out by {hotel.checkOutTime} · prices in{" "}

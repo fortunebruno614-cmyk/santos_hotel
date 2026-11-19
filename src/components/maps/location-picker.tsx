@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { googleMapsApiKey } from "@/config/maps";
 
 /** Google Maps LatLng instances expose lat()/lng() methods, not properties. */
@@ -192,7 +193,7 @@ export function LocationPicker({
             {demo ? "Map latitude (demo)" : "Map latitude"}
           </span>
           <input
-            className="border px-2 py-1 rounded-md w-36"
+            className="w-36"
             value={latitude}
             placeholder="6.454100"
             inputMode="decimal"
@@ -209,7 +210,7 @@ export function LocationPicker({
             {demo ? "Map longitude (demo)" : "Map longitude"}
           </span>
           <input
-            className="border px-2 py-1 rounded-md w-36"
+            className="w-36"
             value={longitude}
             placeholder="3.394700"
             inputMode="decimal"
@@ -222,13 +223,14 @@ export function LocationPicker({
           />
         </label>
         {(latitude || longitude) && (
-          <button
+          <Button
             type="button"
-            className="border px-2 py-1 rounded-md text-xs"
+            variant="outline"
+            size="sm"
             onClick={() => onChange({ latitude: "", longitude: "" })}
           >
             Clear
-          </button>
+          </Button>
         )}
       </div>
 
@@ -239,19 +241,15 @@ export function LocationPicker({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search the building address…"
-              className="border px-2 py-1 rounded-md text-sm flex-1 min-w-48"
+              className="min-w-48 flex-1 text-sm"
             />
-            <button
-              type="button"
-              onClick={search}
-              className="border px-3 py-1 rounded-md text-sm inline-flex items-center gap-1"
-            >
-              <Search size={14} /> Find
-            </button>
+            <Button type="button" variant="outline" size="sm" onClick={search}>
+              <Search /> Find
+            </Button>
           </div>
           <div
             ref={mapRef}
-            className="h-64 w-full rounded-md border bg-zinc-100"
+            className="h-64 w-full rounded-xl border border-border bg-zinc-100"
             aria-label="Hotel location map"
           />
           <p className="text-xs text-zinc-500">

@@ -1,4 +1,15 @@
 import Link from "next/link";
+import {
+  EmptyRow,
+  Field,
+  PageHeader,
+  Pagination,
+  ResultCount,
+  StatusBadge,
+  TableShell,
+  Toolbar,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 import { searchGuests } from "@/server/console/guests";
 import { getConsoleContext } from "@/server/console/context";
 import { GuestSearchSchema } from "@/server/console/validation";
@@ -21,67 +32,82 @@ export default async function AdminGuestsPage({
   const result = await searchGuests(hotel.id, query);
   const pages = Math.max(1, Math.ceil(result.total / query.pageSize));
 
+  const hrefFor = (page: number) => {
+    const params = new URLSearchParams();
+    if (query.q) params.set("q", query.q);
+    if (page > 1) params.set("page", String(page));
+    const search = params.toString();
+    return search ? `/admin/guests?${search}` : "/admin/guests";
+  };
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Guests</h1>
+    <div className="space-y-5">
+      <PageHeader
+        title="Guests"
+        description="Everyone who has booked with the property. Open a guest to correct contact details or review their stay history."
+      />
 
-      <form method="get" action="/admin/guests" className="flex flex-wrap items-end gap-3 text-sm">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Search</span>
-          <input
-            name="q"
-            defaultValue={query.q ?? ""}
-            placeholder="Name, e-mail or phone…"
-            className="border px-2 py-1 rounded-md w-64"
-          />
-        </label>
-        <button className="border px-3 py-1 rounded-md">Search</button>
-        <Link href="/admin/guests" className="text-zinc-500 underline">
-          Reset
-        </Link>
-      </form>
+      <Toolbar>
+        <form method="get" action="/admin/guests" className="flex flex-wrap items-end gap-3">
+          <Field label="Search" className="w-64">
+            <input
+              name="q"
+              defaultValue={query.q ?? ""}
+              placeholder="Name, e-mail or phone…"
+            />
+          </Field>
+          <Button type="submit" size="sm">
+            Search
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/admin/guests">Reset</Link>
+          </Button>
+        </form>
+      </Toolbar>
 
-      <p className="text-sm text-zinc-500">
+      <ResultCount>
         {result.total} guest{result.total === 1 ? "" : "s"} · page {result.page} of {pages}
-      </p>
+      </ResultCount>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="py-2 pr-4">Name</th>
-              <th className="py-2 pr-4">E-mail</th>
-              <th className="py-2 pr-4">Phone</th>
-              <th className="py-2 pr-4">Bookings</th>
-              <th className="py-2 pr-4">Last stay</th>
-              <th className="py-2">Status</th>
+      <TableShell>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>E-mail</th>
+            <th>Phone</th>
+            <th className="text-right">Bookings</th>
+            <th>Last stay</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.rows.length === 0 && <EmptyRow colSpan={6}>No guests match this search.</EmptyRow>}
+          {result.rows.map((guest) => (
+            <tr key={guest.id}>
+              <td>
+                <Link
+                  href={`/admin/guests/${guest.id}`}
+                  className="font-medium text-primary hover:underline"
+                >
+                  {guest.firstName} {guest.lastName}
+                </Link>
+              </td>
+              <td className="admin-cell-muted">{guest.email ?? "—"}</td>
+              <td className="admin-cell-muted">{guest.phone ?? "—"}</td>
+              <td className="text-right tabular-nums">{guest.bookingCount}</td>
+              <td>{guest.lastStay ?? "—"}</td>
+              <td>
+                <StatusBadge
+                  status={guest.isActive ? "ACTIVE" : "INACTIVE"}
+                  label={guest.isActive ? "Active" : "Inactive"}
+                />
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {result.rows.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-4 text-zinc-500">
-                  No guests match this search.
-                </td>
-              </tr>
-            )}
-            {result.rows.map((guest) => (
-              <tr key={guest.id} className="border-b last:border-0">
-                <td className="py-2 pr-4">
-                  <Link href={`/admin/guests/${guest.id}`} className="underline font-medium">
-                    {guest.firstName} {guest.lastName}
-                  </Link>
-                </td>
-                <td className="py-2 pr-4">{guest.email ?? "—"}</td>
-                <td className="py-2 pr-4">{guest.phone ?? "—"}</td>
-                <td className="py-2 pr-4">{guest.bookingCount}</td>
-                <td className="py-2 pr-4">{guest.lastStay ?? "—"}</td>
-                <td className="py-2">{guest.isActive ? "Active" : "Inactive"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </TableShell>
+
+      <Pagination page={result.page} pages={pages} hrefFor={hrefFor} />
     </div>
   );
 }

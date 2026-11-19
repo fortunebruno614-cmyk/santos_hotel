@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PageHeader } from "@/components/admin/ui";
 import { getConsoleContext } from "@/server/console/context";
 import { Permissions } from "@/server/auth/roles";
 import { HotelCreateForm } from "./hotel-form";
@@ -20,17 +20,13 @@ export default async function NewHotelPage({
   const error = MESSAGES[sp.error ?? ""] ?? null;
 
   return (
-    <div className="space-y-4">
-      <div>
-        <Link href="/admin/hotels" className="text-sm underline">
-          ← Hotels
-        </Link>
-        <h1 className="text-2xl font-semibold">Add a property</h1>
-        <p className="text-sm text-zinc-500">
-          Business information, address and verified map position. Rooms and rates are added
-          after the property exists.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        backHref="/admin/hotels"
+        backLabel="Hotels"
+        title="Add a property"
+        description="Business information, address and verified map position. Rooms and rates are added after the property exists."
+      />
       <HotelCreateForm error={error} />
     </div>
   );

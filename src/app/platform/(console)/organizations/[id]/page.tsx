@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrganizationDetail } from "@/server/platform/organizations";
 import { setOrganizationStatusAction } from "@/server/platform/actions";
+import { getOrganizationKycSummary } from "@/server/onboarding/kyc";
 import { PlatformHotelForm } from "./hotel-form";
+import { KycPanel } from "./kyc-panel";
 
 export default async function PlatformOrganizationPage({
   params,
@@ -12,6 +14,7 @@ export default async function PlatformOrganizationPage({
   const { id } = await params;
   const organization = await getOrganizationDetail(id);
   if (!organization) notFound();
+  const kyc = await getOrganizationKycSummary(organization.id);
 
   return (
     <div className="space-y-6">
@@ -38,6 +41,8 @@ export default async function PlatformOrganizationPage({
           </form>
         </div>
       </div>
+
+      <KycPanel organizationId={organization.id} kyc={kyc} />
 
       <section className="space-y-2">
         <h2 className="text-lg font-medium">Properties</h2>

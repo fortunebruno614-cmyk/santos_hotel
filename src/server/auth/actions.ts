@@ -23,34 +23,62 @@ import {
 } from "@/config/access-map";
 
 function toSessionLike(payload: SessionPayload): SessionLike {
-  return { kind: payload.kind, role: payload.role, userId: payload.userId, guestId: payload.guestId };
+  return {
+    kind: payload.kind,
+    role: payload.role,
+    userId: payload.userId,
+    guestId: payload.guestId,
+    orgId: payload.orgId,
+    platformRole: payload.platformRole ?? null,
+  };
 }
 
 async function requestIp() {
   return clientIp(await headers());
 }
 
-type LoginPortal = "tenant" | "platform";
+type LoginPortal = "guest" | "tenant" | "platform";
 
-function loginPath(portal: LoginPortal) {
-  return portal === "platform" ? "/platform/login" : "/staff/login";
+const ORG_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/i;
+
+/**
+ * Organization slugs only choose *which* tenant door the visitor is standing
+ * at. They are validated here so they can safely be used in a redirect path;
+ * actual membership is always re-read from the database below.
+ */
+function readOrgSlug(value: FormDataEntryValue | null): string | null {
+  if (typeof value !== "string") return null;
+  const slug = value.trim();
+  return slug.length <= 80 && ORG_SLUG_PATTERN.test(slug) ? slug : null;
 }
 
-function loginError(error: string, next: string | null, portal: LoginPortal) {
+function loginPath(portal: LoginPortal, orgSlug: string | null = null) {
+  if (portal === "platform") return "/platform/login";
+  if (portal === "guest") return "/login";
+  return orgSlug ? `/h/${orgSlug}/login` : "/staff/login";
+}
+
+function loginError(
+  error: string,
+  next: string | null,
+  portal: LoginPortal,
+  orgSlug: string | null = null,
+) {
   const params = new URLSearchParams({ error });
   if (next) params.set("next", next);
-  return `${loginPath(portal)}?${params.toString()}`;
+  return `${loginPath(portal, orgSlug)}?${params.toString()}`;
 }
 
 export async function loginStaff(formData: FormData) {
   const portal: LoginPortal =
     formData.get("portal") === "platform" ? "platform" : "tenant";
+  const orgSlug = portal === "tenant" ? readOrgSlug(formData.get("orgSlug")) : null;
   const next = sanitizeNextPath(formData.get("next"));
   const parsed = CredentialsSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
   });
-  if (!parsed.success) redirect(loginError("invalid", next, portal));
+  if (!parsed.success) redirect(loginError("invalid", next, portal, orgSlug));
 
   const email = normalizeEmail(parsed.data.email);
   const ip = await requestIp();
@@ -58,45 +86,76 @@ export async function loginStaff(formData: FormData) {
   const throttle = loginThrottleState(ip, email);
   if (throttle.limited) {
     await auditLoginFailed("staff", email, "rate_limited", ip);
-    redirect(loginError("rate_limited", next, portal));
+    redirect(loginError("rate_limited", next, portal, orgSlug));
   }
 
   const result = await authenticateStaff(email, parsed.data.password);
   if (!result) {
     recordFailedLogin(ip, email);
     await auditLoginFailed("staff", email, "invalid_credentials", ip);
-    redirect(loginError("invalid", next, portal));
+    redirect(loginError("invalid", next, portal, orgSlug));
   }
 
   // The two portals are separate doors: a tenant member cannot sign in at the
   // platform door, and a platform-only operator cannot sign in at the tenant
   // door (REQ-026, REQ-047).
-  const allowed =
-    portal === "platform"
-      ? Boolean(result.user.platformRole)
-      : Boolean(
-          await prisma.organizationMember.findFirst({
-            where: {
-              userId: result.user.id,
-              status: "ACTIVE",
-              organization: { status: "ACTIVE" },
-            },
-            select: { id: true },
-          }),
-        );
-  if (!allowed) {
-    recordFailedLogin(ip, email);
-    await auditLoginFailed("staff", email, "invalid_credentials", ip);
-    redirect(loginError("forbidden", next, portal));
+  //
+  // A tenant-specific door additionally proves membership of *that*
+  // organization. The slug only selects the door; the membership is always
+  // re-read from the database, so a URL can never grant tenant context.
+  let orgId: string | undefined;
+  if (portal === "platform") {
+    if (!result.user.platformRole) {
+      recordFailedLogin(ip, email);
+      await auditLoginFailed("staff", email, "invalid_credentials", ip);
+      redirect(loginError("forbidden", next, portal));
+    }
+  } else if (orgSlug) {
+    const organization = await prisma.organization.findFirst({
+      where: { slug: orgSlug, status: "ACTIVE" },
+      select: { id: true },
+    });
+    const membership = organization
+      ? await prisma.organizationMember.findFirst({
+          where: {
+            userId: result.user.id,
+            organizationId: organization.id,
+            status: "ACTIVE",
+          },
+          select: { id: true },
+        })
+      : null;
+    if (!organization || !membership) {
+      recordFailedLogin(ip, email);
+      await auditLoginFailed("staff", email, "invalid_credentials", ip);
+      redirect(loginError("forbidden", next, portal, orgSlug));
+    }
+    orgId = organization.id;
+  } else {
+    const membership = await prisma.organizationMember.findFirst({
+      where: {
+        userId: result.user.id,
+        status: "ACTIVE",
+        organization: { status: "ACTIVE" },
+      },
+      select: { organizationId: true },
+    });
+    if (!membership) {
+      recordFailedLogin(ip, email);
+      await auditLoginFailed("staff", email, "invalid_credentials", ip);
+      redirect(loginError("forbidden", next, portal));
+    }
+    orgId = membership.organizationId;
   }
 
   clearFailedLogins(ip, email);
-  await setSessionCookie(result.payload);
+  const payload = orgId ? { ...result.payload, orgId } : result.payload;
+  await setSessionCookie(payload);
   await auditLogin({ userId: result.user.id }, result.user.role, result.user.email);
   redirect(
     portal === "platform"
       ? "/platform"
-      : resolvePostLoginPath(toSessionLike(result.payload), next),
+      : resolvePostLoginPath(toSessionLike(payload), next),
   );
 }
 
@@ -106,7 +165,7 @@ export async function loginGuest(formData: FormData) {
     email: formData.get("email"),
     password: formData.get("password"),
   });
-  if (!parsed.success) redirect(loginError("invalid", next, "tenant"));
+  if (!parsed.success) redirect(loginError("invalid", next, "guest"));
 
   const email = normalizeEmail(parsed.data.email);
   const ip = await requestIp();
@@ -114,14 +173,14 @@ export async function loginGuest(formData: FormData) {
   const throttle = loginThrottleState(ip, email);
   if (throttle.limited) {
     await auditLoginFailed("guest", email, "rate_limited", ip);
-    redirect(loginError("rate_limited", next, "tenant"));
+    redirect(loginError("rate_limited", next, "guest"));
   }
 
   const result = await authenticateGuest(email, parsed.data.password);
   if (!result) {
     recordFailedLogin(ip, email);
     await auditLoginFailed("guest", email, "invalid_credentials", ip);
-    redirect(loginError("invalid", next, "tenant"));
+    redirect(loginError("invalid", next, "guest"));
   }
 
   clearFailedLogins(ip, email);

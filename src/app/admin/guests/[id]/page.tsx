@@ -1,5 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  Card,
+  CardHeader,
+  EmptyRow,
+  PageHeader,
+  StatusBadge,
+  TableShell,
+} from "@/components/admin/ui";
 import { bookingStatusLabel } from "@/components/labels";
 import { getGuestDetail } from "@/server/console/guests";
 import { getConsoleContext } from "@/server/console/context";
@@ -23,22 +31,24 @@ export default async function AdminGuestPage({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">
-            {guest.firstName} {guest.lastName}
-          </h1>
-          <p className="text-sm text-zinc-500">
-            {guest.email ?? "no e-mail"} · {guest.phone ?? "no phone"} ·{" "}
-            {guest.isActive ? "Active" : "Inactive"} · since{" "}
-            {guest.createdAt.slice(0, 10)}
-          </p>
-        </div>
-        <Link href="/admin/guests" className="text-sm underline">
-          ← All guests
-        </Link>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        backHref="/admin/guests"
+        backLabel="All guests"
+        title={`${guest.firstName} ${guest.lastName}`}
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            <StatusBadge
+              status={guest.isActive ? "ACTIVE" : "INACTIVE"}
+              label={guest.isActive ? "Active" : "Inactive"}
+            />
+            <span>
+              {guest.email ?? "no e-mail"} · {guest.phone ?? "no phone"} · since{" "}
+              {guest.createdAt.slice(0, 10)}
+            </span>
+          </span>
+        }
+      />
 
       <GuestEditForm
         guest={{
@@ -53,87 +63,83 @@ export default async function AdminGuestPage({
         }}
       />
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-medium">Reservations</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="py-2 pr-4">Reference</th>
-                <th className="py-2 pr-4">Stay</th>
-                <th className="py-2 pr-4">Rooms</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Payment</th>
-                <th className="py-2">Total</th>
+      <Card>
+        <CardHeader title="Reservations" description="Every stay this guest has booked." />
+        <TableShell className="rounded-t-none border-0 shadow-none">
+          <thead>
+            <tr>
+              <th>Reference</th>
+              <th>Stay</th>
+              <th>Rooms</th>
+              <th>Status</th>
+              <th>Payment</th>
+              <th className="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {guest.bookings.length === 0 && <EmptyRow colSpan={6}>No reservations yet.</EmptyRow>}
+            {guest.bookings.map((booking) => (
+              <tr key={booking.id}>
+                <td>
+                  <Link
+                    href={`/admin/bookings/${booking.id}`}
+                    className="admin-mono font-medium text-primary hover:underline"
+                  >
+                    {booking.bookingReference}
+                  </Link>
+                </td>
+                <td className="whitespace-nowrap">
+                  {booking.checkIn} → {booking.checkOut}
+                </td>
+                <td>{booking.roomNumbers.join(", ")}</td>
+                <td>
+                  <StatusBadge
+                    status={booking.bookingStatus}
+                    label={bookingStatusLabel(booking.bookingStatus)}
+                  />
+                </td>
+                <td>
+                  <StatusBadge status={booking.paymentStatus} />
+                </td>
+                <td className="text-right tabular-nums whitespace-nowrap">
+                  {booking.total} {booking.currency}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {guest.bookings.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-4 text-zinc-500">
-                    No reservations yet.
-                  </td>
-                </tr>
-              )}
-              {guest.bookings.map((booking) => (
-                <tr key={booking.id} className="border-b last:border-0">
-                  <td className="py-2 pr-4">
-                    <Link href={`/admin/bookings/${booking.id}`} className="font-mono underline">
-                      {booking.bookingReference}
-                    </Link>
-                  </td>
-                  <td className="py-2 pr-4 whitespace-nowrap">
-                    {booking.checkIn} → {booking.checkOut}
-                  </td>
-                  <td className="py-2 pr-4">{booking.roomNumbers.join(", ")}</td>
-                  <td className="py-2 pr-4">{bookingStatusLabel(booking.bookingStatus)}</td>
-                  <td className="py-2 pr-4">{booking.paymentStatus}</td>
-                  <td className="py-2">
-                    {booking.total} {booking.currency}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            ))}
+          </tbody>
+        </TableShell>
+      </Card>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-medium">Payments</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="py-2 pr-4">Booking</th>
-                <th className="py-2 pr-4">Provider</th>
-                <th className="py-2 pr-4">Amount</th>
-                <th className="py-2 pr-4">Refunded</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2">Paid at</th>
+      <Card>
+        <CardHeader title="Payments" description="Money captured for this guest's stays." />
+        <TableShell className="rounded-t-none border-0 shadow-none">
+          <thead>
+            <tr>
+              <th>Booking</th>
+              <th>Provider</th>
+              <th className="text-right">Amount</th>
+              <th className="text-right">Refunded</th>
+              <th>Status</th>
+              <th>Paid at</th>
+            </tr>
+          </thead>
+          <tbody>
+            {guest.payments.length === 0 && <EmptyRow colSpan={6}>No payments recorded.</EmptyRow>}
+            {guest.payments.map((payment) => (
+              <tr key={payment.id}>
+                <td className="admin-mono">{payment.bookingReference}</td>
+                <td>{payment.provider}</td>
+                <td className="text-right tabular-nums">{payment.amount}</td>
+                <td className="text-right tabular-nums">{payment.refundedAmount}</td>
+                <td>
+                  <StatusBadge status={payment.status} />
+                </td>
+                <td className="whitespace-nowrap">{payment.paidAt?.slice(0, 10) ?? "—"}</td>
               </tr>
-            </thead>
-            <tbody>
-              {guest.payments.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-4 text-zinc-500">
-                    No payments recorded.
-                  </td>
-                </tr>
-              )}
-              {guest.payments.map((payment) => (
-                <tr key={payment.id} className="border-b last:border-0">
-                  <td className="py-2 pr-4 font-mono">{payment.bookingReference}</td>
-                  <td className="py-2 pr-4">{payment.provider}</td>
-                  <td className="py-2 pr-4">{payment.amount}</td>
-                  <td className="py-2 pr-4">{payment.refundedAmount}</td>
-                  <td className="py-2 pr-4">{payment.status}</td>
-                  <td className="py-2">{payment.paidAt?.slice(0, 10) ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            ))}
+          </tbody>
+        </TableShell>
+      </Card>
     </div>
   );
 }

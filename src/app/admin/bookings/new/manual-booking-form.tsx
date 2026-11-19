@@ -2,6 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Field,
+  InlineError,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 
 /**
  * Walk-in / phone booking form (staff). Mirrors the public checkout: search
@@ -197,222 +205,233 @@ export function ManualBookingForm() {
   };
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <section className="space-y-3 rounded-xl border p-4">
-        <h2 className="font-medium">Stay</h2>
-        <div className="grid gap-3 sm:grid-cols-4">
-          <label className="space-y-1 text-sm">
-            <span>Check-in *</span>
-            <input
-              type="date"
-              required
-              min={todayIso()}
-              value={checkIn}
-              onChange={(event) => setCheckIn(event.target.value)}
-              className="w-full border px-3 py-2 rounded-md"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span>Check-out *</span>
-            <input
-              type="date"
-              required
-              min={checkIn || todayIso()}
-              value={checkOut}
-              onChange={(event) => setCheckOut(event.target.value)}
-              className="w-full border px-3 py-2 rounded-md"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span>Adults</span>
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={adults}
-              onChange={(event) => setAdults(Number(event.target.value))}
-              className="w-full border px-3 py-2 rounded-md"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span>Children</span>
-            <input
-              type="number"
-              min={0}
-              max={20}
-              value={children}
-              onChange={(event) => setChildren(Number(event.target.value))}
-              className="w-full border px-3 py-2 rounded-md"
-            />
-          </label>
-        </div>
-        <button
-          type="button"
-          onClick={checkAvailability}
-          className="border px-4 py-2 rounded-md text-sm font-medium"
-        >
-          Check availability
-        </button>
-      </section>
+    <div className="max-w-4xl space-y-5">
+      <Card>
+        <CardHeader
+          title="Stay"
+          description="Search the same availability engine the public checkout uses."
+        />
+        <CardBody className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Field label="Check-in" required>
+              <input
+                type="date"
+                required
+                min={todayIso()}
+                value={checkIn}
+                onChange={(event) => setCheckIn(event.target.value)}
+              />
+            </Field>
+            <Field label="Check-out" required>
+              <input
+                type="date"
+                required
+                min={checkIn || todayIso()}
+                value={checkOut}
+                onChange={(event) => setCheckOut(event.target.value)}
+              />
+            </Field>
+            <Field label="Adults">
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={adults}
+                onChange={(event) => setAdults(Number(event.target.value))}
+              />
+            </Field>
+            <Field label="Children">
+              <input
+                type="number"
+                min={0}
+                max={20}
+                value={children}
+                onChange={(event) => setChildren(Number(event.target.value))}
+              />
+            </Field>
+          </div>
+          <Button type="button" onClick={checkAvailability} variant="outline">
+            Check availability
+          </Button>
+        </CardBody>
+      </Card>
 
       {types.length > 0 && (
-        <section className="space-y-3 rounded-xl border p-4">
-          <h2 className="font-medium">Rooms</h2>
-          {types.map((type) => (
-            <div key={type.id} className="space-y-1">
-              <p className="text-sm font-medium">
-                {type.name}{" "}
-                <span className="font-normal text-zinc-500">({type.availableCount} free)</span>
-              </p>
-              {type.availableRooms.length === 0 ? (
-                <p className="text-sm text-zinc-500">Sold out for these dates.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {type.availableRooms.map((room) => (
-                    <label
-                      key={room.id}
-                      className={`cursor-pointer rounded-md border px-3 py-1 text-sm ${
-                        selected.includes(room.id) ? "border-black font-medium dark:border-white" : ""
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mr-2"
-                        checked={selected.includes(room.id)}
-                        onChange={() => toggleRoom(room.id)}
-                      />
-                      {room.roomNumber}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </section>
+        <Card>
+          <CardHeader
+            title="Rooms"
+            description="Tick every room this reservation should hold for the selected dates."
+          />
+          <CardBody className="space-y-4">
+            {types.map((type) => (
+              <div key={type.id} className="space-y-2">
+                <p className="text-sm font-medium">
+                  {type.name}{" "}
+                  <span className="font-normal text-muted-foreground">
+                    ({type.availableCount} free)
+                  </span>
+                </p>
+                {type.availableRooms.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sold out for these dates.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {type.availableRooms.map((room) => {
+                      const checked = selected.includes(room.id);
+                      return (
+                        <label
+                          key={room.id}
+                          className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                            checked
+                              ? "border-primary/40 bg-primary/10 font-medium text-primary"
+                              : "border-[var(--admin-line)] bg-card hover:bg-muted"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleRoom(room.id)}
+                          />
+                          {room.roomNumber}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </CardBody>
+        </Card>
       )}
 
       {quote && (
-        <section className="space-y-2 rounded-xl border p-4 text-sm">
-          <h2 className="font-medium">Price ({quote.nights} nights)</h2>
-          <ul className="space-y-1">
-            {quote.lines.map((line) => (
-              <li key={line.roomId}>
-                {line.roomTypeName} · {line.roomNumber} — {quote.currency} {line.roomTotal} (
-                {line.perNight.join(" + ")})
-              </li>
-            ))}
-          </ul>
-          <p>
-            Subtotal {quote.currency} {quote.breakdown.subtotal} · discount −
-            {quote.currency} {quote.breakdown.discount} · taxes {quote.currency}{" "}
-            {quote.breakdown.taxes} · fees {quote.currency} {quote.breakdown.fees}
-          </p>
-          <p className="font-medium">
-            Total {quote.currency} {quote.breakdown.total}
-          </p>
-        </section>
+        <Card>
+          <CardHeader title={`Price — ${quote.nights} nights`} description="Server-priced quote for the selected rooms." />
+          <CardBody className="space-y-3 text-sm">
+            <ul className="space-y-1">
+              {quote.lines.map((line) => (
+                <li key={line.roomId} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[var(--admin-line)] pb-2 last:border-0">
+                  <span>
+                    {line.roomTypeName} · Room {line.roomNumber}
+                    <span className="ml-2 text-xs text-muted-foreground">({line.perNight.join(" + ")})</span>
+                  </span>
+                  <span className="tabular-nums">
+                    {quote.currency} {line.roomTotal}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <dl className="space-y-1">
+              <div className="flex justify-between gap-3 text-muted-foreground">
+                <dt>Subtotal</dt>
+                <dd className="tabular-nums">{quote.currency} {quote.breakdown.subtotal}</dd>
+              </div>
+              <div className="flex justify-between gap-3 text-muted-foreground">
+                <dt>Discount</dt>
+                <dd className="tabular-nums">−{quote.currency} {quote.breakdown.discount}</dd>
+              </div>
+              <div className="flex justify-between gap-3 text-muted-foreground">
+                <dt>Taxes</dt>
+                <dd className="tabular-nums">{quote.currency} {quote.breakdown.taxes}</dd>
+              </div>
+              <div className="flex justify-between gap-3 text-muted-foreground">
+                <dt>Fees</dt>
+                <dd className="tabular-nums">{quote.currency} {quote.breakdown.fees}</dd>
+              </div>
+              <div className="flex justify-between gap-3 border-t border-[var(--admin-line)] pt-2 text-base font-semibold">
+                <dt>Total</dt>
+                <dd className="tabular-nums">{quote.currency} {quote.breakdown.total}</dd>
+              </div>
+            </dl>
+          </CardBody>
+        </Card>
       )}
 
-      <section className="space-y-3 rounded-xl border p-4">
-        <h2 className="font-medium">Guest</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="space-y-1 text-sm">
-            <span>First name *</span>
-            <input
-              required
-              value={firstName}
-              onChange={(event) => setFirstName(event.target.value)}
-              className="w-full border px-3 py-2 rounded-md"
-              maxLength={80}
+      <Card>
+        <CardHeader
+          title="Guest"
+          description="Only a first and last name are required. Contact details let the confirmation emails reach the guest."
+        />
+        <CardBody className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="First name" required>
+              <input
+                required
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+                maxLength={80}
+              />
+            </Field>
+            <Field label="Last name" required>
+              <input
+                required
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+                maxLength={80}
+              />
+            </Field>
+            <Field label="Email">
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                maxLength={200}
+              />
+            </Field>
+            <Field label="Phone">
+              <input
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                maxLength={40}
+              />
+            </Field>
+            <Field label="ID type">
+              <input
+                value={idType}
+                onChange={(event) => setIdType(event.target.value)}
+                maxLength={40}
+              />
+            </Field>
+            <Field label="ID number">
+              <input
+                value={idNumber}
+                onChange={(event) => setIdNumber(event.target.value)}
+                maxLength={60}
+              />
+            </Field>
+            <Field label="Promotion code" className="sm:col-span-2">
+              <input
+                value={promotionCode}
+                onChange={(event) => setPromotionCode(event.target.value)}
+                maxLength={40}
+              />
+            </Field>
+          </div>
+          <Field label="Notes">
+            <textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={2}
+              maxLength={500}
             />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span>Last name *</span>
+          </Field>
+          <label className="flex items-center gap-2 text-sm">
             <input
-              required
-              value={lastName}
-              onChange={(event) => setLastName(event.target.value)}
-              className="w-full border px-3 py-2 rounded-md"
-              maxLength={80}
+              type="checkbox"
+              checked={confirmAtDesk}
+              onChange={(event) => setConfirmAtDesk(event.target.checked)}
             />
+            Confirm now (guest is paying / arriving at the desk)
           </label>
-          <label className="space-y-1 text-sm">
-            <span>Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full border px-3 py-2 rounded-md"
-              maxLength={200}
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span>Phone</span>
-            <input
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              className="w-full border px-3 py-2 rounded-md"
-              maxLength={40}
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span>ID type</span>
-            <input
-              value={idType}
-              onChange={(event) => setIdType(event.target.value)}
-              className="w-full border px-3 py-2 rounded-md"
-              maxLength={40}
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span>ID number</span>
-            <input
-              value={idNumber}
-              onChange={(event) => setIdNumber(event.target.value)}
-              className="w-full border px-3 py-2 rounded-md"
-              maxLength={60}
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span>Promotion code</span>
-            <input
-              value={promotionCode}
-              onChange={(event) => setPromotionCode(event.target.value)}
-              className="w-full border px-3 py-2 rounded-md"
-              maxLength={40}
-            />
-          </label>
-        </div>
-        <label className="block space-y-1 text-sm">
-          <span>Notes</span>
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            rows={2}
-            maxLength={500}
-            className="w-full border px-3 py-2 rounded-md"
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={confirmAtDesk}
-            onChange={(event) => setConfirmAtDesk(event.target.checked)}
-          />
-          Confirm now (guest is paying / arriving at the desk)
-        </label>
-      </section>
+        </CardBody>
+      </Card>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <InlineError>{error}</InlineError>
 
-      <button
-        type="button"
-        onClick={submit}
-        disabled={busy || !quote}
-        className="border px-5 py-2 rounded-md font-medium disabled:opacity-50"
-      >
-        {busy ? "Creating…" : "Create booking"}
-      </button>
+      <div className="sticky bottom-0 z-10 flex justify-end rounded-xl border border-[var(--admin-line)] bg-card/95 px-4 py-3 shadow-[var(--shadow-soft)] backdrop-blur">
+        <Button type="button" onClick={submit} disabled={busy || !quote}>
+          {busy ? "Creating…" : "Create booking"}
+        </Button>
+      </div>
     </div>
   );
 }

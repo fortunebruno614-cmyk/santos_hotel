@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/admin/ui";
 import { prisma } from "@/lib/prisma";
 import { RoomBoard } from "./room-board";
 import { RoomsInventory } from "./rooms-inventory";
@@ -26,27 +27,22 @@ export default async function AdminRoomsPage() {
   ]);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold">Rooms</h1>
-        <p className="text-sm text-zinc-500">
-          Status board for housekeeping and the room inventory behind it.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Rooms"
+        description="Status board for housekeeping and the physical room inventory behind it."
+      />
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium">Status board</h2>
-        <RoomBoard
-          rooms={rooms.map((room) => ({
-            id: room.id,
-            roomNumber: room.roomNumber,
-            floor: room.floor,
-            status: room.status,
-            roomTypeName: room.roomType.name,
-            allowedTransitions: allowedRoomTransitions(room.status),
-          }))}
-        />
-      </section>
+      <RoomBoard
+        rooms={rooms.map((room) => ({
+          id: room.id,
+          roomNumber: room.roomNumber,
+          floor: room.floor,
+          status: room.status,
+          roomTypeName: room.roomType.name,
+          allowedTransitions: allowedRoomTransitions(room.status),
+        }))}
+      />
 
       <RoomsInventory
         rooms={rooms.map((room) => ({

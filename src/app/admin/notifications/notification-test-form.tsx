@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Card, CardBody, CardHeader, Field } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -48,31 +49,31 @@ export function NotificationTestForm({ defaultEmail }: { defaultEmail: string | 
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3 border rounded-lg p-4">
-      <div>
-        <h2 className="font-medium">Send a test email</h2>
-        <p className="text-xs text-zinc-500">
-          Uses the same Resend transport and Santos Hotel template as booking notifications.
-        </p>
-      </div>
-      <label className="flex flex-col gap-1 text-sm max-w-md">
-        <span className="text-xs text-zinc-500">Recipient</span>
-        <input
-          type="email"
-          required
-          value={to}
-          onChange={(event) => setTo(event.target.value)}
-          className="border px-3 py-2 rounded-md"
-          placeholder="admin@your-domain.com"
-        />
-      </label>
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={busy}>
-          {busy ? "Sending..." : "Send test email"}
-        </Button>
-        {success && <p className="text-sm text-emerald-700">{success}</p>}
-        {error && <p className="text-sm text-red-700">{error}</p>}
-      </div>
-    </form>
+    <Card>
+      <CardHeader
+        title="Send a test email"
+        description="Uses the same Resend transport and Santo Hotel template as booking notifications."
+      />
+      <CardBody>
+        <form onSubmit={submit} className="space-y-4">
+          <Field label="Recipient" className="max-w-md">
+            <input
+              type="email"
+              required
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+              placeholder="admin@your-domain.com"
+            />
+          </Field>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" disabled={busy} size="sm">
+              {busy ? "Sending…" : "Send test email"}
+            </Button>
+            {success && <p className="text-sm text-emerald-700">{success}</p>}
+            {error && <p className="text-sm text-red-700">{error}</p>}
+          </div>
+        </form>
+      </CardBody>
+    </Card>
   );
 }

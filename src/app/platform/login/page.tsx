@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { loginStaff } from "@/server/auth/actions";
+import { prisma } from "@/lib/prisma";
+import { loginStaff, logout } from "@/server/auth/actions";
 import { getCurrentSession } from "@/server/auth/dal";
 import { countPlatformAdmins } from "@/server/platform/admins";
 
@@ -22,7 +23,19 @@ export default async function PlatformLoginPage({
   const setupAvailable = (await countPlatformAdmins()) === 0;
 
   const session = await getCurrentSession();
-  if (session?.kind === "staff" && session.platformRole) redirect("/platform");
+  let signedInAs: string | null = null;
+  if (session?.kind === "staff" && session.userId) {
+    // The JWT can outlive a role change; only redirect when the database still
+    // says this account is an active platform operator.
+    const operator = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { platformRole: true, isActive: true },
+    });
+    if (operator?.isActive && operator.platformRole) redirect("/platform");
+    signedInAs = session.email ?? session.userId;
+  } else if (session?.kind === "guest") {
+    signedInAs = session.email ?? session.guestId ?? "guest account";
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 flex items-center justify-center p-6">
@@ -43,6 +56,20 @@ export default async function PlatformLoginPage({
           <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </p>
+        )}
+
+        {signedInAs && (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+            <p>
+              You are currently signed in as <strong>{signedInAs}</strong> (hotel account).
+              Signing in below with a platform operator account replaces that session.
+            </p>
+            <form action={logout} className="mt-2">
+              <Button type="submit" variant="outline" size="sm">
+                Sign out of the hotel account
+              </Button>
+            </form>
+          </div>
         )}
 
         <form action={loginStaff} className="space-y-4">

@@ -1,4 +1,14 @@
 import Link from "next/link";
+import {
+  EmptyRow,
+  Field,
+  PageHeader,
+  Pagination,
+  ResultCount,
+  TableShell,
+  Toolbar,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 import { searchAudit } from "@/server/console/audit";
 import { getConsoleContext } from "@/server/console/context";
 import { AuditSearchSchema } from "@/server/console/validation";
@@ -44,132 +54,96 @@ export default async function AdminAuditPage({
     if (query.from) next.set("from", query.from);
     if (query.to) next.set("to", query.to);
     if (page > 1) next.set("page", String(page));
-    return `/admin/audit?${next.toString()}`;
+    const search = next.toString();
+    return search ? `/admin/audit?${search}` : "/admin/audit";
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Audit log</h1>
-        <p className="text-sm text-zinc-500">
-          Every mutating admin action with actor and old → new values. Retention and rotation
-          are handled by the database admin, not the UI.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Audit log"
+        description="Every mutating admin action with its actor and old → new values. Retention and rotation are handled by the database administrator, not this screen."
+      />
 
-      <form method="get" action="/admin/audit" className="flex flex-wrap items-end gap-3 text-sm">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Action contains</span>
-          <input
-            name="action"
-            defaultValue={query.action ?? ""}
-            placeholder="room_type."
-            className="border px-2 py-1 rounded-md w-40"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Entity type</span>
-          <input
-            name="entityType"
-            defaultValue={query.entityType ?? ""}
-            placeholder="hotel"
-            className="border px-2 py-1 rounded-md w-36"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">Entity id</span>
-          <input
-            name="entityId"
-            defaultValue={query.entityId ?? ""}
-            className="border px-2 py-1 rounded-md w-64"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">From</span>
-          <input
-            type="date"
-            name="from"
-            defaultValue={query.from ?? ""}
-            className="border px-2 py-1 rounded-md"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">To</span>
-          <input
-            type="date"
-            name="to"
-            defaultValue={query.to ?? ""}
-            className="border px-2 py-1 rounded-md"
-          />
-        </label>
-        <button className="border px-3 py-1 rounded-md">Filter</button>
-        <Link href="/admin/audit" className="text-zinc-500 underline">
-          Reset
-        </Link>
-      </form>
+      <Toolbar>
+        <form method="get" action="/admin/audit" className="flex flex-wrap items-end gap-3">
+          <Field label="Action contains" className="w-40">
+            <input name="action" defaultValue={query.action ?? ""} placeholder="room_type." />
+          </Field>
+          <Field label="Entity type" className="w-36">
+            <input name="entityType" defaultValue={query.entityType ?? ""} placeholder="hotel" />
+          </Field>
+          <Field label="Entity id" className="w-64">
+            <input name="entityId" defaultValue={query.entityId ?? ""} />
+          </Field>
+          <Field label="From" className="w-40">
+            <input type="date" name="from" defaultValue={query.from ?? ""} />
+          </Field>
+          <Field label="To" className="w-40">
+            <input type="date" name="to" defaultValue={query.to ?? ""} />
+          </Field>
+          <Button type="submit" size="sm">
+            Filter
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/admin/audit">Reset</Link>
+          </Button>
+        </form>
+      </Toolbar>
 
-      <p className="text-sm text-zinc-500">
+      <ResultCount>
         {result.total} entr{result.total === 1 ? "y" : "ies"} · page {result.page} of {pages}
-      </p>
+      </ResultCount>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="py-2 pr-3">When</th>
-              <th className="py-2 pr-3">Actor</th>
-              <th className="py-2 pr-3">Action</th>
-              <th className="py-2 pr-3">Entity</th>
-              <th className="py-2 pr-3">Old values</th>
-              <th className="py-2">New values</th>
+      <TableShell>
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Actor</th>
+            <th>Action</th>
+            <th>Entity</th>
+            <th>Old values</th>
+            <th>New values</th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.rows.length === 0 && (
+            <EmptyRow colSpan={6}>No audit entries match this filter.</EmptyRow>
+          )}
+          {result.rows.map((log) => (
+            <tr key={log.id}>
+              <td className="whitespace-nowrap text-muted-foreground">
+                {log.createdAt.slice(0, 16).replace("T", " ")}
+              </td>
+              <td>
+                {log.user ? (
+                  <>
+                    <span className="font-medium">{log.user.name}</span>
+                    <span className="block text-xs text-muted-foreground">{log.user.email}</span>
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground">system/guest</span>
+                )}
+              </td>
+              <td>
+                <span className="admin-mono rounded bg-muted px-1.5 py-0.5">{log.action}</span>
+              </td>
+              <td>
+                <span className="block">{log.entityType}</span>
+                <span className="admin-mono block break-all text-muted-foreground">
+                  {log.entityId}
+                </span>
+              </td>
+              <td className="max-w-xs break-all text-xs text-muted-foreground">
+                {formatValues(log.oldValues)}
+              </td>
+              <td className="max-w-xs break-all text-xs">{formatValues(log.newValues)}</td>
             </tr>
-          </thead>
-          <tbody>
-            {result.rows.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-4 text-zinc-500">
-                  No audit entries match this filter.
-                </td>
-              </tr>
-            )}
-            {result.rows.map((log) => (
-              <tr key={log.id} className="border-b last:border-0 align-top">
-                <td className="py-2 pr-3 whitespace-nowrap">{log.createdAt.slice(0, 16).replace("T", " ")}</td>
-                <td className="py-2 pr-3">
-                  {log.user ? (
-                    <>
-                      <span className="font-medium">{log.user.name}</span>
-                      <span className="block text-xs text-zinc-500">{log.user.email}</span>
-                    </>
-                  ) : (
-                    <span className="text-xs text-zinc-400">system/guest</span>
-                  )}
-                </td>
-                <td className="py-2 pr-3 font-mono text-xs">{log.action}</td>
-                <td className="py-2 pr-3">
-                  <span className="block">{log.entityType}</span>
-                  <span className="block text-xs text-zinc-500 font-mono break-all">{log.entityId}</span>
-                </td>
-                <td className="py-2 pr-3 text-xs max-w-xs break-all">{formatValues(log.oldValues)}</td>
-                <td className="py-2 text-xs max-w-xs break-all">{formatValues(log.newValues)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </TableShell>
 
-      <div className="flex gap-3 text-sm">
-        {result.page > 1 && (
-          <Link href={pageHref(result.page - 1)} className="underline">
-            ← Previous
-          </Link>
-        )}
-        {result.page < pages && (
-          <Link href={pageHref(result.page + 1)} className="underline">
-            Next →
-          </Link>
-        )}
-      </div>
+      <Pagination page={result.page} pages={pages} hrefFor={pageHref} />
     </div>
   );
 }
